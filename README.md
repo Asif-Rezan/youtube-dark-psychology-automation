@@ -6,7 +6,7 @@ Stories explore manipulation, coercive control, gaslighting, deception, social p
 
 ## Required isolated setup
 
-Use a **new Google Cloud project and Desktop OAuth client** for this repository. Enable YouTube Data API v3 and Google Drive API. Complete Google consent for the Grow with Rezan brand channel and a separate, owner-only Drive folder. Set these GitHub Actions secrets in **this repository only**:
+Use a **dedicated, previously unused Google Cloud project and Desktop OAuth client** for this repository. The selected project is `project-2d338b69-9ff5-49c5-87f` (My First Project). Enable YouTube Data API v3 and Google Drive API. Complete Google consent for the Grow with Rezan brand channel and a separate, owner-only Drive folder. Set these GitHub Actions secrets in **this repository only**:
 
 - `GROQ_API_KEY`: the new project's key. Never commit it.
 - `YOUTUBE_TOKEN_JSON`: OAuth authorized-user JSON for the Grow with Rezan channel. Required scopes: `youtube.upload` and `youtube.force-ssl`.
