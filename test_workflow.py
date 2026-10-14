@@ -75,6 +75,42 @@ class Checks(unittest.TestCase):
         finally:
             image_cpu._pipeline = previous
 
+    def test_visual_quality_advisory_is_recorded_without_hiding_failures(self):
+        from long_video import validate_scene_reports
+        plan = {'shots': [{'index': 23}, {'index': 24}]}
+        reports = [{'passed': False, 'advisory': True, 'warning': 'CLIP inconclusive'},
+                   {'passed': True, 'required': False}]
+        self.assertEqual(validate_scene_reports(plan, reports), [23])
+        with self.assertRaisesRegex(RuntimeError, 'Missing visual review'):
+            validate_scene_reports(plan, reports[:1])
+        with self.assertRaisesRegex(RuntimeError, 'invalid visual'):
+            validate_scene_reports(plan, [{'passed': False}, reports[1]])
+        with self.assertRaisesRegex(RuntimeError, 'invalid visual'):
+            validate_scene_reports(plan, [{'passed': False, 'advisory': True}, reports[1]])
+
+    def test_failed_clip_score_keeps_last_safety_approved_render(self):
+        from long_video import generate_shard
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            shot = {'index': 0, 'seed': 123, 'prompt': 'Woman studying a letter at a desk',
+                    'focus': 'group', 'negative_prompt': '', 'duration': 7}
+            plan = {'storyboard_verified': True, 'scene_composition_version': 2, 'shots': [shot]}
+            (root/'plan.json').write_text(json.dumps(plan))
+            calls = []
+            def fake_render(prompt, path):
+                calls.append(prompt)
+                Image.new('RGB', (256, 256), 'blue').save(path)
+            with patch('workflow.make_image', side_effect=fake_render), \\
+                 patch('scene_check.check_scene', return_value={'passed': False, 'required': True}), \\
+                 patch('long_video.picture_clip', side_effect=lambda image, seconds, target: target.write_bytes(b'clip')):
+                generate_shard(0, root)
+            self.assertEqual(len(calls), 3)
+            self.assertTrue((root/'shot-000.png').exists())
+            self.assertTrue((root/'shot-000.mp4').exists())
+            qa = json.loads((root/'shot-000.qa.json').read_text())
+            self.assertFalse(qa['passed'])
+            self.assertTrue(qa['advisory'])
+
     def test_global_seven_second_timeline_and_spoken_events(self):
         from long_video import shot_plan
         story = {'scenes': [{'narration': 'She lifts a red suitcase.'},
