@@ -59,6 +59,7 @@ jobs:
         run: python -m unittest -v
       - name: Verify private upload readiness before generation
         env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           DRIVE_TOKEN_JSON: ${{ secrets.DRIVE_TOKEN_JSON }}
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
           YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
