@@ -41,7 +41,7 @@ class Checks(unittest.TestCase):
             image_cpu._pipeline = fake
             with tempfile.TemporaryDirectory() as temp:
                 path = Path(temp)/'safe.png'
-                with patch.dict(sys.modules, {'torch': fake_torch}), patch.dict('os.environ', {'CPU_IMAGE_WIDTH': '256', 'CPU_IMAGE_HEIGHT': '256', 'CPU_IMAGE_STEPS': '2'}):
+                with patch.dict(sys.modules, {'torch': fake_torch, 'diffusers': types.SimpleNamespace(DiffusionPipeline=object, DPMSolverMultistepScheduler=object)}), patch.dict('os.environ', {'CPU_IMAGE_WIDTH': '256', 'CPU_IMAGE_HEIGHT': '256', 'CPU_IMAGE_STEPS': '2'}):
                     image_cpu.generate('bloody confrontation in an office', path)
                 self.assertEqual(len(fake.calls), 2)
                 self.assertIn('fully clothed', fake.calls[1]['prompt'])
@@ -68,7 +68,7 @@ class Checks(unittest.TestCase):
             fake_torch = types.SimpleNamespace(set_num_threads=lambda n: None, float32='float32', Generator=FakeGenerator)
             with tempfile.TemporaryDirectory() as temp:
                 target = Path(temp)/'blocked.png'
-                with patch.dict(sys.modules, {'torch': fake_torch}), patch.dict('os.environ', {'CPU_IMAGE_WIDTH': '256', 'CPU_IMAGE_HEIGHT': '256', 'CPU_IMAGE_STEPS': '2'}):
+                with patch.dict(sys.modules, {'torch': fake_torch, 'diffusers': types.SimpleNamespace(DiffusionPipeline=object, DPMSolverMultistepScheduler=object)}), patch.dict('os.environ', {'CPU_IMAGE_WIDTH': '256', 'CPU_IMAGE_HEIGHT': '256', 'CPU_IMAGE_STEPS': '2'}):
                     with self.assertRaises(image_cpu.ImageSafetyBlocked):
                         image_cpu.generate('graphic scene', target)
                 self.assertFalse(target.exists())
