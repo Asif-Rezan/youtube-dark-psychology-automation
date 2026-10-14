@@ -9,6 +9,72 @@ import workflow as w
 
 class Checks(unittest.TestCase):
 
+    def test_safety_blocked_image_uses_non_graphic_retry_without_disabling_checker(self):
+        import sys
+        import types
+        import image_cpu
+        class FakeGenerator:
+            def __init__(self, device):
+                self.device = device
+            def manual_seed(self, seed):
+                return self
+        fake_torch = types.SimpleNamespace(
+            set_num_threads=lambda count: None, float32='float32', Generator=FakeGenerator)
+        class FakePipeline:
+            def __init__(self):
+                self.calls = []
+                self.scheduler = types.SimpleNamespace(config={})
+            def to(self, device):
+                return self
+            def enable_attention_slicing(self):
+                pass
+            def enable_vae_slicing(self):
+                pass
+            def __call__(self, **kwargs):
+                self.calls.append(kwargs)
+                if len(self.calls) == 1:
+                    return types.SimpleNamespace(nsfw_content_detected=[True], images=[Image.new('RGB', (256, 256), 'black')])
+                return types.SimpleNamespace(nsfw_content_detected=[False], images=[Image.new('RGB', (256, 256), 'blue')])
+        fake = FakePipeline()
+        previous = image_cpu._pipeline
+        try:
+            image_cpu._pipeline = fake
+            with tempfile.TemporaryDirectory() as temp:
+                path = Path(temp)/'safe.png'
+                with patch.dict(sys.modules, {'torch': fake_torch}), patch.dict('os.environ', {'CPU_IMAGE_WIDTH': '256', 'CPU_IMAGE_HEIGHT': '256', 'CPU_IMAGE_STEPS': '2'}):
+                    image_cpu.generate('bloody confrontation in an office', path)
+                self.assertEqual(len(fake.calls), 2)
+                self.assertIn('fully clothed', fake.calls[1]['prompt'])
+                self.assertNotIn('bloody', fake.calls[1]['prompt'])
+                self.assertTrue(path.exists())
+        finally:
+            image_cpu._pipeline = previous
+
+    def test_safety_rejections_never_write_black_image(self):
+        import sys
+        import types
+        import image_cpu
+        class FakeGenerator:
+            def __init__(self, device):
+                pass
+            def manual_seed(self, seed):
+                return self
+        class BlockedPipeline:
+            def __call__(self, **kwargs):
+                return types.SimpleNamespace(nsfw_content_detected=[True], images=[Image.new('RGB', (256,256), 'black')])
+        previous = image_cpu._pipeline
+        try:
+            image_cpu._pipeline = BlockedPipeline()
+            fake_torch = types.SimpleNamespace(set_num_threads=lambda n: None, float32='float32', Generator=FakeGenerator)
+            with tempfile.TemporaryDirectory() as temp:
+                target = Path(temp)/'blocked.png'
+                with patch.dict(sys.modules, {'torch': fake_torch}), patch.dict('os.environ', {'CPU_IMAGE_WIDTH': '256', 'CPU_IMAGE_HEIGHT': '256', 'CPU_IMAGE_STEPS': '2'}):
+                    with self.assertRaises(image_cpu.ImageSafetyBlocked):
+                        image_cpu.generate('graphic scene', target)
+                self.assertFalse(target.exists())
+        finally:
+            image_cpu._pipeline = previous
+
     def test_global_seven_second_timeline_and_spoken_events(self):
         from long_video import shot_plan
         story = {'scenes': [{'narration': 'She lifts a red suitcase.'},
