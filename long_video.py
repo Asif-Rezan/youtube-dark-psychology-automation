@@ -272,6 +272,18 @@ def mix_audio(voice, music, target, seconds):
         'music_gap_db': round(gap, 2), 'music_audibility_passed': True}
 
 
+def validate_scene_reports(plan, scene_reports):
+    """CLIP is quality guidance; only a documented advisory can replace a pass."""
+    if len(scene_reports) != len(plan['shots']):
+        raise RuntimeError('Missing visual review records')
+    if not all(r.get('passed') is True or
+               (r.get('advisory') is True and r.get('passed') is False
+                and r.get('warning')) for r in scene_reports):
+        raise RuntimeError('Missing or invalid visual review record')
+    return [s['index'] for s, report in zip(plan['shots'], scene_reports)
+            if report.get('advisory') is True]
+
+
 def finish(root=ROOT):
     from PIL import Image, ImageDraw, ImageFont, ImageOps
     from music_cpu import generate
@@ -308,9 +320,7 @@ def finish(root=ROOT):
     if (root/'thumbnail.jpg').stat().st_size >= 2*1024*1024:
         raise RuntimeError('Thumbnail exceeds size limit')
     scene_reports = [json.loads((root/f"shot-{s['index']:03}.qa.json").read_text()) for s in plan['shots']]
-    if not all(r.get('passed') or r.get('advisory') is True for r in scene_reports):
-        raise RuntimeError('Missing or invalid visual review record')
-    advisory_shots = [s['index'] for s, r in zip(plan['shots'], scene_reports) if r.get('advisory') is True]
+    advisory_shots = validate_scene_reports(plan, scene_reports)
     print(json.dumps({'visual_quality_advisory_count': len(advisory_shots), 'shot_indices': advisory_shots}), flush=True)
     report = {'render_passed': True, 'duration_seconds': float(metadata['format']['duration']),
         'width': 1920, 'height': 1080, 'images': len(clips), 'image_interval_seconds': INTERVAL,
