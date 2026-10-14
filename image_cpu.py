@@ -7,6 +7,28 @@ import argparse
 import os
 from pathlib import Path
 import time
+import re
+
+
+class ImageSafetyBlocked(RuntimeError):
+    """The model's safety checker rejected a generated image."""
+
+
+def safer_prompt(prompt):
+    """Keep the scene's setting and props while removing graphic/sexual details."""
+    replacements = [
+        (r'\b(?:bloodied|bloody|gory|gore|bleeding|bloodstains?)\b', 'dramatic'),
+        (r'\b(?:corpse|dead body|mutilated body)\b', 'unoccupied place'),
+        (r'\b(?:nude|naked|undressed|lingerie|underwear)\b', 'fully clothed'),
+        (r'\b(?:strangling|stabbing|shooting|beating|torturing|assaulting)\b', 'confronting'),
+        (r'\b(?:knife|gun|pistol|weapon)\b', 'personal belongings'),
+        (r'\b(?:sexual assault|rape|abuse)\b', 'tense disagreement'),
+        (r'\b(?:wound|injury|bruises?)\b', 'signs of distress'),
+    ]
+    for pattern, replacement in replacements:
+        prompt = re.sub(pattern, replacement, prompt, flags=re.I)
+    return ('Safe non-graphic, non-sexual, fully clothed fictional illustration for an educational story; '
+            'show tension through facial expression and environment, no violence or exposed bodies. ' + prompt)
 
 MODEL = 'Lykon/dreamshaper-8'
 REVISION = 'a7e52b98680b1ba8ff7bce97c7f9f2e2e5337917'
@@ -39,12 +61,20 @@ def generate(prompt, path):
     if not 1 <= steps <= 50:
         raise ValueError('CPU generation requires 1–50 steps')
     start = time.monotonic()
-    result = _pipeline(prompt=prompt, negative_prompt='photograph, photorealistic, live action, 3D render, CGI, extra arms, extra legs, deformed hands, duplicate person, watermark, lettering, ' + os.getenv('IMAGE_NEGATIVE_PROMPT', ''), width=width, height=height,
-        num_inference_steps=steps, guidance_scale=7.5,
-        generator=torch.Generator(device='cpu').manual_seed(int(os.getenv('IMAGE_SEED', '42'))))
-    if any(result.nsfw_content_detected or []):
-        raise RuntimeError('Image was blocked by model safety check; no substitute is generated')
-    image = result.images[0]
+    seed = int(os.getenv('IMAGE_SEED', '42'))
+    image = None
+    for attempt in range(3):
+        candidate = prompt if attempt == 0 else safer_prompt(prompt)
+        result = _pipeline(prompt=candidate, negative_prompt='photograph, photorealistic, live action, 3D render, CGI, extra arms, extra legs, deformed hands, duplicate person, watermark, lettering, ' + os.getenv('IMAGE_NEGATIVE_PROMPT', ''), width=width, height=height,
+            num_inference_steps=steps, guidance_scale=7.5,
+            generator=torch.Generator(device='cpu').manual_seed(seed + attempt * 10007))
+        if any(result.nsfw_content_detected or []):
+            print(f'Image safety check rejected attempt {attempt+1}; trying a safer scene.', flush=True)
+            continue
+        image = result.images[0]
+        break
+    if image is None:
+        raise ImageSafetyBlocked('Image blocked after three safe rendering attempts; preserve run for review')
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     image.save(path)
     print(f'CPU image generated: {image.width}x{image.height}; {time.monotonic()-start:.1f}s', flush=True)
