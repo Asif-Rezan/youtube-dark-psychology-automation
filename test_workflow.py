@@ -100,9 +100,9 @@ class Checks(unittest.TestCase):
             def fake_render(prompt, path):
                 calls.append(prompt)
                 Image.new('RGB', (256, 256), 'blue').save(path)
-            with patch('workflow.make_image', side_effect=fake_render), \\
-                 patch('scene_check.check_scene', return_value={'passed': False, 'required': True}), \\
-                 patch('long_video.picture_clip', side_effect=lambda image, seconds, target: target.write_bytes(b'clip')):
+            with (patch('workflow.make_image', side_effect=fake_render),
+                  patch('scene_check.check_scene', return_value={'passed': False, 'required': True}),
+                  patch('long_video.picture_clip', side_effect=lambda image, seconds, target: target.write_bytes(b'clip'))):
                 generate_shard(0, root)
             self.assertEqual(len(calls), 3)
             self.assertTrue((root/'shot-000.png').exists())
