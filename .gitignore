@@ -8,3 +8,6 @@ node_modules/
 
 .venv/
 client_secret_*.json
+
+youtube_token.json
+drive_token.json
