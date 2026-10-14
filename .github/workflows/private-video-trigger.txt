@@ -5,3 +5,5 @@ Private end-to-end validation after preflight Groq fix: 2026-10-14.
 Retry with updated CPU renderer image safeguards.
 
 Validate latest regression tests and retry code.
+
+New private validation run using updated visual-quality checks.
