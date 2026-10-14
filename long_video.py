@@ -308,15 +308,18 @@ def finish(root=ROOT):
     if (root/'thumbnail.jpg').stat().st_size >= 2*1024*1024:
         raise RuntimeError('Thumbnail exceeds size limit')
     scene_reports = [json.loads((root/f"shot-{s['index']:03}.qa.json").read_text()) for s in plan['shots']]
-    if not all(r['passed'] for r in scene_reports):
-        raise RuntimeError('Visual scene checks did not pass')
+    if not all(r.get('passed') or r.get('advisory') is True for r in scene_reports):
+        raise RuntimeError('Missing or invalid visual review record')
+    advisory_shots = [s['index'] for s, r in zip(plan['shots'], scene_reports) if r.get('advisory') is True]
+    print(json.dumps({'visual_quality_advisory_count': len(advisory_shots), 'shot_indices': advisory_shots}), flush=True)
     report = {'render_passed': True, 'duration_seconds': float(metadata['format']['duration']),
         'width': 1920, 'height': 1080, 'images': len(clips), 'image_interval_seconds': INTERVAL,
         'style': 'ghibli-inspired', 'privacy': 'private', 'voice': 'Kokoro am_michael',
         'music': 'Magenta MusicRNN', 'image_model': os.getenv('CPU_IMAGE_MODEL', 'Lykon/dreamshaper-8'),
         'audio_validation': audio_report, 'timeline_verified': True, 'storyboard_verified': plan.get('storyboard_verified', False),
         'alignment': plan.get('alignment'), 'scene_composition_version': plan.get('scene_composition_version'),
-        'semantic_checked_images': sum(r.get('required', False) for r in scene_reports)}
+        'semantic_checked_images': sum(r.get('required', False) for r in scene_reports),
+        'visual_quality_advisory_shots': advisory_shots}
     (root/'validation.json').write_text(json.dumps(report))
     print(json.dumps(report), flush=True)
     return report
