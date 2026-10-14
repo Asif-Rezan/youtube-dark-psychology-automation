@@ -1,0 +1,527 @@
+"""Cloud rendering and private upload helpers; daily_publish verifies and publishes daily runs."""
+import argparse
+import datetime as dt
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import textwrap
+import time
+from zoneinfo import ZoneInfo
+
+
+def required(name):
+    value = os.getenv(name, '')
+    if not value:
+        raise RuntimeError(f'Missing configuration: {name}')
+    return value
+
+
+def shell(*args):
+    return subprocess.check_output(args, stderr=subprocess.PIPE, text=True)
+
+
+def probe(path):
+    return json.loads(shell('ffprobe', '-v', 'error', '-show_format', '-show_streams', '-of', 'json', str(path)))
+
+
+def duration(path):
+    return float(probe(path)['format']['duration'])
+
+
+def timestamp(seconds):
+    millis = round(seconds * 1000)
+    h, rest = divmod(millis, 3600000)
+    m, rest = divmod(rest, 60000)
+    s, ms = divmod(rest, 1000)
+    return f'{h:02}:{m:02}:{s:02},{ms:03}'
+
+
+def validate_story(data):
+    if not isinstance(data, dict) or not 4 <= len(data.get('scenes', [])) <= 32:
+        raise ValueError('Story must contain 4–32 narration chapters')
+    if not isinstance(data.get('title'), str) or not 1 <= len(data['title']) <= 100:
+        raise ValueError('Invalid title')
+    if not isinstance(data.get('description'), str) or len(data['description']) > 4500:
+        raise ValueError('Invalid description')
+    tags = data.get('tags', [])
+    if not isinstance(tags, list) or not all(isinstance(t, str) for t in tags) or len(','.join(tags)) > 400:
+        raise ValueError('Invalid tags')
+    words = 0
+    for scene in data['scenes']:
+        for field in ('narration', 'image_prompt'):
+            if not isinstance(scene.get(field), str) or not scene[field].strip():
+                raise ValueError(f'Missing scene {field}')
+        words += len(scene['narration'].split())
+    if not 1500 <= words <= 2500:
+        raise ValueError(f'Expected 1500–2500 narrated words; received {words}')
+    if not isinstance(data.get('thumbnail_text'), str) or len(data['thumbnail_text']) > 45:
+        raise ValueError('Invalid thumbnail text')
+    if not isinstance(data.get('thumbnail_prompt'), str):
+        raise ValueError('Missing thumbnail prompt')
+    return data
+
+
+def request_groq(endpoint, payload, binary=False):
+    import requests
+    # Generation calls are not automatically repeated: repeats can consume credits.
+    for attempt in range(2):
+        response = requests.post('https://api.groq.com/openai/v1/' + endpoint,
+            headers={'Authorization': 'Bearer ' + required('GROQ_API_KEY')}, json=payload, timeout=180)
+        if response.ok:
+            break
+        try:
+            error_code = response.json().get('error', {}).get('code')
+        except ValueError:
+            error_code = None
+        print(json.dumps({'check': 'Groq generation', 'http_status': response.status_code,
+            'api_error_code': error_code, 'attempt': attempt+1}), flush=True)
+        if attempt == 0 and (response.status_code == 429 or
+                (response.status_code == 400 and error_code == 'json_validate_failed')):
+            time.sleep(60)
+            continue
+        raise RuntimeError(f'Groq request failed with HTTP {response.status_code}; code={error_code}')
+    return response.content if binary else response.json()
+
+
+def make_story(day, previous):
+    if os.getenv('STORY_FILE'):
+        # Explicit original test story only; daily jobs must generate fresh stories.
+        return validate_story(json.loads(Path(os.environ['STORY_FILE']).read_text()))
+    model = os.getenv('STORY_MODEL', 'openai/gpt-oss-120b')
+    def object_schema(properties):
+        return {'type': 'object', 'properties': properties,
+            'required': list(properties), 'additionalProperties': False}
+    text_schema = {'type': 'string'}
+    scene_schema = object_schema({'summary': text_schema, 'image_prompt': text_schema,
+        'image_prompts': {'type': 'array', 'items': text_schema}})
+    chapter_keys = [f'chapter_{i:02}' for i in range(1, 21)]
+    outline_schema = object_schema({**{k: text_schema for k in
+        ('title', 'description', 'thumbnail_text', 'thumbnail_prompt', 'character_description', 'protagonist_name')},
+        'tags': {'type': 'array', 'items': text_schema},
+        'scenes': object_schema({k: scene_schema for k in chapter_keys})})
+    def ask(prompt, limit, schema):
+        result = request_groq('chat/completions', {'model': model,
+            'messages': [{'role': 'user', 'content': prompt}],
+            'response_format': {'type': 'json_schema', 'json_schema': {'name': 'story_payload',
+                'strict': True, 'schema': schema}}, 'reasoning_effort': 'low',
+            'temperature': 0.8, 'max_completion_tokens': limit})
+        choice = result['choices'][0]
+        if choice.get('finish_reason') == 'length':
+            raise RuntimeError('Story response was truncated; refusing incomplete script')
+        return json.loads(choice['message']['content'])
+    dark_psychology = os.getenv('CONTENT_TYPE') == 'dark-psychology-storytelling'
+    theme = ('Dark psychology storytelling: explore manipulation, coercive control, gaslighting, '
+        'deception, social pressure, and boundary setting through fictional character-driven stories. '
+        'Show warning signs, consequences, and the protagonist regaining agency. Do not glamorize abuse, '
+        'teach tactics for exploiting people, or claim a fictional story is a real case. Avoid clinical '
+        'diagnoses and unsupported claims about mental health.'
+        if dark_psychology else 'Character-driven storytelling.')
+    outline = ask(f'''Plan an original fictional English story for {day}.
+    Content direction: {theme}
+    Avoid these previous titles and plots: {json.dumps(previous)}.
+    A vivid crisis or impossible choice must open the FIRST sentence, with an unanswered question.
+    No greeting or generic preamble. Give the protagonist one concrete goal, believable setbacks, and earned resolution.
+    No random magical trials, repeated mentor lessons, or repeated endings. Escalate choices, setbacks, surprising reversals,
+    specific dialogue, and emotional payoffs. Resolve the opening question in the final act.
+    Last chapter ends with an earned resolution and a specific reflection. No viewer calls to action in the story plan.
+    Create an original plot and title; avoid generic stock stories.
+    Return JSON: title (max 100 characters), description (clearly label fictional), tags (list),
+    thumbnail_text (2-5 words), thumbnail_prompt, protagonist_name (first name), character_description (max 14 words, appearance and outfit),
+    scenes (object with chapter_01 through chapter_20). Each chapter: summary (max 25 words), image_prompt,
+    image_prompts (four distinct visual beats, each max 8 words). Hand-painted Japanese animation style.
+    Main character keeps the same appearance. Provide ONLY the plan, no full narration yet.''', 5200, outline_schema)
+    outline['scenes'] = [outline['scenes'][k] for k in chapter_keys]
+    if len(outline.get('scenes', [])) != 20:
+        raise ValueError('Outline requires exactly twenty chapters')
+    summaries = [scene['summary'] for scene in outline['scenes']]
+    prior = ''
+    for begin in (0, 5, 10, 15):
+        # Separate bursts fit the free plan; never switch to a paid provider.
+        time.sleep(60)
+        keys = chapter_keys[begin:begin+5]
+        group_schema = object_schema({'narrations': object_schema({k: text_schema for k in keys})})
+        group = ask(f'''Write chapters {begin+1} through {begin+5} of this original fictional story.
+        Content direction: {theme}
+        Title: {outline['title']}. Character: {outline['character_description']}.
+        Assigned chapter events ONLY: {json.dumps([{'chapter': i+1, 'event': summaries[i]} for i in range(begin, begin+5)])}.
+        Previous chapter ending: {prior[-700:]}.
+        Return JSON with narrations: an object with the exact chapter keys {keys}, each value a narration string.
+        Each string MUST contain 95-105 English spoken words; total for this request 475-525 words.
+        Natural narration with concrete actions and dialogue, not generic advice.
+        Begin chapter 1 with the crisis immediately, no welcome or setup preamble.
+        Escalate stakes, introduce reversals and emotional payoffs every few chapters.
+        Resolve the initial crisis by chapter 20. Do not include any viewer call to action in any chapter;
+        the application adds a final like, comment, and subscribe request separately.
+        Narrate ONLY the five assigned events, one event per chapter in the listed order. Do not jump ahead.\n        No ending, farewell, viewer question, or call to action before chapter 20.
+        Do not add chapter headings or directions to spoken text. No repeated introduction.''', 4200, group_schema)
+        parts = [group['narrations'][k] for k in keys]
+        if len(parts) != 5 or not all(isinstance(p, str) for p in parts):
+            raise ValueError('Narration batch must contain five strings')
+        for scene, narration in zip(outline['scenes'][begin:begin+5], parts):
+            scene['narration'] = narration
+        prior = parts[-1]
+    outline['scenes'][-1]['narration'] += (' Which choice would you have made in the protagonist\'s place? '
+        'Leave a comment with your answer, like this video if it inspired you, '
+        'and subscribe for more stories about hidden motives and human behavior.')
+    from long_video import validate_engagement
+    validate_engagement(outline)
+    return validate_story(outline)
+
+
+def make_image(prompt, path):
+    prompt = 'hand-painted 2D Japanese animation, watercolor illustration, anime, ' + prompt
+    if os.getenv('IMAGE_BACKEND', 'cpu') == 'cpu':
+        from image_cpu import generate
+        generate(prompt + ', no text, no watermark', path)
+        return
+    if os.getenv('IMAGE_BACKEND') != 'hf':
+        raise ValueError('IMAGE_BACKEND must be cpu or hf')
+    from huggingface_hub import InferenceClient
+    image = InferenceClient(api_key=required('HF_TOKEN')).text_to_image(
+        prompt=prompt + ', cinematic lighting, landscape composition, no text or watermarks',
+        model=required('IMAGE_MODEL'), width=1344, height=768)
+    image.save(path)
+
+
+def speech_chunks(text, limit=200):
+    chunks, current = [], ''
+    for word in text.split():
+        if len(word) > limit:
+            raise ValueError('Narration contains a word longer than the TTS input limit')
+        candidate = (current + ' ' + word).strip()
+        if len(candidate) > limit:
+            chunks.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def make_narration(text, path):
+    if os.getenv('TTS_BACKEND', 'kokoro') == 'kokoro':
+        from voice_cpu import generate
+        generate(text, path)
+        return
+    parts = []
+    for index, chunk in enumerate(speech_chunks(text)):
+        part = path.with_name(path.stem + f'-part-{index:03}.wav')
+        if not part.exists():
+            part.write_bytes(request_groq('audio/speech', {
+                'model': os.getenv('TTS_MODEL') or 'canopylabs/orpheus-v1-english',
+                'voice': os.getenv('TTS_VOICE') or 'troy', 'input': chunk, 'response_format': 'wav'}, True))
+        parts.append(part)
+    playlist = path.with_suffix('.txt')
+    playlist.write_text(''.join(f"file '{p.name}'\n" for p in parts))
+    shell('ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', str(playlist), '-ar', '48000',
+          '-ac', '2', '-c:a', 'pcm_s16le', str(path))
+
+
+def transcribe(audio):
+    if os.getenv('CAPTION_BACKEND', 'cpu') == 'cpu':
+        from voice_cpu import transcribe_audio
+        return transcribe_audio(audio)
+    import requests
+    with audio.open('rb') as stream:
+        response = requests.post('https://api.groq.com/openai/v1/audio/transcriptions',
+            headers={'Authorization': 'Bearer ' + required('GROQ_API_KEY')},
+            files={'file': (audio.name, stream, 'audio/wav')},
+            data={'model': 'whisper-large-v3', 'response_format': 'verbose_json',
+                  'timestamp_granularities[]': 'word', 'language': 'en'}, timeout=180)
+    if not response.ok:
+        raise RuntimeError(f'Transcription failed with HTTP {response.status_code}')
+    words = response.json().get('words')
+    if not words:
+        raise RuntimeError('Transcription did not return word timings')
+    return words
+
+
+def aligned_subtitles(word_lists, lengths, path):
+    cues, elapsed, index = [], 0.0, 1
+    for words, length in zip(word_lists, lengths):
+        for start in range(0, len(words), 8):
+            group = words[start:start+8]
+            begin, end = float(group[0]['start']), float(group[-1]['end'])
+            if not 0 <= begin < end <= length + 0.1:
+                raise ValueError('Caption timestamps exceed scene audio')
+            text = '\n'.join(textwrap.wrap(' '.join(w['word'].strip() for w in group), 48))
+            cues.append(f'{index}\n{timestamp(elapsed+begin)} --> {timestamp(elapsed+min(end,length))}\n{text}\n')
+            index += 1
+        elapsed += length
+    path.write_text('\n'.join(cues), encoding='utf-8')
+
+
+def render_scene(image, audio, output):
+    length = duration(audio)
+    frames = round(length * 30)
+    vf = ("scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,"
+          f"zoompan=z='min(zoom+0.00015,1.06)':d={frames}:s=1920x1080:fps=30,"
+          f"fade=t=in:st=0:d=0.35,fade=t=out:st={max(0,length-0.35)}:d=0.35,format=yuv420p")
+    shell('ffmpeg', '-y', '-i', str(image), '-i', str(audio), '-vf', vf, '-t', str(length),
+          '-c:v', 'libx264', '-preset', 'fast', '-crf', '21', '-c:a', 'aac', '-ar', '48000',
+          '-ac', '2', '-movflags', '+faststart', str(output))
+    return length
+
+
+def subtitles(scenes, lengths, path):
+    # Phrase timings are estimates within precisely measured scene audio, not forced alignment.
+    cues, elapsed, index = [], 0.0, 1
+    for scene, length in zip(scenes, lengths):
+        words = scene['narration'].split()
+        for start in range(0, len(words), 9):
+            end = min(start + 9, len(words))
+            text = '\n'.join(textwrap.wrap(' '.join(words[start:end]), 48))
+            cues.append(f'{index}\n{timestamp(elapsed+length*start/len(words))} --> '
+                        f'{timestamp(elapsed+length*end/len(words))}\n{text}\n')
+            index += 1
+        elapsed += length
+    path.write_text('\n'.join(cues), encoding='utf-8')
+
+
+def check_video(path, min_duration=600, max_duration=900):
+    metadata = probe(path)
+    video = next(s for s in metadata['streams'] if s['codec_type'] == 'video')
+    assert (video['width'], video['height']) == (1920, 1080), 'Wrong output dimensions'
+    assert min_duration <= float(metadata['format']['duration']) <= max_duration, 'Duration outside required range'
+    assert any(s['codec_type'] == 'audio' for s in metadata['streams']), 'Missing audio'
+    shell('ffmpeg', '-v', 'error', '-xerror', '-i', str(path), '-f', 'null', '-')
+    return metadata
+
+
+class Store:
+    """Private Google Drive storage; never purchases additional quota."""
+    def __init__(self):
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build
+        self.client = build('drive', 'v3', credentials=Credentials.from_authorized_user_info(
+            json.loads(required('DRIVE_TOKEN_JSON'))), cache_discovery=False)
+        self.folder = os.getenv('DRIVE_FOLDER_ID')
+        if not self.folder:
+            raise RuntimeError('DRIVE_FOLDER_ID is required for this separate channel')
+        info = self.client.files().get(fileId=self.folder, fields='mimeType,trashed,appProperties').execute()
+        if (info.get('trashed') or info['mimeType'] != 'application/vnd.google-apps.folder'
+                or info.get('appProperties', {}).get('grow_with_rezan_root') != 'v1'):
+            raise RuntimeError('DRIVE_FOLDER_ID must identify the dedicated Grow with Rezan folder')
+        self.check_private(self.folder)
+
+    def check_private(self, file_id):
+        permissions = self.client.permissions().list(fileId=file_id,
+            fields='permissions(type,role)', pageSize=100).execute().get('permissions', [])
+        if any(p.get('role') != 'owner' for p in permissions):
+            raise RuntimeError('Workflow storage must be private to its owner')
+
+    def find(self, key):
+        # Query using only an internal SHA-256 key, never interpolated user input.
+        digest = hashlib.sha256(key.encode()).hexdigest()
+        q = (f"'{self.folder}' in parents and trashed = false and "
+             f"appProperties has {{ key='workflow_key' and value='{digest}' }}")
+        items = self.client.files().list(q=q, fields='files(id)', pageSize=100).execute()['files']
+        if len(items) > 1:
+            raise RuntimeError('Duplicate checkpoint files require reconciliation')
+        if items:
+            self.check_private(items[0]['id'])
+            return items[0]['id']
+        return None
+
+    def load(self, key, default):
+        file_id = self.find(key)
+        if not file_id:
+            return default
+        return json.loads(self.client.files().get_media(fileId=file_id).execute())
+
+    def check_quota(self, size):
+        quota = self.client.about().get(fields='storageQuota').execute()['storageQuota']
+        if 'limit' not in quota:
+            raise RuntimeError('Cannot verify free storage allowance; stop before upload')
+        limit = min(int(quota['limit']), 15 * 1024**3)
+        if int(quota.get('usage', 0)) + size + 100 * 1024**2 > limit:
+            raise RuntimeError('Free storage allowance nearly full; no paid upgrade will be requested')
+
+    def put(self, key, media, size):
+        self.check_private(self.folder)
+        self.check_quota(size)
+        file_id = self.find(key)
+        if file_id:
+            return self.client.files().update(fileId=file_id, media_body=media, fields='id').execute()
+        metadata = {'name': key.replace('/', '__'), 'parents': [self.folder],
+                    'appProperties': {'workflow_key': hashlib.sha256(key.encode()).hexdigest()}}
+        if os.getenv('RUN_SCOPED_CLEANUP') == 'true' and key.startswith('runs/'):
+            parts = key.split('/')
+            from daily_publish import disposable
+            if len(parts) == 3 and disposable(parts[2]):
+                metadata['appProperties'].update(automation_run=parts[1], disposable='v1')
+        return self.client.files().create(body=metadata, media_body=media, fields='id').execute()
+
+    def save(self, key, value):
+        import io
+        from googleapiclient.http import MediaIoBaseUpload
+        payload = json.dumps(value).encode()
+        self.put(key, MediaIoBaseUpload(io.BytesIO(payload), mimetype='application/json', resumable=True), len(payload))
+
+    def upload(self, path, key):
+        from googleapiclient.http import MediaFileUpload
+        self.put(key, MediaFileUpload(str(path), resumable=True), path.stat().st_size)
+
+    def download(self, file_id, path):
+        import io
+        from googleapiclient.http import MediaIoBaseDownload
+        self.check_private(file_id)
+        with path.open('wb') as output:
+            request = MediaIoBaseDownload(output, self.client.files().get_media(fileId=file_id))
+            done = False
+            while not done:
+                _, done = request.next_chunk(num_retries=3)
+
+
+def load_music(store, root):
+    # CPU music generation uses no API credits or paid provider.
+    if os.getenv('MUSIC_BACKEND', 'magenta') == 'magenta':
+        from music_cpu import generate
+        generate(root/'music.audio')
+        return 'Background music: original Magenta MusicRNN melody with synthesized ambient piano.'
+    # Only free sources. vidIQ-generated assets are not accepted.
+    manifest = store.load('music-manifest.json', None)
+    if not manifest or manifest.get('source') not in ('YouTube Audio Library', 'AI-generated (free local model)'):
+        raise RuntimeError('Missing verified background music manifest in Drive')
+    if manifest.get('attribution_required') and not manifest.get('attribution', '').strip():
+        raise RuntimeError('Audio Library track requires attribution')
+    target = root/'music.audio'
+    store.download(manifest['file_id'], target)
+    if hashlib.sha256(target.read_bytes()).hexdigest() != manifest['sha256']:
+        raise RuntimeError('Music file differs from the licensed track in the manifest')
+    duration(target)  # Reject unreadable files.
+    return manifest.get('attribution', '')
+
+
+def upload_private(video, thumbnail, story, state, store, key, music_credit=''):
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaFileUpload
+    client = build('youtube', 'v3', credentials=Credentials.from_authorized_user_info(
+        json.loads(required('YOUTUBE_TOKEN_JSON'))), cache_discovery=False)
+    channels = client.channels().list(part='id', mine=True).execute()['items']
+    if required('EXPECTED_CHANNEL_ID') not in [c['id'] for c in channels]:
+        raise RuntimeError('OAuth account is not the expected YouTube channel')
+    # Persist before insert. An interrupted/ambiguous upload requires manual reconciliation.
+    # Never silently retry videos.insert and risk duplicate videos.
+    state['upload_description'] = story['description'] + '\n\n' + music_credit
+    state['thumbnail_uploaded'] = False
+    state['phase'] = 'upload_started'
+    store.save(key, state)
+    request = client.videos().insert(part='snippet,status', notifySubscribers=False,
+        body={'snippet': {'title': story['title'], 'description': state['upload_description'], 'tags': story['tags'], 'categoryId': '22',
+             'defaultLanguage': 'en'}, 'status': {'privacyStatus': 'private', 'selfDeclaredMadeForKids': False}},
+        media_body=MediaFileUpload(str(video), chunksize=8*1024*1024, resumable=True))
+    result = None
+    while result is None:
+        _, result = request.next_chunk(num_retries=5)
+    state.update(phase='uploaded', video_id=result['id'])
+    store.save(key, state)
+    client.thumbnails().set(videoId=result['id'], media_body=MediaFileUpload(str(thumbnail))).execute()
+    state['thumbnail_uploaded'] = True
+    store.save(key, state)
+    deadline = time.monotonic() + 1200
+    while True:
+        items = client.videos().list(part='status,processingDetails', id=result['id']).execute().get('items', [])
+        if not items:
+            raise RuntimeError('Uploaded video is not accessible for verification')
+        remote = items[0]
+        assert remote['status']['privacyStatus'] == 'private', 'Upload privacy validation failed'
+        processing = remote.get('processingDetails', {}).get('processingStatus')
+        upload_status = remote['status'].get('uploadStatus')
+        if processing in ('failed', 'terminated') or upload_status in ('failed', 'rejected', 'deleted'):
+            raise RuntimeError('YouTube rejected or failed to process the private video')
+        if processing == 'succeeded' and upload_status == 'processed':
+            break
+        if time.monotonic() >= deadline:
+            raise RuntimeError('YouTube processing is still pending; private test is not passed')
+        print(json.dumps({'check': 'YouTube processing', 'status': processing}), flush=True)
+        time.sleep(20)
+    state['processing_status'] = 'succeeded'
+    state['phase'] = 'complete'
+    store.save(key, state)
+
+
+def preflight():
+    needed = ['DRIVE_TOKEN_JSON']
+    if not os.getenv('STORY_FILE') or os.getenv('TTS_BACKEND', 'kokoro') == 'groq' or os.getenv('CAPTION_BACKEND', 'cpu') == 'groq':
+        needed.append('GROQ_API_KEY')
+    if os.getenv('IMAGE_BACKEND', 'cpu') == 'hf':
+        needed += ['HF_TOKEN', 'IMAGE_MODEL']
+    else:
+        import importlib.util
+        for module in ('torch', 'diffusers', 'transformers'):
+            if importlib.util.find_spec(module) is None:
+                needed.append(module + ' (CPU dependency)')
+    import importlib.util
+    if os.getenv('TTS_BACKEND', 'kokoro') == 'kokoro' and importlib.util.find_spec('kokoro') is None:
+        needed.append('kokoro (CPU dependency)')
+    if os.getenv('CAPTION_BACKEND', 'cpu') == 'cpu' and importlib.util.find_spec('faster_whisper') is None:
+        needed.append('faster_whisper (CPU dependency)')
+    if os.getenv('MUSIC_BACKEND', 'magenta') == 'magenta' and not shutil.which('node'):
+        needed.append('node (CPU music dependency)')
+    if os.getenv('UPLOAD_ENABLED') == 'true':
+        needed += ['YOUTUBE_TOKEN_JSON', 'EXPECTED_CHANNEL_ID']
+    missing = [name for name in needed if not os.getenv(name)]
+    missing += [name for name in ('ffmpeg', 'ffprobe') if not shutil.which(name)]
+    if missing:
+        raise RuntimeError('Missing: ' + ', '.join(missing))
+
+
+def run(daily=False):
+    if daily and os.getenv('STORY_FILE'):
+        raise RuntimeError('Daily automation cannot reuse a fixed test story')
+    if daily and os.getenv('DAILY_ENABLED') != 'true':
+        raise RuntimeError('Daily automation is disabled until the complete private test passes')
+    preflight()
+    day = dt.datetime.now(ZoneInfo('Asia/Dhaka')).date().isoformat()
+    run_id = day if daily else day + '-test'
+    root = Path('output') / run_id
+    root.mkdir(parents=True, exist_ok=True)
+    store, key = Store(), f'runs/{run_id}/state.json'
+    test_record = store.load('last-private-test.json', {}) if daily else {}
+    if daily and (not test_record.get('passed') or not test_record.get('remote_verification', {}).get('private_test_passed') or test_record.get('validation', {}).get('image_interval_seconds') != 7 or not test_record.get('validation', {}).get('storyboard_verified') or test_record.get('validation', {}).get('style') != 'ghibli-inspired'):
+        raise RuntimeError('No fully verified private HD upload test is recorded')
+    state = store.load(key, {})
+    if state.get('phase') in ('upload_started', 'uploaded', 'complete', 'published', 'verified_private'):
+        raise RuntimeError('Run already uploaded or needs upload reconciliation; inspect state before continuing')
+    music_credit = load_music(store, root)
+    history = store.load('history.json', [])
+    story = state.get('story') or make_story(day, history[-30:])
+    digest = hashlib.sha256(' '.join(s['narration'] for s in story['scenes']).encode()).hexdigest()
+    if digest in [h.get('hash') for h in history]:
+        raise RuntimeError('Exact duplicate story rejected')
+    state.update(story=story, phase='generating', hash=digest)
+    store.save(key, state)
+    (root/'story.json').write_text(json.dumps(story, indent=2))
+    from long_video import render_complete
+    report = render_complete(story, root)
+    video, thumb = root/'video.mp4', root/'thumbnail.jpg'
+    for name in ('video.mp4', 'thumbnail.jpg', 'captions.srt', 'story.json', 'validation.json', 'plan.json'):
+        store.upload(root/name, f'runs/{run_id}/{name}')
+    state['validation'] = report
+    state['phase'] = 'rendered'
+    store.save(key, state)
+    if os.getenv('UPLOAD_ENABLED') == 'true':
+        upload_private(video, thumb, story, state, store, key, music_credit)
+    if state['phase'] == 'complete':
+        history.append({'title': story['title'], 'hash': digest, 'run': run_id})
+        store.save('history.json', history)
+        if not daily:
+            store.save('last-private-test.json', {'passed': True, 'run': run_id, 'video_id': state['video_id'], 'validation': state['validation']})
+    print(json.dumps({'run': run_id, 'phase': state['phase'], 'video_id': state.get('video_id')}))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('command', choices=['preflight', 'test', 'daily'])
+    command = parser.parse_args().command
+    if command == 'preflight':
+        preflight()
+    else:
+        run(daily=command == 'daily')
