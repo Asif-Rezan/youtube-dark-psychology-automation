@@ -14,6 +14,10 @@ ROOT = Path(os.getenv('OUTPUT_DIR', 'output/ghibli-long-test'))
 INTERVAL = 7
 SHARDS = 16
 ASSETS = ('story.json', 'plan.json', 'narration.wav', 'captions.srt', 'duration.json')
+WIZARD_DESIGN = ('elderly wizard with a long silver beard, weathered face, dark pointed hood, '
+                 'embroidered brown robe, wooden staff topped by a glowing amber orb')
+FANTASY_STYLE = ('richly detailed cinematic fantasy illustration, atmospheric mist, dramatic lighting, '
+                 'deep blue-gray shadows, landscape 16:9, no text or watermark')
 
 
 def run_id():
@@ -49,7 +53,7 @@ def shot_plan(story, lengths, word_lists):
             'chapter': chapter, 'narration': ' '.join(word['word'] for word in anchor),
             'seed': 1700+index})
     return {'duration_seconds': total, 'image_interval_seconds': INTERVAL,
-        'style': 'ghibli-inspired', 'alignment': 'measured-word-timestamps', 'shots': shots}
+        'style': 'cinematic-fantasy', 'alignment': 'measured-word-timestamps', 'shots': shots}
 
 
 def storyboard(root=ROOT, ask=None, pause=None):
@@ -68,7 +72,7 @@ def storyboard(root=ROOT, ask=None, pause=None):
     character = story.get('character_description', '').strip()
     if not character:
         raise ValueError('Visual synchronization needs a character description')
-    character = ' '.join(character.split()[:14])
+    character = WIZARD_DESIGN
     shots = plan['shots']
     for begin in range(0, len(shots), 8):
         if begin:
@@ -84,7 +88,11 @@ objects and emotion being spoken in that window. Chapter text resolves pronouns 
 NEVER illustrate a later or earlier chapter event in place of the current window.
 For abstract reflection or dialogue, show the current character in the current physical scene.
 No metaphorical mountains, gardens or random scenery unless literally present in that event.
-Keep recurring characters and clothes consistent. Main character design: {character}.
+The recurring protagonist is the wizard. His reference design: {character}.
+Show the wizard only when present in the spoken event. Keep his identity consistent; vary his
+actions, surroundings, expressions and camera distance. If the words describe an object or
+another person alone, show that subject without inserting the wizard or his orb.
+When he is present, use the word "wizard" in the visual prompt so scene composition can identify him.
 Each prompt MUST be 12-22 English words: subject and concrete action FIRST, then relevant objects
 and location. Describe one simple drawable composition. Include other people only when narrated.
 Do not put style, camera lists, narration text, typography or character design into the prompt;
@@ -304,11 +312,10 @@ def picture_clip(image, seconds, target):
 
 
 def refine_visual_plan(root=ROOT):
-    """Keep each physical action dominant; omit the heroine from object-only shots."""
+    """Keep the narrated subject dominant and add the wizard only to his scenes."""
     import re
     story = json.loads((root/'story.json').read_text())
     plan = json.loads((root/'plan.json').read_text())
-    character = ' '.join(story['character_description'].split()[:14])
     name = story.get('protagonist_name')
     if not name:
         candidates = re.findall(r'(?<=[ ,])([A-Z][a-z]{2,})(?=[, .])', story['scenes'][0]['narration'])
@@ -317,27 +324,25 @@ def refine_visual_plan(root=ROOT):
         raise ValueError('Protagonist name is needed for scene-specific character inclusion')
     for shot in plan['shots']:
         action = shot['visual_action'].strip().rstrip('.')
-        if ';' in action and re.search(r'\b(truck|vehicle|beam|river|bridge)\b', action.rsplit(';', 1)[-1], re.I):
-            action = action.rsplit(';', 1)[-1].strip()
-        main = bool(re.search(r'\b'+re.escape(name)+r'\b', action, re.I))
-        group = bool(re.search(r'\b(workers|crew|team|locals|people|crowd|volunteers)\b', action, re.I))
-        group = group or bool(main and re.search(r'\b(boss|mayor|mother|father|brother|coworker)\b|\bMr\.', action, re.I))
-        human = bool(re.search(r'\b(man|woman|worker|coworker|engineer|mayor|boss|forecaster)\b|\bMr\.', action, re.I))
-        focus = 'group' if group else ('person' if main or human else 'object')
-        composition = 'wide scene showing multiple people together, ' if group else 'wide scene, '
-        shot['prompt'] = composition + action
+        main = bool(re.search(r'\b(?:'+re.escape(name)+r'|wizard|mage|sorcerer)\b', action, re.I))
+        group = bool(re.search(r'\b(?:people|crowd|villagers|council|group|companions)\b', action, re.I))
+        focus = 'group' if group else ('person' if main else 'object')
+        framing = ('wide environmental view', 'medium view', 'low angle view',
+                   'over-the-shoulder view', 'close view of the narrated action')[shot['index'] % 5]
+        shot['prompt'] = f'{action}. {framing}.'
         if main:
-            shot['prompt'] += '. Main character: ' + character
+            shot['prompt'] += ' Recurring wizard: ' + WIZARD_DESIGN + '. Warm amber orb light.'
+        shot['prompt'] += ' ' + FANTASY_STYLE
         shot['focus'] = focus
-        shot['negative_prompt'] = 'portrait, headshot, close-up face, face filling frame'
+        shot['negative_prompt'] = 'static pose, repeated composition'
         if focus == 'object':
-            shot['negative_prompt'] += ', person, people, woman, man, human face'
+            shot['negative_prompt'] += ', wizard, person, people, human face, glowing orb'
         elif focus == 'group':
             shot['negative_prompt'] += ', solo, one person alone'
         shot['semantic_target'] = action
     plan['storyboard_verified'] = True
     plan['visual_review'] = {'passed': False, 'phase': 'corrected-object-and-group-render-required'}
-    plan['scene_composition_version'] = 2
+    plan['scene_composition_version'] = 3
     (root/'plan.json').write_text(json.dumps(plan, indent=2))
     print(json.dumps({'scene_plan_refined': True, 'shots': len(plan['shots'])}), flush=True)
     return plan
@@ -348,7 +353,7 @@ def generate_shard(shard, root=ROOT, count=SHARDS):
     plan = json.loads((root/'plan.json').read_text())
     if not plan.get('storyboard_verified') or not all(s.get('prompt') for s in plan['shots']):
         raise RuntimeError('Narration-aligned storyboard is required before image generation')
-    if plan.get('scene_composition_version') != 2:
+    if plan.get('scene_composition_version') != 3:
         raise RuntimeError('Scene-specific object and group composition is required')
     shots = [s for s in plan['shots'] if s['index']%count == shard]
     for shot in shots:
@@ -475,8 +480,8 @@ def finish(root=ROOT):
     print(json.dumps({'visual_quality_advisory_count': len(advisory_shots), 'shot_indices': advisory_shots}), flush=True)
     report = {'render_passed': True, 'duration_seconds': float(metadata['format']['duration']),
         'width': 1920, 'height': 1080, 'images': len(clips), 'image_interval_seconds': INTERVAL,
-        'style': 'ghibli-inspired', 'privacy': 'private', 'voice': 'Kokoro am_michael',
-        'music': 'Magenta MusicRNN', 'image_model': os.getenv('CPU_IMAGE_MODEL', 'Lykon/dreamshaper-8'),
+        'style': 'cinematic-fantasy', 'privacy': 'private', 'voice': 'Kokoro am_michael',
+        'music': 'Magenta MusicRNN', 'image_model': os.getenv('CPU_IMAGE_MODEL', 'segmind/SSD-1B'),
         'audio_validation': audio_report, 'timeline_verified': True, 'storyboard_verified': plan.get('storyboard_verified', False),
         'alignment': plan.get('alignment'), 'scene_composition_version': plan.get('scene_composition_version'),
         'semantic_checked_images': sum(r.get('required', False) for r in scene_reports),

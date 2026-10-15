@@ -120,6 +120,12 @@ def make_story(day, previous):
         'teach tactics for exploiting people, or claim a fictional story is a real case. Avoid clinical '
         'diagnoses and unsupported claims about mental health.'
         if dark_psychology else 'Character-driven storytelling.')
+    if dark_psychology:
+        theme += (' Set the fictional story in a cinematic fantasy world. The protagonist is an '
+            'elderly wizard with a long silver beard, weathered face, dark pointed hood, embroidered '
+            'brown robe, wooden staff and glowing amber orb. His choices and emotional responses '
+            'drive the story. Keep this design and one protagonist name throughout. Let other people, '
+            'objects and locations appear when their narrated actions call for them.')
     outline = ask(f'''Plan an original fictional English story for {day}.
     Content direction: {theme}
     Avoid these previous titles and plots: {json.dumps(previous)}.
@@ -132,7 +138,7 @@ def make_story(day, previous):
     Return JSON: title (max 100 characters), description (clearly label fictional), tags (list),
     thumbnail_text (2-5 words), thumbnail_prompt, protagonist_name (first name), character_description (max 14 words, appearance and outfit),
     scenes (object with chapter_01 through chapter_20). Each chapter: summary (max 25 words), image_prompt,
-    image_prompts (four distinct visual beats, each max 8 words). Hand-painted Japanese animation style.
+    image_prompts (four distinct visual beats, each max 8 words). Cinematic fantasy illustration style.
     Main character keeps the same appearance. Provide ONLY the plan, no full narration yet.''', 5200, outline_schema)
     outline['scenes'] = [outline['scenes'][k] for k in chapter_keys]
     if len(outline.get('scenes', [])) != 20:

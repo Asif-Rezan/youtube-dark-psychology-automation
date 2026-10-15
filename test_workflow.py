@@ -94,7 +94,7 @@ class Checks(unittest.TestCase):
             root = Path(temp)
             shot = {'index': 0, 'seed': 123, 'prompt': 'Woman studying a letter at a desk',
                     'focus': 'group', 'negative_prompt': '', 'duration': 7}
-            plan = {'storyboard_verified': True, 'scene_composition_version': 2, 'shots': [shot]}
+            plan = {'storyboard_verified': True, 'scene_composition_version': 3, 'shots': [shot]}
             (root/'plan.json').write_text(json.dumps(plan))
             calls = []
             def fake_render(prompt, path):
@@ -150,7 +150,7 @@ class Checks(unittest.TestCase):
             aligned = storyboard(root, ask=ask, pause=lambda _: None)
             self.assertTrue(aligned['storyboard_verified'])
             self.assertIn('red suitcase', aligned['shots'][0]['prompt'])
-            self.assertIn('blue coat', aligned['shots'][0]['prompt'])
+            self.assertIn('long silver beard', aligned['shots'][0]['prompt'])
             def incomplete(endpoint, payload):
                 return {'choices': [{'message': {'content': '{}'}}]}
             aligned.pop('storyboard_verified')
@@ -158,25 +158,26 @@ class Checks(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'every narration window'):
                 storyboard(root, ask=incomplete, pause=lambda _: None)
 
-    def test_scene_refinement_keeps_truck_and_group_instead_of_portrait(self):
+    def test_scene_refinement_places_wizard_only_in_narrated_action(self):
         from long_video import refine_visual_plan
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            story = {'protagonist_name': 'Maya', 'character_description': 'woman in safety vest',
-                     'scenes': [{'narration': 'A truck stalled.'}]}
-            plan = {'shots': [{'visual_action': 'Forecaster warns; delivery truck wheels sink into thick mud'},
-                              {'visual_action': 'Maya faces her boss Mr. Alvarez across a desk'}]}
+            story = {'protagonist_name': 'Aldren', 'character_description': 'elderly wizard',
+                     'scenes': [{'narration': 'A sealed letter burned.'}]}
+            plan = {'shots': [{'index': 0, 'visual_action': 'A sealed letter burns on the stone altar'},
+                              {'index': 1, 'visual_action': 'Aldren questions villagers in the moonlit hall'}]}
             (root/'story.json').write_text(json.dumps(story))
             (root/'plan.json').write_text(json.dumps(plan))
             result = refine_visual_plan(root)
-            truck, meeting = result['shots']
-            self.assertEqual(truck['focus'], 'object')
-            self.assertNotIn('Main woman', truck['prompt'])
-            self.assertIn('delivery truck', truck['prompt'])
-            self.assertIn('person', truck['negative_prompt'])
+            letter, meeting = result['shots']
+            self.assertEqual(letter['focus'], 'object')
+            self.assertNotIn('Recurring wizard', letter['prompt'])
+            self.assertIn('sealed letter', letter['prompt'])
+            self.assertIn('wizard', letter['negative_prompt'])
             self.assertEqual(meeting['focus'], 'group')
-            self.assertIn('multiple people', meeting['prompt'])
+            self.assertIn('long silver beard', meeting['prompt'])
             self.assertIn('solo', meeting['negative_prompt'])
+            self.assertNotEqual(letter['prompt'], meeting['prompt'])
 
     def test_actual_seven_second_image_change(self):
         from long_video import picture_clip

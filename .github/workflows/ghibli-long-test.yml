@@ -19,8 +19,8 @@ env:
   MUSIC_BACKEND: magenta
   IMAGE_BACKEND: cpu
   CPU_TTS_VOICE: am_michael
-  CPU_IMAGE_WIDTH: '768'
-  CPU_IMAGE_HEIGHT: '432'
+  CPU_IMAGE_WIDTH: '1024'
+  CPU_IMAGE_HEIGHT: '576'
   CPU_IMAGE_STEPS: '28'
   HF_HUB_DISABLE_XET: '1'
   OMP_NUM_THREADS: '4'
@@ -28,7 +28,7 @@ env:
   DAILY_ENABLED: 'false'
   GENERATE_FRESH_STORY: 'true'
   STORY_MODEL: openai/gpt-oss-120b
-  CPU_IMAGE_MODEL: Lykon/dreamshaper-8
+  CPU_IMAGE_MODEL: segmind/SSD-1B
 jobs:
   prepare:
     runs-on: ubuntu-latest

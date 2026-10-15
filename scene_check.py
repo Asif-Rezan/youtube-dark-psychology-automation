@@ -8,15 +8,16 @@ def check_scene(image, shot):
     import torch
     from PIL import Image
     from transformers import CLIPModel, CLIPProcessor
-    required = shot.get('focus') in ('object', 'group')
+    required = shot.get('focus') in ('object', 'group', 'person')
     if not required:
         return {'passed': True, 'required': False, 'method': 'narration-plan-and-sample-review'}
     if _model is None:
         _model = CLIPModel.from_pretrained('openai/clip-vit-base-patch32', trust_remote_code=False).eval()
         _processor = CLIPProcessor.from_pretrained('openai/clip-vit-base-patch32', trust_remote_code=False)
     target = shot['semantic_target']
-    alternatives = ['A close-up portrait of one woman wearing a safety helmet.',
-                    'One woman standing alone in an office.', 'An empty scenic landscape.']
+    alternatives = ['A static close-up portrait of an elderly wizard.',
+                    'An elderly wizard standing alone in a misty forest.',
+                    'An empty fantasy landscape.']
     with Image.open(image) as picture:
         inputs = _processor(text=[target]+alternatives, images=picture.convert('RGB'),
                             return_tensors='pt', padding=True, truncation=True)

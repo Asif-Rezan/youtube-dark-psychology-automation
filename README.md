@@ -4,6 +4,12 @@ This repository is an isolated copy of the `youtube-motivation-automation` pipel
 
 Stories explore manipulation, coercive control, gaslighting, deception, social pressure, and boundaries. Prompts require fictional labeling, believable consequences, and a protagonist who regains agency. They avoid glamorizing abuse, instructions for exploitation, and unsupported diagnoses.
 
+## Story illustrations
+
+Story images use pinned public `segmind/SSD-1B` weights on CPU at 1024×576. The previous DreamShaper model constants remain commented in `image_cpu.py` for restoration. The supplied [wizard reference](assets/wizard-reference.jpg) defines the recurring protagonist: long silver beard, weathered face, dark pointed hood, embroidered brown robe, wooden staff and glowing amber orb. This text-to-image model uses a detailed description derived from that reference for each wizard shot; it does not condition on the reference image pixels, so visual identity is approximate and should be reviewed before public release.
+
+Fresh stories place the wizard in a fictional fantasy setting. Narration-aligned prompts change his action, expression, setting and camera framing with each seven-second window. Object-only scenes omit him. All images use cinematic fantasy lighting, mist, deep blue-gray shadows and amber orb light where the wizard is present. The `Free CPU image generation check` workflow creates a local test illustration and checks its size, content and scene match without producing or uploading a video.
+
 ## Required isolated setup
 
 Use a **dedicated, previously unused Google Cloud project and Desktop OAuth client** for this repository. The selected project is `project-2d338b69-9ff5-49c5-87f` (My First Project). Enable YouTube Data API v3 and Google Drive API. Complete Google consent for the Grow with Rezan brand channel and a separate, owner-only Drive folder. Set these GitHub Actions secrets in **this repository only**:
