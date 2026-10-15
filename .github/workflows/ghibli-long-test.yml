@@ -66,9 +66,9 @@ jobs:
     needs: prepare
     strategy:
       fail-fast: false
-      max-parallel: 16
+      max-parallel: 20
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
@@ -90,7 +90,7 @@ jobs:
           DRIVE_TOKEN_JSON: ${{ secrets.DRIVE_TOKEN_JSON }}
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
         run: python -u long_video.py restore-images
-      - name: Generate distinct illustrated seven-second clips without Google credentials
+      - name: Generate distinct illustrated five-second clips without Google credentials
         run: python -u long_video.py generate-shard ${{ matrix.shard }}
       - name: Save images and clips privately
         env:

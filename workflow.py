@@ -114,6 +114,17 @@ def make_story(day, previous):
             raise RuntimeError('Story response was truncated; refusing incomplete script')
         return json.loads(choice['message']['content'])
     dark_psychology = os.getenv('CONTENT_TYPE') == 'dark-psychology-storytelling'
+    formats = (
+        ('mystery', 'Investigate conflicting clues and reveal who benefits from a false belief.'),
+        ('boundary', 'Follow a personal boundary tested by someone close; show the cost of enforcing it.'),
+        ('ensemble', 'Use several characters with competing interpretations of the same event.'),
+        ('moral_choice', 'Build around a difficult choice with credible costs on both sides.'),
+        ('aftermath', 'Begin after a manipulation has been exposed and explore repair and accountability.'),
+        ('social_pressure', 'Show a group dynamic and how one person challenges its false consensus.'),
+    )
+    recent_formats = [item.get('format') for item in previous[-5:] if isinstance(item, dict)]
+    available = [item for item in formats if item[0] not in recent_formats] or list(formats)
+    chosen_format, format_direction = available[dt.date.fromisoformat(day).toordinal() % len(available)]
     theme = ('Dark psychology storytelling: explore manipulation, coercive control, gaslighting, '
         'deception, social pressure, and boundary setting through fictional character-driven stories. '
         'Show warning signs, consequences, and the protagonist regaining agency. Do not glamorize abuse, '
@@ -128,6 +139,10 @@ def make_story(day, previous):
             'objects and locations appear when their narrated actions call for them.')
     outline = ask(f'''Plan an original fictional English story for {day}.
     Content direction: {theme}
+    This episode's distinct format is {chosen_format}: {format_direction}
+    Vary the central relationship, setting, opening situation, source of pressure, turning point,
+    and resolution from recent episodes. Give this episode its own specific insight about human behavior.
+    Do not merely change names, props, or scenery while repeating a previous plot.
     Avoid these previous titles and plots: {json.dumps(previous)}.
     A vivid crisis or impossible choice must open the FIRST sentence, with an unanswered question.
     No greeting or generic preamble. Give the protagonist one concrete goal, believable setbacks, and earned resolution.
@@ -138,9 +153,10 @@ def make_story(day, previous):
     Return JSON: title (max 100 characters), description (clearly label fictional), tags (list),
     thumbnail_text (2-5 words), thumbnail_prompt, protagonist_name (first name), character_description (max 14 words, appearance and outfit),
     scenes (object with chapter_01 through chapter_20). Each chapter: summary (max 25 words), image_prompt,
-    image_prompts (four distinct visual beats, each max 8 words). Cinematic fantasy illustration style.
+    image_prompts (four distinct visual beats, each max 8 words). Cinematic dark fantasy style.
     Main character keeps the same appearance. Provide ONLY the plan, no full narration yet.''', 5200, outline_schema)
     outline['scenes'] = [outline['scenes'][k] for k in chapter_keys]
+    outline['format'] = chosen_format
     if len(outline.get('scenes', [])) != 20:
         raise ValueError('Outline requires exactly twenty chapters')
     summaries = [scene['summary'] for scene in outline['scenes']]
@@ -180,6 +196,24 @@ def make_story(day, previous):
     from long_video import validate_engagement
     validate_engagement(outline)
     return validate_story(outline)
+
+
+def assert_distinct_story(story, history):
+    """Reject highly similar recent titles or plot summaries before rendering."""
+    def words(value):
+        return set(re.findall(r"[a-z]{4,}", value.lower())) - {
+            'the', 'that', 'with', 'from', 'when', 'this', 'into', 'their', 'wizard'}
+    title = words(story['title'])
+    plot = words(' '.join(scene.get('summary', '') for scene in story['scenes']))
+    for item in history[-30:]:
+        if not isinstance(item, dict):
+            continue
+        old_title = words(item.get('title', ''))
+        old_plot = words(item.get('plot', ''))
+        if title and old_title and len(title & old_title) / len(title | old_title) >= .7:
+            raise RuntimeError('Recent title is too similar; review the story before rendering')
+        if plot and old_plot and len(plot & old_plot) / len(plot | old_plot) >= .65:
+            raise RuntimeError('Recent plot is too similar; review the story before rendering')
 
 
 def revise_story_duration(story, ratio, direction, indices=None):
@@ -250,7 +284,8 @@ Chapter 1 must retain the immediate crisis and unanswered question. Chapter 20 m
 
 
 def make_image(prompt, path):
-    prompt = 'hand-painted 2D Japanese animation, watercolor illustration, anime, ' + prompt
+    prompt = ('cinematic dark fantasy, realistic painterly detail, intricate fabric and beard texture, '
+        'dim misty atmosphere, dramatic volumetric light, deep shadows, amber firelight, ' + prompt)
     if os.getenv('IMAGE_BACKEND', 'cpu') == 'cpu':
         from image_cpu import generate
         generate(prompt + ', no text, no watermark', path)
@@ -602,7 +637,7 @@ def run(daily=False):
     root.mkdir(parents=True, exist_ok=True)
     store, key = Store(), f'runs/{run_id}/state.json'
     test_record = store.load('last-private-test.json', {}) if daily else {}
-    if daily and (not test_record.get('passed') or not test_record.get('remote_verification', {}).get('private_test_passed') or test_record.get('validation', {}).get('image_interval_seconds') != 7 or not test_record.get('validation', {}).get('storyboard_verified') or test_record.get('validation', {}).get('style') != 'ghibli-inspired'):
+    if daily and (not test_record.get('passed') or not test_record.get('remote_verification', {}).get('private_test_passed') or test_record.get('validation', {}).get('image_interval_seconds') != 5 or not test_record.get('validation', {}).get('storyboard_verified') or test_record.get('validation', {}).get('style') != 'cinematic-fantasy'):
         raise RuntimeError('No fully verified private HD upload test is recorded')
     state = store.load(key, {})
     if state.get('phase') in ('upload_started', 'uploaded', 'complete', 'published', 'verified_private'):
@@ -610,6 +645,7 @@ def run(daily=False):
     music_credit = load_music(store, root)
     history = store.load('history.json', [])
     story = state.get('story') or make_story(day, history[-30:])
+    assert_distinct_story(story, history)
     digest = hashlib.sha256(' '.join(s['narration'] for s in story['scenes']).encode()).hexdigest()
     if digest in [h.get('hash') for h in history]:
         raise RuntimeError('Exact duplicate story rejected')
@@ -627,7 +663,9 @@ def run(daily=False):
     if os.getenv('UPLOAD_ENABLED') == 'true':
         upload_private(video, thumb, story, state, store, key, music_credit)
     if state['phase'] == 'complete':
-        history.append({'title': story['title'], 'hash': digest, 'run': run_id})
+        history.append({'title': story['title'], 'hash': digest, 'run': run_id,
+            'format': story.get('format'),
+            'plot': ' '.join(scene.get('summary', '') for scene in story['scenes'])})
         store.save('history.json', history)
         if not daily:
             store.save('last-private-test.json', {'passed': True, 'run': run_id, 'video_id': state['video_id'], 'validation': state['validation']})

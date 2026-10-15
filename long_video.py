@@ -1,4 +1,4 @@
-"""10–15 minute videos with a distinct illustrated image every seven seconds."""
+"""10–15 minute videos with a distinct image every five seconds."""
 import datetime as dt
 import hashlib
 import json
@@ -11,13 +11,14 @@ import workflow as w
 import duration_control as dc
 
 ROOT = Path(os.getenv('OUTPUT_DIR', 'output/ghibli-long-test'))
-INTERVAL = 7
-SHARDS = 16
+INTERVAL = 5
+SHARDS = 20
 ASSETS = ('story.json', 'plan.json', 'narration.wav', 'captions.srt', 'duration.json')
 WIZARD_DESIGN = ('elderly wizard with a long silver beard, weathered face, dark pointed hood, '
                  'embroidered brown robe, wooden staff topped by a glowing amber orb')
-FANTASY_STYLE = ('richly detailed cinematic fantasy illustration, atmospheric mist, dramatic lighting, '
-                 'deep blue-gray shadows, landscape 16:9, no text or watermark')
+FANTASY_STYLE = ('cinematic dark fantasy, realistic painterly detail, textured robes and skin, '
+                 'atmospheric mist, dramatic volumetric lighting, deep blue-gray shadows, '
+                 'warm amber highlights, landscape composition, no text or watermark')
 
 
 def run_id():
@@ -25,7 +26,7 @@ def run_id():
 
 
 def shot_plan(story, lengths, word_lists):
-    """Anchor every visual to words actually spoken in its global seven-second window."""
+    """Anchor every visual to words actually spoken in its global five-second window."""
     if len(lengths) != len(word_lists) or len(lengths) != len(story['scenes']):
         raise ValueError('Chapter audio, transcript and story must agree')
     total = sum(lengths)
@@ -83,7 +84,7 @@ def storyboard(root=ROOT, ask=None, pause=None):
                   'required': list(properties), 'additionalProperties': False}
         context = {str(shot['chapter']): story['scenes'][shot['chapter']]['narration'] for shot in batch}
         prompt = f"""Storyboard this fictional narrated story. Return one image prompt per exact shot key.
-Each shot is a measured seven-second narration window. Depict ONLY the concrete action, location,
+Each shot is a measured five-second narration window. Depict ONLY the concrete action, location,
 objects and emotion being spoken in that window. Chapter text resolves pronouns and continuity only;
 NEVER illustrate a later or earlier chapter event in place of the current window.
 For abstract reflection or dialogue, show the current character in the current physical scene.
@@ -446,10 +447,10 @@ def finish(root=ROOT):
     plan = json.loads((root/'plan.json').read_text())
     clips = [root/f"shot-{s['index']:03}.mp4" for s in plan['shots']]
     if not all(p.exists() for p in clips):
-        raise RuntimeError('Not every seven-second image clip exists')
+        raise RuntimeError('Not every five-second image clip exists')
     for shot, clip in zip(plan['shots'], clips):
         if abs(w.duration(clip)-shot['duration']) > .04:
-            raise RuntimeError('Shot timing differs from the global seven-second plan')
+            raise RuntimeError('Shot timing differs from the global five-second plan')
     (root/'clips.txt').write_text(''.join(f"file '{p.name}'\n" for p in clips))
     w.shell('ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', str(root/'clips.txt'), '-c', 'copy', str(root/'joined.mp4'))
     if not (root/'music.audio').exists():
@@ -517,7 +518,7 @@ def stage_story():
         if store.load(f'runs/{run_id()}/state.json', {}).get('phase') in ('upload_started', 'uploaded', 'complete', 'published', 'verified_private'):
             raise RuntimeError('Run already uploaded; use cleanup-only recovery')
         history = store.load('history.json', [])
-        story = w.make_story(run_id(), [h.get('title') for h in history[-20:]])
+        story = w.make_story(dt.datetime.now(ZoneInfo('Asia/Dhaka')).date().isoformat(), history[-30:])
         validate_engagement(story)
         (ROOT/'story.json').write_text(json.dumps(story, indent=2))
         print(json.dumps({'fresh_story_ready': True, 'title': story['title'],
@@ -586,7 +587,7 @@ def restore_clips():
         name = f"shot-{shot['index']:03}.mp4"
         file_id = store.find(f'runs/{run_id()}/{name}')
         if not file_id:
-            raise RuntimeError('Saved seven-second clip missing')
+            raise RuntimeError('Saved five-second clip missing')
         store.download(file_id, ROOT/name)
         qa_name = f"shot-{shot['index']:03}.qa.json"
         qa_id = store.find(f'runs/{run_id()}/{qa_name}')
@@ -615,7 +616,9 @@ def upload():
     store.save(key, state)
     w.upload_private(ROOT/'video.mp4', ROOT/'thumbnail.jpg', story, state, store, key,
         'Background music: original Magenta MusicRNN melody with synthesized ambient piano.')
-    history.append({'title': story['title'], 'hash': digest, 'run': run_id(), 'video_id': state['video_id']})
+    history.append({'title': story['title'], 'hash': digest, 'run': run_id(),
+        'video_id': state['video_id'], 'format': story.get('format'),
+        'plot': ' '.join(scene.get('summary', '') for scene in story['scenes'])})
     store.save('history.json', history)
     store.save('last-private-test.json', {'passed': True, 'run': run_id(),
         'video_id': state['video_id'], 'validation': report, 'processing_status': state['processing_status']})

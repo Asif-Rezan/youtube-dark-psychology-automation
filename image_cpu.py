@@ -27,7 +27,7 @@ def safer_prompt(prompt):
     ]
     for pattern, replacement in replacements:
         prompt = re.sub(pattern, replacement, prompt, flags=re.I)
-    return ('Safe non-graphic, non-sexual, fully clothed fictional illustration for an educational story; '
+    return ('Safe non-graphic, non-sexual, fully clothed fictional fantasy scene; '
             'show tension through facial expression and environment, no violence or exposed bodies. ' + prompt)
 
 # Previous image model, retained for easy restoration:
@@ -55,11 +55,11 @@ def generate(prompt, path):
         _pipeline.to('cpu')
         _pipeline.enable_attention_slicing()
         _pipeline.enable_vae_slicing()
-    width = int(os.getenv('CPU_IMAGE_WIDTH', '1024'))
-    height = int(os.getenv('CPU_IMAGE_HEIGHT', '576'))
-    steps = int(os.getenv('CPU_IMAGE_STEPS', '28'))
-    if width % 8 or height % 8 or not 256 <= width <= 1024 or not 256 <= height <= 1024:
-        raise ValueError('CPU image dimensions must be multiples of eight in 256–1024')
+    width = int(os.getenv('CPU_IMAGE_WIDTH', '1344'))
+    height = int(os.getenv('CPU_IMAGE_HEIGHT', '768'))
+    steps = int(os.getenv('CPU_IMAGE_STEPS', '32'))
+    if width % 8 or height % 8 or not 256 <= width <= 1536 or not 256 <= height <= 1536:
+        raise ValueError('CPU image dimensions must be multiples of eight in 256–1536')
     if not 1 <= steps <= 50:
         raise ValueError('CPU generation requires 1–50 steps')
     start = time.monotonic()
@@ -68,7 +68,7 @@ def generate(prompt, path):
     for attempt in range(3):
         # SSD-1B's SDXL output has no NSFW flag, so sanitize its input up front.
         candidate = safer_prompt(prompt) if model == MODEL or attempt else prompt
-        result = _pipeline(prompt=candidate, negative_prompt='photograph, live action, 3D render, CGI, extra arms, extra legs, deformed hands, duplicate person, text, letters, watermark, logo, ' + os.getenv('IMAGE_NEGATIVE_PROMPT', ''), width=width, height=height,
+        result = _pipeline(prompt=candidate, negative_prompt='anime, cartoon, watercolor, flat colors, line art, cel shading, blurry, low detail, poor quality, 3D render, CGI, extra arms, extra legs, deformed hands, duplicate person, text, letters, watermark, logo, ' + os.getenv('IMAGE_NEGATIVE_PROMPT', ''), width=width, height=height,
             num_inference_steps=steps, guidance_scale=9.0,
             generator=torch.Generator(device='cpu').manual_seed(seed + attempt * 10007))
         if any(getattr(result, 'nsfw_content_detected', None) or []):

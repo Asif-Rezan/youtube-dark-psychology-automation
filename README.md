@@ -1,14 +1,22 @@
 # Grow with Rezan: dark psychology video automation
 
-This repository is an isolated copy of the `youtube-motivation-automation` pipeline for the **Grow with Rezan** channel (`UCYjz7d66SsshimfpxZahlhQ`). It creates original fictional English dark psychology stories and uploads a daily 10–15 minute illustrated video **privately** at 01:00 Asia/Dhaka. The 16 CPU image workers, seven-second visual timeline, Kokoro narration, captions, original music, thumbnail, private upload verification, run checkpoints, and run-scoped Drive cleanup follow the source pipeline.
+This repository is an isolated copy of the `youtube-motivation-automation` pipeline for the **Grow with Rezan** channel (`UCYjz7d66SsshimfpxZahlhQ`). It creates original fictional English dark psychology stories and uploads two 10–15 minute illustrated videos per day **privately**, starting at 06:00 and 18:00 Asia/Dhaka. The 20 CPU image workers, five-second visual timeline, Kokoro narration, captions, original music, thumbnail, private upload verification, run checkpoints, and run-scoped Drive cleanup follow the source pipeline.
 
 Stories explore manipulation, coercive control, gaslighting, deception, social pressure, and boundaries. Prompts require fictional labeling, believable consequences, and a protagonist who regains agency. They avoid glamorizing abuse, instructions for exploitation, and unsupported diagnoses.
 
+Daily episodes rotate among mystery, boundary, ensemble, moral-choice, aftermath,
+and social-pressure formats within this niche. The planner must vary the central
+relationship, setting, conflict, turning point, and resolution, and give each
+episode a specific insight. Recent formats are avoided, and highly similar recent
+titles or plot summaries stop the run before rendering. This is a quality gate,
+not a guarantee of YouTube monetization eligibility: review the complete video
+and channel before making any private upload public.
+
 ## Story illustrations
 
-Story images use pinned public `segmind/SSD-1B` weights on CPU at 1024×576. The previous DreamShaper model constants remain commented in `image_cpu.py` for restoration. The supplied [wizard reference](assets/wizard-reference.jpg) defines the recurring protagonist: long silver beard, weathered face, dark pointed hood, embroidered brown robe, wooden staff and glowing amber orb. This text-to-image model uses a detailed description derived from that reference for each wizard shot; it does not condition on the reference image pixels, so visual identity is approximate and should be reviewed before public release.
+Story images use pinned public `segmind/SSD-1B` weights on CPU at 1344×768, a landscape size listed in its model card, with 32 inference steps and guidance scale 9. The previous DreamShaper model constants remain commented in `image_cpu.py` for restoration. The supplied [wizard reference](assets/wizard-reference.jpg) defines the recurring protagonist: long silver beard, weathered face, dark pointed hood, embroidered brown robe, wooden staff and glowing amber orb. This text-to-image model uses a detailed description derived from that reference for each wizard shot; it does not condition on the reference image pixels, so visual identity is approximate and should be reviewed before public release.
 
-Fresh stories place the wizard in a fictional fantasy setting. Narration-aligned prompts change his action, expression, setting and camera framing with each seven-second window. Object-only scenes omit him. All images use cinematic fantasy lighting, mist, deep blue-gray shadows and amber orb light where the wizard is present. The `Free CPU image generation check` workflow creates a local test illustration and checks its size, content and scene match without producing or uploading a video.
+Fresh stories place the wizard in a fictional fantasy setting. Narration-aligned prompts change his action, expression, setting and camera framing with each five-second window. Object-only scenes omit him. Images aim for realistic painterly detail, textured robes and skin, cinematic fantasy lighting, mist, deep blue-gray shadows and amber orb light where the wizard is present. Anime, flat watercolor, and line art are excluded in the model's negative prompt. The `Free CPU image generation check` workflow creates a local test image and checks its size, content and scene match without producing or uploading a video.
 
 ## Required isolated setup
 
@@ -41,10 +49,10 @@ Preparation measures every chapter before making images. A slight overrun uses
 at most a 4% FFmpeg tempo correction. Larger overruns use Groq to shorten
 selected chapters; underruns use Groq to add meaningful story events and dialogue.
 At most three correction attempts run. Changed chapters alone are resynthesized,
-then word timestamps, captions, and every seven-second visual window are rebuilt.
+then word timestamps, captions, and every five-second visual window are rebuilt.
 Audio and transcript caches are tied to content hashes so changed text cannot
 reuse stale timing. The corrected story, narration, captions, storyboard source
-hash, and validated duration are checkpointed together before the sixteen image
+hash, and validated duration are checkpointed together before the twenty image
 workers start. Recovery failure stops before rendering or upload. The prepare job
 has a 90-minute limit to accommodate bounded Groq and CPU narration retries.
 
