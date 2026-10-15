@@ -66,11 +66,12 @@ def generate(prompt, path):
     seed = int(os.getenv('IMAGE_SEED', '42'))
     image = None
     for attempt in range(3):
-        candidate = prompt if attempt == 0 else safer_prompt(prompt)
+        # SSD-1B's SDXL output has no NSFW flag, so sanitize its input up front.
+        candidate = safer_prompt(prompt) if model == MODEL or attempt else prompt
         result = _pipeline(prompt=candidate, negative_prompt='photograph, live action, 3D render, CGI, extra arms, extra legs, deformed hands, duplicate person, text, letters, watermark, logo, ' + os.getenv('IMAGE_NEGATIVE_PROMPT', ''), width=width, height=height,
             num_inference_steps=steps, guidance_scale=9.0,
             generator=torch.Generator(device='cpu').manual_seed(seed + attempt * 10007))
-        if any(result.nsfw_content_detected or []):
+        if any(getattr(result, 'nsfw_content_detected', None) or []):
             print(f'Image safety check rejected attempt {attempt+1}; trying a safer scene.', flush=True)
             continue
         image = result.images[0]
