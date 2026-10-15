@@ -124,11 +124,9 @@ class RecoveryTests(unittest.TestCase):
         store.client, store.folder = MagicMock(), 'folder'
         store.find, store.check_private, store.check_quota = MagicMock(return_value=None), MagicMock(), MagicMock()
         with patch.dict('os.environ', {'RUN_SCOPED_CLEANUP': 'true'}):
-            store.put('runs/daily-123/video.mp4', 'media', 10)
-            body = store.client.files().create.call_args.kwargs['body']
+            body = store.metadata('runs/daily-123/video.mp4', 'id')
             self.assertEqual(body['appProperties']['automation_run'], 'daily-123')
-            store.put('runs/daily-123/state.json', 'media', 10)
-            body = store.client.files().create.call_args.kwargs['body']
+            body = store.metadata('runs/daily-123/state.json', 'id')
             self.assertNotIn('disposable', body['appProperties'])
 
 class PrivateVisibilityTests(unittest.TestCase):

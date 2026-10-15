@@ -405,6 +405,28 @@ def check_video(path, min_duration=600, max_duration=900):
     return metadata
 
 
+def drive_transient(error):
+    """Retry transport failures and temporary API responses, never permission/quota errors."""
+    import socket
+    import ssl
+    import http.client
+    status = getattr(getattr(error, 'resp', None), 'status', None)
+    return isinstance(error, (TimeoutError, ConnectionError, socket.timeout,
+        ssl.SSLError, http.client.IncompleteRead, http.client.RemoteDisconnected)) or status in (408, 429, 500, 502, 503, 504)
+
+
+def drive_retry(call):
+    for attempt in range(5):
+        try:
+            return call()
+        except Exception as error:
+            if not drive_transient(error) or attempt == 4:
+                raise
+            print(json.dumps({'check': 'Drive request', 'retry': attempt + 1,
+                'error_type': type(error).__name__}), flush=True)
+            time.sleep(min(2 ** (attempt + 1), 16))
+
+
 class Store:
     """Private Google Drive storage; never purchases additional quota."""
     def __init__(self):
@@ -415,15 +437,15 @@ class Store:
         self.folder = os.getenv('DRIVE_FOLDER_ID')
         if not self.folder:
             raise RuntimeError('DRIVE_FOLDER_ID is required for this separate channel')
-        info = self.client.files().get(fileId=self.folder, fields='mimeType,trashed,appProperties').execute()
+        info = drive_retry(lambda: self.client.files().get(fileId=self.folder, fields='mimeType,trashed,appProperties').execute())
         if (info.get('trashed') or info['mimeType'] != 'application/vnd.google-apps.folder'
                 or info.get('appProperties', {}).get('grow_with_rezan_root') != 'v1'):
             raise RuntimeError('DRIVE_FOLDER_ID must identify the dedicated Grow with Rezan folder')
         self.check_private(self.folder)
 
     def check_private(self, file_id):
-        permissions = self.client.permissions().list(fileId=file_id,
-            fields='permissions(type,role)', pageSize=100).execute().get('permissions', [])
+        permissions = drive_retry(lambda: self.client.permissions().list(fileId=file_id,
+            fields='permissions(type,role)', pageSize=100).execute()).get('permissions', [])
         if any(p.get('role') != 'owner' for p in permissions):
             raise RuntimeError('Workflow storage must be private to its owner')
 
@@ -432,7 +454,10 @@ class Store:
         digest = hashlib.sha256(key.encode()).hexdigest()
         q = (f"'{self.folder}' in parents and trashed = false and "
              f"appProperties has {{ key='workflow_key' and value='{digest}' }}")
-        items = self.client.files().list(q=q, fields='files(id)', pageSize=100).execute()['files']
+        result = drive_retry(lambda: self.client.files().list(q=q, fields='nextPageToken,files(id)', pageSize=100).execute())
+        items = result['files']
+        if result.get('nextPageToken'):
+            raise RuntimeError('Duplicate checkpoint files require reconciliation')
         if len(items) > 1:
             raise RuntimeError('Duplicate checkpoint files require reconciliation')
         if items:
@@ -444,90 +469,141 @@ class Store:
         file_id = self.find(key)
         if not file_id:
             return default
-        return json.loads(self.client.files().get_media(fileId=file_id).execute())
+        return json.loads(drive_retry(lambda: self.client.files().get_media(fileId=file_id).execute()))
 
     def check_quota(self, size):
-        quota = self.client.about().get(fields='storageQuota').execute()['storageQuota']
+        quota = drive_retry(lambda: self.client.about().get(fields='storageQuota').execute())['storageQuota']
         if 'limit' not in quota:
             raise RuntimeError('Cannot verify free storage allowance; stop before upload')
         limit = min(int(quota['limit']), 15 * 1024**3)
         if int(quota.get('usage', 0)) + size + 100 * 1024**2 > limit:
             raise RuntimeError('Free storage allowance nearly full; no paid upgrade will be requested')
 
-    def put(self, key, media, size):
-        self.check_private(self.folder)
-        self.check_quota(size)
-        file_id = self.find(key)
-        if file_id:
-            return self.client.files().update(fileId=file_id, media_body=media, fields='id').execute()
-        metadata = {'name': key.replace('/', '__'), 'parents': [self.folder],
+    def metadata(self, key, file_id):
+        metadata = {'id': file_id, 'name': key.replace('/', '__'), 'parents': [self.folder],
                     'appProperties': {'workflow_key': hashlib.sha256(key.encode()).hexdigest()}}
         if os.getenv('RUN_SCOPED_CLEANUP') == 'true' and key.startswith('runs/'):
             parts = key.split('/')
             from daily_publish import disposable
             if len(parts) == 3 and disposable(parts[2]):
                 metadata['appProperties'].update(automation_run=parts[1], disposable='v1')
-        return self.client.files().create(body=metadata, media_body=media, fields='id').execute()
+        return metadata
+
+    def verified(self, file_id, key, size, checksum):
+        try:
+            remote = drive_retry(lambda: self.client.files().get(fileId=file_id,
+                fields='id,parents,trashed,appProperties,size,md5Checksum').execute())
+        except Exception as error:
+            if getattr(getattr(error, 'resp', None), 'status', None) == 404:
+                return False
+            raise
+        if (remote.get('trashed') or self.folder not in remote.get('parents', []) or
+                remote.get('appProperties', {}).get('workflow_key') != hashlib.sha256(key.encode()).hexdigest()):
+            raise RuntimeError('Drive upload identity mismatch; refusing overwrite')
+        self.check_private(file_id)
+        return str(remote.get('size')) == str(size) and remote.get('md5Checksum') == checksum
+
+    def put(self, key, media, size):
+        """Bounded retries on one file ID and upload session; verify before returning."""
+        checksum = hashlib.md5()
+        for offset in range(0, size, 8 * 1024 * 1024):
+            checksum.update(media.getbytes(offset, min(8 * 1024 * 1024, size - offset)))
+        checksum = checksum.hexdigest()
+        self.check_private(self.folder)
+        file_id = self.find(key)
+        creating = file_id is None
+        journal = Path(os.getenv('OUTPUT_DIR', 'output')) / '.drive-upload-ids' / (
+            hashlib.sha256((self.folder + ':' + key).encode()).hexdigest() + '.json')
+        reserved = json.loads(journal.read_text())['id'] if journal.exists() else None
+        if file_id and reserved and file_id != reserved:
+            raise RuntimeError('Drive file ID differs from reserved upload identity')
+        file_id = file_id or reserved
+        if file_id and self.verified(file_id, key, size, checksum):
+            return {'id': file_id}
+        self.check_quota(size)
+        if creating and not file_id:
+            file_id = drive_retry(lambda: self.client.files().generateIds(count=1, space='drive').execute())['ids'][0]
+        journal.parent.mkdir(parents=True, exist_ok=True)
+        temporary = journal.with_suffix('.tmp')
+        temporary.write_text(json.dumps({'id': file_id}))
+        temporary.replace(journal)
+        metadata = self.metadata(key, file_id)
+
+        def new_request():
+            if creating:
+                return self.client.files().create(body=metadata, media_body=media, fields='id')
+            return self.client.files().update(fileId=file_id, media_body=media, fields='id')
+
+        request, failures = new_request(), 0
+        while True:
+            try:
+                if media.resumable():
+                    _, result = request.next_chunk(num_retries=0)
+                    if result is None:
+                        continue
+                else:
+                    request.execute(num_retries=0)
+                if not self.verified(file_id, key, size, checksum):
+                    raise RuntimeError('Drive upload checksum or size verification failed')
+                return {'id': file_id}
+            except Exception as error:
+                status = getattr(getattr(error, 'resp', None), 'status', None)
+                if not drive_transient(error) and status not in (404, 410, 409):
+                    raise
+                # A response can time out after Drive has committed the complete file.
+                # Read errors are not evidence that the file is absent.
+                if self.verified(file_id, key, size, checksum):
+                    return {'id': file_id}
+                if status == 409:
+                    raise RuntimeError('Drive creation conflict; refusing overwrite') from error
+                failures += 1
+                if failures >= 5:
+                    raise
+                print(json.dumps({'check': 'Drive upload', 'retry': failures,
+                    'error_type': type(error).__name__}), flush=True)
+                time.sleep(min(2 ** failures, 16))
+                if status in (404, 410):
+                    # Expired resumable session: reuse the reserved ID, never a new file.
+                    request = new_request()
 
     def save(self, key, value):
-        """Persist a JSON checkpoint with bounded retries against one Drive file ID."""
         import io
         from googleapiclient.http import MediaIoBaseUpload
         payload = json.dumps(value).encode()
-        self.check_private(self.folder)
-        self.check_quota(len(payload))
-        file_id = self.find(key)
-        creating = file_id is None
-        if creating:
-            file_id = self.client.files().generateIds(count=1, space='drive').execute()['ids'][0]
-        metadata = {'id': file_id, 'name': key.replace('/', '__'), 'parents': [self.folder],
-                    'appProperties': {'workflow_key': hashlib.sha256(key.encode()).hexdigest()}}
-
-        def matches_remote():
-            self.check_private(file_id)
-            return json.loads(self.client.files().get_media(fileId=file_id).execute()) == value
-
-        for attempt in range(5):
-            try:
-                # Each attempt gets a fresh stream; these small JSON files need no upload session.
-                media = MediaIoBaseUpload(io.BytesIO(payload), mimetype='application/json', resumable=False)
-                if creating:
-                    return self.client.files().create(body=metadata, media_body=media, fields='id').execute()
-                return self.client.files().update(fileId=file_id, media_body=media, fields='id').execute()
-            except Exception as error:
-                status = getattr(getattr(error, 'resp', None), 'status', None)
-                if creating and status == 409:
-                    if matches_remote():
-                        return
-                    raise RuntimeError('Checkpoint creation conflict; refusing to overwrite') from error
-                transient = isinstance(error, (TimeoutError, ConnectionError)) or status in (408, 429, 500, 502, 503, 504)
-                if not transient:
-                    raise
-                if attempt == 4:
-                    # A timed-out request can still have committed; verify before reporting failure.
-                    try:
-                        if matches_remote():
-                            return
-                    except Exception:
-                        pass
-                    raise
-                print(json.dumps({'check': 'Drive checkpoint save', 'retry': attempt + 1,
-                                  'error_type': type(error).__name__}), flush=True)
-                time.sleep(min(2 ** (attempt + 1), 16))
+        return self.put(key, MediaIoBaseUpload(io.BytesIO(payload),
+            mimetype='application/json', resumable=False), len(payload))
 
     def upload(self, path, key):
         from googleapiclient.http import MediaFileUpload
-        self.put(key, MediaFileUpload(str(path), resumable=True), path.stat().st_size)
+        media = MediaFileUpload(str(path), chunksize=8 * 1024 * 1024, resumable=True)
+        try:
+            return self.put(key, media, path.stat().st_size)
+        finally:
+            media.stream().close()
 
     def download(self, file_id, path):
-        import io
         from googleapiclient.http import MediaIoBaseDownload
         self.check_private(file_id)
-        with path.open('wb') as output:
-            request = MediaIoBaseDownload(output, self.client.files().get_media(fileId=file_id))
-            done = False
-            while not done:
-                _, done = request.next_chunk(num_retries=3)
+        info = drive_retry(lambda: self.client.files().get(fileId=file_id,
+            fields='size,md5Checksum').execute())
+        temporary = path.with_name(path.name + '.download-part')
+        try:
+            with temporary.open('wb') as output:
+                request = MediaIoBaseDownload(output, self.client.files().get_media(fileId=file_id),
+                    chunksize=8 * 1024 * 1024)
+                done = False
+                while not done:
+                    _, done = drive_retry(lambda: request.next_chunk(num_retries=0))
+            digest = hashlib.md5()
+            with temporary.open('rb') as downloaded:
+                for chunk in iter(lambda: downloaded.read(8 * 1024 * 1024), b''):
+                    digest.update(chunk)
+            if (str(temporary.stat().st_size) != str(info.get('size')) or
+                    digest.hexdigest() != info.get('md5Checksum')):
+                raise RuntimeError('Drive download checksum or size verification failed')
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
 
 
 def load_music(store, root):

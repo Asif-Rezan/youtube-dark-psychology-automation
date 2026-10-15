@@ -113,10 +113,31 @@ jobs:
       - name: Generate distinct illustrated five-second clips without Google credentials
         run: python -u long_video.py generate-shard ${{ matrix.shard }}
       - name: Save images and clips privately
+        id: save_shard
+        continue-on-error: true
         env:
           DRIVE_TOKEN_JSON: ${{ secrets.DRIVE_TOKEN_JSON }}
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
         run: python -u long_video.py save-shard ${{ matrix.shard }}
+      - name: Retry upload only using the same runner files
+        if: ${{ steps.save_shard.outcome == 'failure' }}
+        env:
+          DRIVE_TOKEN_JSON: ${{ secrets.DRIVE_TOKEN_JSON }}
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+        run: python -u long_video.py recover-shard ${{ matrix.shard }}
+      - name: Encrypt completed work if generation or Drive upload failed
+        if: ${{ failure() }}
+        env:
+          DRIVE_TOKEN_JSON: ${{ secrets.DRIVE_TOKEN_JSON }}
+        run: python shard_backup.py pack ${{ matrix.shard }}
+      - name: Preserve encrypted work for upload-only recovery
+        if: ${{ failure() && hashFiles('shard-backup.enc') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: private-shard-${{ matrix.shard }}-${{ github.run_attempt }}
+          path: shard-backup.enc
+          retention-days: 14
+          if-no-files-found: error
   finish:
     needs: images
     runs-on: ubuntu-latest

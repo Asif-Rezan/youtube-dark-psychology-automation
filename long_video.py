@@ -569,15 +569,58 @@ def verify_preparation(root, images_only=False):
         raise RuntimeError('Narration or caption checkpoint changed after synchronization')
 
 
+def shard_names(shard, plan):
+    if not 0 <= shard < SHARDS:
+        raise ValueError('Invalid shard')
+    return [f"shot-{shot['index']:03}.{ext}" for shot in plan['shots']
+        if shot['index'] % SHARDS == shard for ext in ('png', 'mp4', 'qa.json')]
+
+
 def save_shard(shard):
+    verify_preparation(ROOT, images_only=True)
+    names = shard_names(shard, json.loads((ROOT/'plan.json').read_text()))
+    # Validate the entire local bundle before uploading anything. No generation here.
+    if any(not (ROOT/name).is_file() for name in names):
+        raise RuntimeError('Incomplete local shard; use recover-shard to inspect saved assets')
     store = w.Store()
-    plan = json.loads((ROOT/'plan.json').read_text())
-    for shot in plan['shots']:
-        if shot['index']%SHARDS == shard:
-            for ext in ('png', 'mp4', 'qa.json'):
-                name = f"shot-{shot['index']:03}.{ext}"
-                store.upload(ROOT/name, f'runs/{run_id()}/{name}')
+    receipts = {}
+    for name in names:
+        result = store.upload(ROOT/name, f'runs/{run_id()}/{name}')
+        receipts[name] = {'id': result['id'], 'sha256': file_hash(ROOT/name)}
+        print(json.dumps({'shard': shard, 'asset': name, 'upload_verified': True}), flush=True)
+    store.save(f'runs/{run_id()}/shard-{shard:02}.json', {
+        'run': run_id(), 'shard': shard, 'plan_sha256': file_hash(ROOT/'plan.json'),
+        'files': receipts, 'complete': True})
     print(json.dumps({'shard': shard, 'saved_privately': True}), flush=True)
+
+
+def recover_shard(shard):
+    """Upload only: restore remote assets, refuse missing work, never render or call YouTube."""
+    import re
+    if not re.fullmatch(r'daily-\d+', os.getenv('SAVED_RUN_ID', '')):
+        raise ValueError('Recovery requires an explicit original daily run ID')
+    store = w.Store()
+    state = store.load(f'runs/{run_id()}/state.json', {})
+    if state.get('phase') != 'prepared' or state.get('video_id'):
+        raise RuntimeError('Recovery requires prepared state with no existing YouTube upload')
+    # A local encrypted backup must match the authoritative preparation exactly.
+    local = {name: file_hash(ROOT/name) for name in ('story.json', 'plan.json', 'duration.json')
+        if (ROOT/name).exists()}
+    restore_preparation(True)
+    if any(file_hash(ROOT/name) != digest for name, digest in local.items()):
+        raise RuntimeError('Recovery backup does not match original preparation')
+    names = shard_names(shard, json.loads((ROOT/'plan.json').read_text()))
+    found = {name: store.find(f'runs/{run_id()}/{name}') for name in names}
+    missing = [name for name in names if not found[name] and not (ROOT/name).is_file()]
+    print(json.dumps({'run': run_id(), 'shard': shard, 'missing_assets': missing,
+        'remote_assets': sum(bool(fid) for fid in found.values()),
+        'upload_only_feasible': not missing}), flush=True)
+    if missing:
+        raise RuntimeError('Original runner files are unavailable; refusing regeneration')
+    for name, fid in found.items():
+        if not (ROOT/name).exists():
+            store.download(fid, ROOT/name)
+    save_shard(shard)
 
 
 def restore_clips():
@@ -630,7 +673,7 @@ if __name__ == '__main__':
     shard = int(sys.argv[2]) if len(sys.argv)>2 else 0
     actions = {'init-input': init_input, 'stage-story': stage_story, 'prepare': prepare, 'restore-preparation': restore_preparation, 'refine-plan': refine_visual_plan, 'storyboard': storyboard, 'save-preparation': save_preparation,
         'restore-images': lambda: restore_preparation(True), 'generate-shard': lambda: generate_shard(shard),
-        'save-shard': lambda: save_shard(shard), 'restore-clips': restore_clips,
+        'save-shard': lambda: save_shard(shard), 'recover-shard': lambda: recover_shard(shard), 'restore-clips': restore_clips,
         'finish': finish, 'upload': upload}
     try:
         actions[command]()

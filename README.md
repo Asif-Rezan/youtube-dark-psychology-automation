@@ -71,3 +71,38 @@ an ambiguous result is accepted only if its saved JSON matches. Cleanup saves an
 ID manifest before deletion and checkpoints each ten deletions and at completion.
 If interrupted, it resumes from the manifest and treats previously deleted IDs
 as complete after Drive returns 404. Essential state and story files are preserved.
+
+### Drive timeouts and upload-only shard recovery
+
+Drive reads and uploads retry temporary failures with bounded exponential backoff
+(5 failures per operation; 2, 4, 8, 16 second delays). Media uses 8 MiB resumable
+chunks, a preallocated file ID, size/MD5 verification and an on-disk ID journal.
+An ambiguous response is reconciled against that same ID. Matching files are
+skipped; duplicates, privacy failures and identity conflicts stop the operation.
+Small JSON checkpoints use the same verified, idempotent write path. YouTube
+insertion is deliberately outside these retries and keeps its existing guards.
+
+Daily image jobs retry upload-only once on the same runner if saving fails. If
+that fails, completed/partial work and reserved IDs are encrypted with AES-GCM
+before a GitHub artifact is saved for 14 days. The encryption key is derived from
+the existing Drive refresh token; keep that token available until recovery is
+finished. Replacing it makes old backups unreadable. No plain media, credentials,
+or resumable session URLs are placed in the artifact. A hard runner termination
+or backup service failure can still prevent preservation.
+
+Use **Recover original shard uploads only** with the original numeric GitHub run
+ID and shard number. If available, supply the original artifact name
+`private-shard-<shard>-<attempt>`. It checks the original prepared state and exact
+story/plan/duration, then reports missing assets before writing anything. With a
+complete local/Drive bundle it uploads only missing/different assets and writes
+a verified per-shard manifest. It never generates images, narration or videos,
+never calls YouTube, and never deletes media. A request can also be triggered by
+committing `.github/recovery-request.json` on main, e.g.
+`{"run_id":"38730964321","shard":9,"backup_artifact":""}`.
+
+If the original runner is gone and Drive or encrypted backups do not contain all
+required assets, recovery stops. Do not use **Re-run failed jobs** to retry only
+an upload: the old workflow reruns generation on a fresh runner and uses its old
+code revision. Successful upload-only shard recovery does not automatically
+assemble or upload a video; inspect all shard results and existing YouTube state
+before continuing those stages.
