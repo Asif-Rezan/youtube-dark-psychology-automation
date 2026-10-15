@@ -29,12 +29,12 @@ jobs:
         env:
           CPU_IMAGE_STEPS: '10'
         run: |
-          python image_cpu.py --prompt 'An elderly wizard with a long silver beard, weathered face, dark pointed hood and embroidered brown robe raises a wooden staff topped by a glowing amber orb while searching a misty forest, cinematic fantasy illustration, dramatic lighting, deep blue-gray shadows, warm orb light, landscape 16:9, no text' --output output/cpu-check.png
+          python image_cpu.py --prompt 'Cinematic dark fantasy. Elderly silver-bearded wizard in an embroidered brown robe raises a staff with a glowing amber orb in a misty forest. Realistic painterly texture, dramatic light, deep shadows.' --output output/cpu-check.png
           python - <<'PY'
           from PIL import Image
           from scene_check import check_scene
           image = Image.open('output/cpu-check.png')
-          assert image.size == (1024, 576)
+          assert image.size == (1344, 768)
           assert image.convert('L').getextrema()[1] > 0
           scene = check_scene('output/cpu-check.png', {'focus': 'person', 'semantic_target': 'An elderly wizard raises a glowing amber orb on his staff while searching a misty forest'})
           print({'actual_image_size': image.size, 'scene_match': scene})
