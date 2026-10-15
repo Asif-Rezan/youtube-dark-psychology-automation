@@ -81,7 +81,10 @@ def cleanup(store, run, state):
                     raise
                 time.sleep(2 ** attempt)
         journal['deleted'].append(fid)
-        store.save(key, journal)
+        if len(journal['deleted']) % 10 == 0:
+            store.save(key, journal)
+            print(json.dumps({'check': 'Drive cleanup', 'deleted': len(journal['deleted']),
+                              'total': len(journal['files'])}), flush=True)
     journal['complete'] = True
     store.save(key, journal)
 

@@ -22,3 +22,19 @@ The source repository and its secrets, Drive folder, OAuth project, YouTube toke
 ## Local checks
 
 `python -m unittest -v` runs component and safety checks. Full video generation and upload require the cloud credentials and a live private test.
+
+## Recovering a Drive cleanup timeout
+
+Open **Resume verified private video cleanup** in GitHub Actions and enter the original
+`daily-<run ID>`, such as `daily-38644830219`. This workflow runs only
+`daily_publish.py`: it rechecks the existing video's channel, exact metadata,
+private visibility, successful HD processing, and confirmed thumbnail before
+deleting any run media. It never generates or uploads a video.
+
+Small JSON checkpoints use bounded backoff for timeouts, connection errors, rate
+limits, and temporary server errors. Retries keep one Drive file ID. A new file
+uses a preallocated ID, so a timed-out create cannot create duplicate checkpoints;
+an ambiguous result is accepted only if its saved JSON matches. Cleanup saves an
+ID manifest before deletion and checkpoints each ten deletions and at completion.
+If interrupted, it resumes from the manifest and treats previously deleted IDs
+as complete after Drive returns 404. Essential state and story files are preserved.
