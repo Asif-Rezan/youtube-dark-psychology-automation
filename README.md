@@ -1,6 +1,6 @@
 # Grow with Rezan: dark psychology video automation
 
-This repository is an isolated copy of the `youtube-motivation-automation` pipeline for the **Grow with Rezan** channel (`UCYjz7d66SsshimfpxZahlhQ`). It creates original fictional English dark psychology stories and uploads two 10–15 minute illustrated videos per day **privately**, starting at 06:00 and 18:00 Asia/Dhaka. The 20 CPU image workers, five-second visual timeline, Kokoro narration, captions, original music, thumbnail, private upload verification, run checkpoints, and run-scoped Drive cleanup follow the source pipeline.
+This repository is an isolated copy of the `youtube-motivation-automation` pipeline for the **Grow with Rezan** channel (`UCYjz7d66SsshimfpxZahlhQ`). It creates one original fictional English dark psychology story and uploads one 10–15 minute illustrated video per day **privately**, starting at 06:00 Asia/Dhaka. The 20 CPU image workers, five-second visual timeline, Kokoro narration, captions, original music, thumbnail, private upload verification, run checkpoints, and run-scoped Drive cleanup follow the source pipeline.
 
 Stories explore manipulation, coercive control, gaslighting, deception, social pressure, and boundaries. Prompts require fictional labeling, believable consequences, and a protagonist who regains agency. They avoid glamorizing abuse, instructions for exploitation, and unsupported diagnoses.
 
