@@ -153,6 +153,8 @@ class Checks(unittest.TestCase):
             self.assertIn('blue coat', aligned['shots'][0]['prompt'])
             def incomplete(endpoint, payload):
                 return {'choices': [{'message': {'content': '{}'}}]}
+            aligned.pop('storyboard_verified')
+            (root/'plan.json').write_text(json.dumps(aligned))
             with self.assertRaisesRegex(ValueError, 'every narration window'):
                 storyboard(root, ask=incomplete, pause=lambda _: None)
 

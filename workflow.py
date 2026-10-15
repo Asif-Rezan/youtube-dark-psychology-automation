@@ -56,8 +56,8 @@ def validate_story(data):
             if not isinstance(scene.get(field), str) or not scene[field].strip():
                 raise ValueError(f'Missing scene {field}')
         words += len(scene['narration'].split())
-    if not 1500 <= words <= 2500:
-        raise ValueError(f'Expected 1500–2500 narrated words; received {words}')
+    if not 1000 <= words <= 2600:
+        raise ValueError(f'Expected 1000–2600 narrated words, including duration revisions; received {words}')
     if not isinstance(data.get('thumbnail_text'), str) or len(data['thumbnail_text']) > 45:
         raise ValueError('Invalid thumbnail text')
     if not isinstance(data.get('thumbnail_prompt'), str):
@@ -138,6 +138,9 @@ def make_story(day, previous):
     if len(outline.get('scenes', [])) != 20:
         raise ValueError('Outline requires exactly twenty chapters')
     summaries = [scene['summary'] for scene in outline['scenes']]
+    chapter_target = int(os.getenv('STORY_CHAPTER_WORD_TARGET', '84'))
+    if not 75 <= chapter_target <= 88:
+        raise ValueError('STORY_CHAPTER_WORD_TARGET must be between 75 and 88')
     prior = ''
     for begin in (0, 5, 10, 15):
         # Separate bursts fit the free plan; never switch to a paid provider.
@@ -150,7 +153,8 @@ def make_story(day, previous):
         Assigned chapter events ONLY: {json.dumps([{'chapter': i+1, 'event': summaries[i]} for i in range(begin, begin+5)])}.
         Previous chapter ending: {prior[-700:]}.
         Return JSON with narrations: an object with the exact chapter keys {keys}, each value a narration string.
-        Each string MUST contain 95-105 English spoken words; total for this request 475-525 words.
+        Each string MUST contain approximately {chapter_target} English spoken words (within 5 words).
+        Across all twenty chapters, aim for 1,650–1,800 narrated words including the separately added final CTA.
         Natural narration with concrete actions and dialogue, not generic advice.
         Begin chapter 1 with the crisis immediately, no welcome or setup preamble.
         Escalate stakes, introduce reversals and emotional payoffs every few chapters.
@@ -170,6 +174,73 @@ def make_story(day, previous):
     from long_video import validate_engagement
     validate_engagement(outline)
     return validate_story(outline)
+
+
+def revise_story_duration(story, ratio, direction, indices=None):
+    """Rewrite only chapters that need length changes, preserving the exact final CTA."""
+    import copy
+    if direction not in ('shorten', 'expand') or not 0.4 <= ratio <= 1.8:
+        raise ValueError('Invalid duration revision request')
+    if len(story['scenes']) != 20:
+        raise ValueError('Duration revision requires the twenty-chapter daily story')
+    from long_video import validate_engagement
+    validate_engagement(story)
+    ending = story['scenes'][-1]['narration']
+    marker = ' Which choice would you have made in the protagonist\'s place? '
+    if marker not in ending:
+        raise ValueError('Closing CTA marker missing; refusing duration revision')
+    cta = marker + ending.split(marker, 1)[1]
+    revised = copy.deepcopy(story)
+    original = [s['narration'] for s in story['scenes']]
+    original[-1] = original[-1].split(marker, 1)[0]
+    keys = [f'chapter_{i:02}' for i in range(1, 21)]
+    indices = list(range(20)) if indices is None else sorted(set(indices))
+    if not indices or any(i not in range(20) for i in indices):
+        raise ValueError('Invalid chapter selection for duration revision')
+    schema_text = {'type': 'string'}
+    model = os.getenv('STORY_MODEL', 'openai/gpt-oss-120b')
+    for batch_number, begin in enumerate(range(0, len(indices), 5)):
+        if batch_number:
+            time.sleep(60)  # Keep the existing free-tier pacing between Groq batches.
+        selected = indices[begin:begin+5]
+        batch = [keys[i] for i in selected]
+        properties = {key: schema_text for key in batch}
+        schema = {'type': 'object', 'properties': properties,
+                  'required': batch, 'additionalProperties': False}
+        targets = {keys[i]: max(45, min(130, round(len(original[i].split()) * ratio)))
+                   for i in selected}
+        prompt = f'''Revise these chapters of one original fictional Dark Psychology story to {direction} the
+spoken narration. Preserve the plot, opening hook, psychological suspense, realistic dialogue,
+critical revelations, chapter order, character development, warning signs, consequences, and final
+resolution. Keep the current chapter's events in that chapter. Do not teach manipulation or glamorize abuse.
+Never add a viewer call to action; the application preserves the original CTA separately.
+Title: {story['title']}. Character: {story.get('character_description', '')}.
+Adjacent chapter context: {json.dumps({keys[i]: {'before': original[i-1][-350:] if i else '',
+    'after': original[i+1][:350] if i < 19 else ''} for i in selected})}
+Chapter text: {json.dumps({keys[i]: original[i] for i in selected})}
+Approximate spoken-word targets: {json.dumps(targets)}.
+Return JSON with exactly these chapter keys, each a complete revised narration string.
+Chapter 1 must retain the immediate crisis and unanswered question. Chapter 20 must resolve it.'''
+        result = request_groq('chat/completions', {'model': model,
+            'messages': [{'role': 'user', 'content': prompt}],
+            'response_format': {'type': 'json_schema', 'json_schema': {
+                'name': 'duration_revision', 'strict': True, 'schema': schema}},
+            'reasoning_effort': 'low', 'temperature': .35, 'max_completion_tokens': 4400})
+        choice = result['choices'][0]
+        if choice.get('finish_reason') == 'length':
+            raise RuntimeError('Duration revision was truncated')
+        values = json.loads(choice['message']['content'])
+        if set(values) != set(batch):
+            raise ValueError('Duration revision omitted a chapter')
+        for index, key in zip(selected, batch):
+            narration = values[key].strip()
+            actual = len(narration.split())
+            if not narration or not max(35, round(targets[key]*.7)) <= actual <= round(targets[key]*1.3):
+                raise ValueError(f'Duration revision chapter {index+1} missed its word target')
+            revised['scenes'][index]['narration'] = narration
+    revised['scenes'][-1]['narration'] += cta
+    validate_engagement(revised)
+    return validate_story(revised)
 
 
 def make_image(prompt, path):

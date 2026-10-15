@@ -8,11 +8,12 @@ from pathlib import Path
 import sys
 from zoneinfo import ZoneInfo
 import workflow as w
+import duration_control as dc
 
 ROOT = Path(os.getenv('OUTPUT_DIR', 'output/ghibli-long-test'))
 INTERVAL = 7
 SHARDS = 16
-ASSETS = ('story.json', 'plan.json', 'narration.wav', 'captions.srt')
+ASSETS = ('story.json', 'plan.json', 'narration.wav', 'captions.srt', 'duration.json')
 
 
 def run_id():
@@ -58,6 +59,12 @@ def storyboard(root=ROOT, ask=None, pause=None):
     pause = pause or time.sleep
     story = json.loads((root/'story.json').read_text())
     plan = json.loads((root/'plan.json').read_text())
+    manifest = read_cache(root/'duration.json')
+    if (root/'duration.json').exists() and (manifest.get('plan_source_hash') != plan.get('source_hash')
+            or manifest.get('story_sha256') != file_hash(root/'story.json')):
+        raise RuntimeError('Storyboard source changed since narration validation')
+    if plan.get('storyboard_verified'):
+        return plan
     character = story.get('character_description', '').strip()
     if not character:
         raise ValueError('Visual synchronization needs a character description')
@@ -110,36 +117,180 @@ Exact shot windows: {json.dumps([{'key': f"shot_{shot['index']:03}", 'spoken': s
     return plan
 
 
+def file_hash(path):
+    digest = hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024*1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def text_fingerprint(text):
+    settings = (text, os.getenv('TTS_BACKEND', 'kokoro'),
+                os.getenv('CPU_TTS_VOICE', 'am_michael'), 'kokoro-speed-0.9-v1')
+    return hashlib.sha256(json.dumps(settings).encode()).hexdigest()
+
+
+def read_cache(path):
+    try:
+        return json.loads(path.read_text())
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
+def ensure_chapter_audio(root, index, text):
+    audio = root/f'narration-{index:02}.wav'
+    meta_path = root/f'narration-{index:02}.meta.json'
+    fingerprint = text_fingerprint(text)
+    meta = read_cache(meta_path)
+    if (audio.exists() and meta.get('text_fingerprint') == fingerprint
+            and meta.get('audio_sha256') == file_hash(audio)):
+        return w.duration(audio)
+    candidate = root/f'narration-{index:02}.new.wav'
+    try:
+        w.make_narration(text, candidate)
+        length = w.duration(candidate)
+        if not math.isfinite(length) or length <= 0:
+            raise RuntimeError(f'Chapter {index+1} has invalid narration audio')
+        candidate.replace(audio)
+        meta_path.write_text(json.dumps({'text_fingerprint': fingerprint,
+            'audio_sha256': file_hash(audio), 'seconds': length}))
+        (root/f'words-{index:02}.json').unlink(missing_ok=True)
+        (root/f'words-{index:02}.meta.json').unlink(missing_ok=True)
+        return length
+    finally:
+        candidate.unlink(missing_ok=True)
+
+
+def adjust_tempo(root, story, lengths, factor):
+    """Prepare every adjusted chapter before replacing any source audio."""
+    if not 1 < factor <= dc.MAX_TEMPO:
+        raise ValueError('Tempo correction would harm voice quality')
+    candidates = []
+    try:
+        for index, length in enumerate(lengths):
+            prior = read_cache(root/f'narration-{index:02}.meta.json').get('tempo_factor', 1.0)
+            if prior * factor > dc.MAX_TEMPO:
+                raise ValueError('Cumulative tempo correction would harm voice quality')
+            source = root/f'narration-{index:02}.wav'
+            candidate = root/f'narration-{index:02}.tempo.wav'
+            candidates.append(candidate)
+            w.shell('ffmpeg', '-y', '-i', str(source), '-af', f'atempo={factor:.9f}',
+                    '-c:a', 'pcm_s16le', str(candidate))
+            measured = w.duration(candidate)
+            if not math.isfinite(measured) or abs(measured - length/factor) > max(.15, length*.01):
+                raise RuntimeError(f'Chapter {index+1} tempo output failed duration quality check')
+        for index, candidate in enumerate(candidates):
+            audio = root/f'narration-{index:02}.wav'
+            candidate.replace(audio)
+            meta_path = root/f'narration-{index:02}.meta.json'
+            prior = read_cache(meta_path).get('tempo_factor', 1.0)
+            meta_path.write_text(json.dumps({'text_fingerprint': text_fingerprint(story['scenes'][index]['narration']),
+                'audio_sha256': file_hash(audio), 'tempo_factor': prior * factor,
+                'seconds': w.duration(audio)}))
+            (root/f'words-{index:02}.json').unlink(missing_ok=True)
+            (root/f'words-{index:02}.meta.json').unlink(missing_ok=True)
+    finally:
+        for candidate in candidates:
+            candidate.unlink(missing_ok=True)
+    return [w.duration(root/f'narration-{index:02}.wav') for index in range(len(lengths))]
+
+
+def ensure_words(root, index, audio, text):
+    words_path = root/f'words-{index:02}.json'
+    meta_path = root/f'words-{index:02}.meta.json'
+    fingerprint = {'audio_sha256': file_hash(audio), 'text_fingerprint': text_fingerprint(text)}
+    if words_path.exists() and read_cache(meta_path) == fingerprint:
+        words = read_cache(words_path)
+        if isinstance(words, list) and words:
+            return words
+    words = w.transcribe(audio)
+    if not words:
+        raise RuntimeError(f'Chapter {index+1} has no word timestamps')
+    words_path.write_text(json.dumps(words))
+    meta_path.write_text(json.dumps(fingerprint))
+    return words
+
+
+def correct_duration(story, root):
+    lengths = [ensure_chapter_audio(root, i, scene['narration'])
+               for i, scene in enumerate(story['scenes'])]
+    total = sum(lengths)
+    print(json.dumps({'narration_generated_chapters': len(lengths),
+                      'original_duration_seconds': round(total, 2),
+                      'duration_validation': 'PASSED' if dc.valid(total) else 'OUT OF RANGE'}), flush=True)
+    for attempt in range(1, dc.MAX_ATTEMPTS+1):
+        if dc.valid(total):
+            return story, lengths
+        factor = dc.tempo_factor(total)
+        if factor and any(read_cache(root/f'narration-{i:02}.meta.json').get('tempo_factor', 1.0)
+                          * factor > dc.MAX_TEMPO for i in range(len(lengths))):
+            factor = None
+        if factor is not None:
+            method = 'minimal tempo adjustment'
+            print(json.dumps({'correction_attempt': f'{attempt}/{dc.MAX_ATTEMPTS}',
+                              'method': method, 'tempo_factor': round(factor, 6)}), flush=True)
+            lengths = adjust_tempo(root, story, lengths, factor)
+        else:
+            direction = 'shorten' if total > dc.MAX_SECONDS else 'expand'
+            selected, ratio = dc.select_revisions(lengths, direction)
+            print(json.dumps({'correction_attempt': f'{attempt}/{dc.MAX_ATTEMPTS}',
+                              'method': f'Groq story {direction}', 'chapters': [i+1 for i in selected],
+                              'target_word_ratio': round(ratio, 3)}), flush=True)
+            candidate = w.revise_story_duration(story, ratio, direction, selected)
+            for index in selected:
+                if candidate['scenes'][index]['narration'] != story['scenes'][index]['narration']:
+                    lengths[index] = ensure_chapter_audio(root, index, candidate['scenes'][index]['narration'])
+            story = candidate
+        total = sum(lengths)
+        print(json.dumps({'corrected_duration_seconds': round(total, 2),
+                          'duration_validation': 'PASSED' if dc.valid(total) else 'OUT OF RANGE'}), flush=True)
+    if not dc.valid(total):
+        raise RuntimeError(f'Narration duration {total:.2f}s remains outside 600–900s after '
+                           f'{dc.MAX_ATTEMPTS} correction attempts; no images or upload started')
+    return story, lengths
+
+
 def prepare(story=None, root=ROOT):
     root.mkdir(parents=True, exist_ok=True)
     story = story or json.loads(Path(os.getenv('STORY_FILE', str(root/'story.json'))).read_text())
     w.validate_story(story)
+    print(json.dumps({'story_generated_words': sum(len(s['narration'].split()) for s in story['scenes'])}), flush=True)
+    story, lengths = correct_duration(story, root)
+    w.validate_story(story)
     (root/'story.json').write_text(json.dumps(story, indent=2))
-    lengths, word_lists, audios = [], [], []
-    for index, scene in enumerate(story['scenes']):
-        audio = root/f'narration-{index:02}.wav'
-        if not audio.exists():
-            w.make_narration(scene['narration'], audio)
-        length = w.duration(audio)
-        words_path = root/f'words-{index:02}.json'
-        if not words_path.exists():
-            words_path.write_text(json.dumps(w.transcribe(audio)))
-        words = json.loads(words_path.read_text())
+    audios = [root/f'narration-{i:02}.wav' for i in range(len(lengths))]
+    word_lists = []
+    for index, (scene, audio, length) in enumerate(zip(story['scenes'], audios, lengths)):
+        words = ensure_words(root, index, audio, scene['narration'])
         w.aligned_subtitles([words], [length], root/'chapter-check.srt')
-        lengths.append(length)
         word_lists.append(words)
-        audios.append(audio)
-        print(json.dumps({'chapter': index+1, 'seconds': length, 'audio_passed': True}), flush=True)
-    total = sum(lengths)
-    if not 600 <= total <= 900:
-        raise RuntimeError(f'Narration is {total:.1f}s, outside 600–900s; do not generate images')
+        print(json.dumps({'chapter': index+1, 'seconds': round(length, 2),
+                          'audio_passed': True, 'words_aligned': len(words)}), flush=True)
     w.aligned_subtitles(word_lists, lengths, root/'captions.srt')
     (root/'audio-list.txt').write_text(''.join(f"file '{p.name}'\n" for p in audios))
     w.shell('ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', str(root/'audio-list.txt'),
         '-ar', '48000', '-ac', '2', '-c:a', 'pcm_s16le', str(root/'narration.wav'))
+    measured = w.duration(root/'narration.wav')
+    total = sum(lengths)
+    if not dc.valid(measured) or abs(measured-total) > .15:
+        raise RuntimeError(f'Concatenated narration {measured:.2f}s does not match validated chapters {total:.2f}s')
     plan = shot_plan(story, lengths, word_lists)
+    plan['source_hash'] = hashlib.sha256(json.dumps({'story': story,
+        'audio_hashes': [file_hash(p) for p in audios], 'words': word_lists},
+        sort_keys=True).encode()).hexdigest()
+    previous = read_cache(root/'plan.json')
+    if previous.get('source_hash') == plan['source_hash'] and previous.get('storyboard_verified'):
+        plan = previous
     (root/'plan.json').write_text(json.dumps(plan, indent=2))
-    print(json.dumps({'audio_ready': True, 'seconds': total, 'images': len(plan['shots'])}), flush=True)
+    (root/'duration.json').write_text(json.dumps({'duration_seconds': measured,
+        'story_sha256': file_hash(root/'story.json'),
+        'narration_sha256': file_hash(root/'narration.wav'),
+        'captions_sha256': file_hash(root/'captions.srt'),
+        'plan_source_hash': plan['source_hash'], 'chapters': lengths}, indent=2))
+    print(json.dumps({'narration_validation': 'PASSED', 'storyboard_synchronization': 'PASSED',
+        'audio_ready': True, 'seconds': measured, 'images': len(plan['shots']),
+        'ready_for_storyboarding': True}), flush=True)
     return plan
 
 
@@ -381,19 +532,35 @@ def save_preparation():
     key = f'runs/{run_id()}/state.json'
     if store.load(key, {}).get('phase') in ('upload_started', 'uploaded', 'complete', 'published', 'verified_private'):
         raise RuntimeError('Existing upload requires reconciliation; refusing duplicate')
+    verify_preparation(ROOT)
     for name in ASSETS:
         store.upload(ROOT/name, f'runs/{run_id()}/{name}')
     store.save(key, {'phase': 'prepared', 'story': json.loads((ROOT/'story.json').read_text())})
+    print(json.dumps({'starting_image_generation': True, 'run': run_id()}), flush=True)
 
 
 def restore_preparation(images_only=False):
     ROOT.mkdir(parents=True, exist_ok=True)
     store = w.Store()
-    for name in (('story.json', 'plan.json') if images_only else ASSETS):
+    for name in (('story.json', 'plan.json', 'duration.json') if images_only else ASSETS):
         file_id = store.find(f'runs/{run_id()}/{name}')
         if not file_id:
             raise RuntimeError('Saved preparation asset missing')
         store.download(file_id, ROOT/name)
+    verify_preparation(ROOT, images_only=images_only)
+
+
+def verify_preparation(root, images_only=False):
+    manifest = read_cache(root/'duration.json')
+    plan = read_cache(root/'plan.json')
+    if (not dc.valid(manifest.get('duration_seconds', float('nan')))
+            or manifest.get('story_sha256') != file_hash(root/'story.json')
+            or manifest.get('plan_source_hash') != plan.get('source_hash')
+            or not plan.get('storyboard_verified')):
+        raise RuntimeError('Corrected story and storyboard checkpoint do not match')
+    if not images_only and (manifest.get('narration_sha256') != file_hash(root/'narration.wav')
+            or manifest.get('captions_sha256') != file_hash(root/'captions.srt')):
+        raise RuntimeError('Narration or caption checkpoint changed after synchronization')
 
 
 def save_shard(shard):
@@ -431,6 +598,7 @@ def upload():
     store, key = w.Store(), f'runs/{run_id()}/state.json'
     if store.load(key, {}).get('phase') in ('upload_started', 'uploaded', 'complete', 'published', 'verified_private'):
         raise RuntimeError('Existing upload requires reconciliation; refusing duplicate insertion')
+    verify_preparation(ROOT)
     story = json.loads((ROOT/'story.json').read_text())
     digest = hashlib.sha256(' '.join(s['narration'] for s in story['scenes']).encode()).hexdigest()
     history = store.load('history.json', [])

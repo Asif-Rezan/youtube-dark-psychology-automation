@@ -23,6 +23,25 @@ The source repository and its secrets, Drive folder, OAuth project, YouTube toke
 
 `python -m unittest -v` runs component and safety checks. Full video generation and upload require the cloud credentials and a live private test.
 
+## Story duration recovery
+
+Fresh daily stories keep the twenty-chapter Dark Psychology outline and target 84
+spoken words per chapter, plus the closing CTA. Set `STORY_CHAPTER_WORD_TARGET`
+between 75 and 88 to tune the initial request. Actual Kokoro audio duration,
+not word count, controls acceptance: 600–900 seconds is required, with 720–840
+seconds preferred.
+
+Preparation measures every chapter before making images. A slight overrun uses
+at most a 4% FFmpeg tempo correction. Larger overruns use Groq to shorten
+selected chapters; underruns use Groq to add meaningful story events and dialogue.
+At most three correction attempts run. Changed chapters alone are resynthesized,
+then word timestamps, captions, and every seven-second visual window are rebuilt.
+Audio and transcript caches are tied to content hashes so changed text cannot
+reuse stale timing. The corrected story, narration, captions, storyboard source
+hash, and validated duration are checkpointed together before the sixteen image
+workers start. Recovery failure stops before rendering or upload. The prepare job
+has a 90-minute limit to accommodate bounded Groq and CPU narration retries.
+
 ## Recovering a Drive cleanup timeout
 
 Open **Resume verified private video cleanup** in GitHub Actions and enter the original

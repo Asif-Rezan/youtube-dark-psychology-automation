@@ -35,12 +35,13 @@ env:
   DAILY_ENABLED: 'true'
   GENERATE_FRESH_STORY: 'true'
   STORY_MODEL: openai/gpt-oss-120b
+  STORY_CHAPTER_WORD_TARGET: '84'
   CPU_IMAGE_MODEL: Lykon/dreamshaper-8
 jobs:
   prepare:
     if: ${{ !inputs.cleanup_run }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
