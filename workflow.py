@@ -71,19 +71,37 @@ _text_provider = 'groq'
 def request_gemini(payload):
     """Use Google's OpenAI-compatible structured text endpoint."""
     import requests
+    import math
     key = os.getenv('GEMINI_API_KEY')
     if not key:
         raise RuntimeError('Groq failed; GEMINI_API_KEY is required for immediate fallback')
     candidate = dict(payload, model=os.getenv('GEMINI_MODEL', 'gemini-3.5-flash'))
     # A larger output allowance leaves room for Gemini reasoning and the JSON.
     candidate['max_completion_tokens'] = max(8192, payload.get('max_completion_tokens', 8192))
-    try:
-        response = requests.post('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-            headers={'Authorization': 'Bearer ' + key}, json=candidate, timeout=180)
-    except requests.RequestException:
-        raise RuntimeError('Gemini fallback transport failed') from None
-    if not response.ok:
-        raise RuntimeError(f'Gemini fallback failed with HTTP {response.status_code}')
+    for attempt in range(4):
+        try:
+            response = requests.post('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+                headers={'Authorization': 'Bearer ' + key}, json=candidate, timeout=180)
+        except requests.RequestException:
+            raise RuntimeError('Gemini fallback transport failed') from None
+        if response.ok:
+            break
+        if response.status_code not in (500, 502, 503, 504) or attempt == 3:
+            raise RuntimeError(f'Gemini fallback failed with HTTP {response.status_code} after {attempt+1} attempt(s)')
+        # Retry explicit temporary server failures, not quota/auth/safety errors.
+        delay = 2 ** (attempt + 1)
+        value = response.headers.get('retry-after')
+        if value is not None:
+            try:
+                seconds = float(value)
+                if not math.isfinite(seconds) or seconds > 30:
+                    raise RuntimeError('Gemini requested a cooldown beyond the 30-second retry limit')
+                delay = max(delay, math.ceil(seconds))
+            except (TypeError, ValueError):
+                pass
+        print(json.dumps({'check': 'Gemini temporary failure', 'http_status': response.status_code,
+                          'attempt': attempt+1, 'retry_seconds': delay}), flush=True)
+        time.sleep(delay)
     try:
         result = response.json()
         choice = result['choices'][0]
