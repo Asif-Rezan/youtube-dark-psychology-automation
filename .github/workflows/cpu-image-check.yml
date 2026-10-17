@@ -29,21 +29,26 @@ jobs:
         env:
           CPU_IMAGE_STEPS: '10'
         run: |
-          python image_cpu.py --prompt 'Historical documentary reconstruction of the Great Pyramid of Giza and surrounding ancient Egyptian stonework at sunrise, realistic limestone texture, archaeologically grounded landscape, no text.' --output output/cpu-check.png
+          python image_cpu.py --prompt 'Enormous fitted limestone blocks dwarf one small human figure, with the Great Pyramid of Giza rising behind them on the right. Historically grounded archaeological reconstruction, dramatic natural light, deep shadows, clear dark space on the left, no text.' --output output/cpu-check.png
           python - <<'PY'
           from PIL import Image
           from scene_check import check_scene
           image = Image.open('output/cpu-check.png')
           assert image.size == (1024, 576)
           assert image.convert('L').getextrema()[1] > 0
-          scene = check_scene('output/cpu-check.png', {'focus': 'object', 'semantic_target': 'The Great Pyramid of Giza rises above ancient Egyptian limestone structures in a desert landscape'})
+          scene = check_scene('output/cpu-check.png', {'focus': 'object', 'semantic_target': 'Enormous limestone blocks dwarf a small human figure near the Great Pyramid of Giza'})
           print({'actual_image_size': image.size, 'scene_match': scene})
+          from thumbnail_design import render_thumbnail
+          render_thumbnail('output/cpu-check.png', 'HOW WAS IT BUILT?', 'output/thumbnail-check.jpg', 'Ancient Egypt and pyramids')
+          assert Image.open('output/thumbnail-check.jpg').size == (1280, 720)
           assert scene['passed'], 'Generated image did not match the requested historical scene'
           PY
       - name: Save generated historical test image for visual review
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: historical-image-check
-          path: output/cpu-check.png
+          path: |
+            output/cpu-check.png
+            output/thumbnail-check.jpg
           retention-days: 1
           if-no-files-found: error

@@ -28,7 +28,7 @@ def choose_package(story, topic, payload):
         if (not text.endswith('?') or not 2 <= len(hook_words) <= 5 or len(text) > 30
                 or hook_words[0].upper() not in QUESTION_OPENERS or VAGUE_HOOK.fullmatch(text)):
             continue
-        if not 25 <= len(prompt) <= 300 or topic['thumbnail_anchor'].casefold() not in prompt.casefold():
+        if not 25 <= len(prompt) <= 220 or topic['thumbnail_anchor'].casefold() not in prompt.casefold():
             continue
         if text.casefold() in title.casefold():
             continue
@@ -39,7 +39,11 @@ def choose_package(story, topic, payload):
         score += 1 if '?' in title else 0
         score += 2 if len(hook_words) <= 4 else 0
         score += 1 if any(word in text.casefold() for word in topic['thumbnail_anchor'].casefold().split()) else 0
-        valid.append((score, {'title': title, 'thumbnail_text': text, 'thumbnail_prompt': prompt}))
+        visual_story = topic['thumbnail_visual_story'].strip().rstrip('.')
+        # Put the source-backed visual story first so diffusion's token limit preserves it.
+        artwork_prompt = f'{visual_story}. {prompt}'
+        artwork_prompt = ' '.join(artwork_prompt.split()[:55])
+        valid.append((score, {'title': title, 'thumbnail_text': text, 'thumbnail_prompt': artwork_prompt}))
     if not valid:
         raise ValueError('No accurate, readable YouTube title and thumbnail pair')
     valid.sort(key=lambda pair: pair[0], reverse=True)
@@ -107,11 +111,13 @@ The question must be answerable or honestly investigated in this episode. Avoid 
 questions such as WHAT HAPPENED? or false suggestions of hidden chambers or cover-ups.
 Complement the title without repeating its phrasing. It must be legible on a phone.
 Thumbnail's documented visual anchor: {topic['thumbnail_anchor']}.
-Thumbnail prompt: 25-300 characters; include that exact visual-anchor phrase. Show this
-real historical detail prominently on the RIGHT, with one highlighted feature and
-surrounding shadow to make the viewer wonder about it. Leave clear dark space on the LEFT
-for the question. Use dramatic but plausible light, no embedded letters, labels, arrows
-or logos. Do not depict disputed hypotheses as established fact. No fantasy imagery.
+The image must tell this source-backed visual story: {topic['thumbnail_visual_story']}.
+Thumbnail prompt: 25-220 characters, include the exact visual-anchor phrase, and add
+a specific scene composition that builds on the visual story. Make the historical scale,
+entrance, path or object relationship the source of curiosity even with no words visible.
+Place the intriguing detail on the RIGHT and leave dark space on the LEFT for the question.
+Use dramatic but plausible light and depth. No embedded letters, labels, arrows, logos,
+fictional discoveries or fantasy imagery.
 Description intro: 80-400 characters, put the exact subject phrase naturally in the FIRST sentence
 and state what the viewer will learn. Description details: 80-800 characters, unique to this episode,
 explain the key evidence and remaining uncertainty. Do not invent historical claims.

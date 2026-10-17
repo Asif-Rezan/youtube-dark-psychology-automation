@@ -12,7 +12,8 @@
       "https://whc.unesco.org/en/list/86/"
     ],
     "search_phrase": "Great Pyramid of Giza",
-    "thumbnail_anchor": "limestone blocks"
+    "thumbnail_anchor": "limestone blocks",
+    "thumbnail_visual_story": "Enormous fitted limestone blocks dwarf one small human figure, with the Great Pyramid rising behind them on the right"
   },
   {
     "id": "saqqara-step-pyramid",
@@ -26,7 +27,8 @@
       "https://whc.unesco.org/en/list/86/"
     ],
     "search_phrase": "Step Pyramid of Djoser",
-    "thumbnail_anchor": "Step Pyramid"
+    "thumbnail_anchor": "Step Pyramid",
+    "thumbnail_visual_story": "Stepped stone tiers rise from a weathered foreground block toward the Step Pyramid on the right"
   },
   {
     "id": "goreme-underground",
@@ -40,7 +42,8 @@
       "https://whc.unesco.org/en/list/357/"
     ],
     "search_phrase": "Cappadocia Underground Cities",
-    "thumbnail_anchor": "rock-cut underground settlement"
+    "thumbnail_anchor": "rock-cut underground settlement",
+    "thumbnail_visual_story": "A sunlit Cappadocia rock face opens into a deep shadowed rock-cut underground settlement on the right"
   },
   {
     "id": "persian-qanat",
@@ -54,7 +57,8 @@
       "https://whc.unesco.org/en/list/1506/"
     ],
     "search_phrase": "Persian Qanat",
-    "thumbnail_anchor": "underground water channel"
+    "thumbnail_anchor": "underground water channel",
+    "thumbnail_visual_story": "An underground water channel emerges from darkness into an arid sunlit landscape on the right"
   },
   {
     "id": "petra-water",
@@ -68,7 +72,8 @@
       "https://whc.unesco.org/en/list/326/"
     ],
     "search_phrase": "Petra Water System",
-    "thumbnail_anchor": "rock-cut water channel"
+    "thumbnail_anchor": "rock-cut water channel",
+    "thumbnail_visual_story": "A narrow rock-cut water channel vanishes around a sandstone bend toward Petra on the right"
   },
   {
     "id": "mohenjo-daro",
@@ -82,7 +87,8 @@
       "https://whc.unesco.org/en/list/138/"
     ],
     "search_phrase": "Mohenjo-daro",
-    "thumbnail_anchor": "ancient street drains"
+    "thumbnail_anchor": "ancient street drains",
+    "thumbnail_visual_story": "Ancient brick street drains run beneath a straight Mohenjo-daro street on the right"
   },
   {
     "id": "pompeii",
@@ -96,7 +102,8 @@
       "https://whc.unesco.org/en/list/829/"
     ],
     "search_phrase": "Pompeii",
-    "thumbnail_anchor": "buried Roman street"
+    "thumbnail_anchor": "buried Roman street",
+    "thumbnail_visual_story": "A buried Roman street emerges from layers of volcanic ash into sunlight on the right"
   },
   {
     "id": "historic-cairo",
@@ -113,7 +120,8 @@
       "https://whc.unesco.org/en/list/89/"
     ],
     "search_phrase": "Historic Cairo",
-    "thumbnail_anchor": "historic mosque gateway"
+    "thumbnail_anchor": "historic mosque gateway",
+    "thumbnail_visual_story": "A shadowed historic mosque gateway reveals layered arches and a sunlit Cairo street on the right"
   },
   {
     "id": "samarra",
@@ -127,7 +135,8 @@
       "https://whc.unesco.org/en/list/276/"
     ],
     "search_phrase": "Samarra",
-    "thumbnail_anchor": "spiral minaret"
+    "thumbnail_anchor": "spiral minaret",
+    "thumbnail_visual_story": "The spiral minaret rises beyond weathered Abbasid ruins under an immense sky on the right"
   },
   {
     "id": "ibn-battuta",
@@ -144,7 +153,8 @@
       "https://www.loc.gov/item/2021666192/"
     ],
     "search_phrase": "Ibn Battuta",
-    "thumbnail_anchor": "historical travel route map"
+    "thumbnail_anchor": "historical travel route map",
+    "thumbnail_visual_story": "An open historical travel route map and worn manuscript suggest Ibn Battuta journeys across deserts and seas on the right"
   },
   {
     "id": "ibn-sina",
@@ -158,6 +168,7 @@
       "https://plato.stanford.edu/entries/ibn-sina/"
     ],
     "search_phrase": "Ibn Sina",
-    "thumbnail_anchor": "medieval medical manuscript"
+    "thumbnail_anchor": "medieval medical manuscript",
+    "thumbnail_visual_story": "An open medieval medical manuscript catches one shaft of light in a shadowed study on the right"
   }
 ]

@@ -9,7 +9,8 @@ from thumbnail_design import render_thumbnail
 class PackagingTests(unittest.TestCase):
     def setUp(self):
         self.topic = {'search_phrase': 'Great Pyramid of Giza', 'category': 'Ancient Egypt',
-                      'sources': ['https://whc.unesco.org/en/list/86/'], 'thumbnail_anchor': 'limestone blocks'}
+                      'sources': ['https://whc.unesco.org/en/list/86/'], 'thumbnail_anchor': 'limestone blocks',
+                      'thumbnail_visual_story': 'Enormous fitted limestone blocks dwarf one small human figure, with the Great Pyramid rising behind them on the right'}
         self.story = {'title': 'Draft', 'scenes': [{'summary': 'Limestone blocks remain'}]}
         self.payload = {
             'option_a': {'title': 'Great Pyramid of Giza: What the Stonework Tells Us',
@@ -34,6 +35,8 @@ class PackagingTests(unittest.TestCase):
         self.assertEqual(result['tags'][0], self.topic['search_phrase'])
         self.assertLessEqual(len(result['tags']), 12)
         self.assertNotIn('unrelated trending topic', result['tags'])
+        self.assertTrue(result['thumbnail_prompt'].startswith(self.topic['thumbnail_visual_story']))
+        self.assertLessEqual(len(result['thumbnail_prompt'].split()), 55)
 
     def test_rejects_unrelated_title_and_bad_opening(self):
         self.payload['option_a']['title'] = 'A Hidden Secret Nobody Wants You to Discover Today'
@@ -55,6 +58,7 @@ class PackagingTests(unittest.TestCase):
             with Image.open(target) as image:
                 self.assertEqual(image.size, (1280, 720))
                 self.assertLess(sum(image.getpixel((80, 590))), sum(image.getpixel((1200, 590))))
+                self.assertGreater(sum(image.getpixel((900, 360))), sum(image.getpixel((900, 20))))
             self.assertLess(target.stat().st_size, 2*1024*1024)
 
 

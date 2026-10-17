@@ -1,6 +1,6 @@
 """Readable 16:9 historical documentary thumbnail layout."""
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
 
 def _font(size):
@@ -17,6 +17,15 @@ def render_thumbnail(source, text, target, category='History'):
         raise ValueError('Thumbnail hook must be a short historical question')
     with Image.open(source) as original:
         image = ImageOps.fit(original.convert('RGB'), (1280, 720), method=Image.Resampling.LANCZOS)
+    # Build a photographic focal point from the generated artwork itself: one lit
+    # historical detail on the right, with its surroundings falling into shadow.
+    image = ImageEnhance.Contrast(image).enhance(1.12)
+    dimmed = ImageEnhance.Brightness(image).enhance(0.69)
+    focus = Image.new('L', image.size, 0)
+    focus_draw = ImageDraw.Draw(focus)
+    focus_draw.ellipse((610, 80, 1290, 650), fill=210)
+    focus = focus.filter(ImageFilter.GaussianBlur(105))
+    image = Image.composite(image, dimmed, focus)
     # Darken only the text side; preserve the main historical subject on the right.
     overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
     stripe = ImageDraw.Draw(overlay)
