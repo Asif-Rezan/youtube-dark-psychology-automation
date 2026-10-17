@@ -17,3 +17,5 @@ Fresh video requested with verified Drive upload retries and encrypted failure b
 Fresh historical documentary requested after packaging fallback and five-plus-five image safety recovery fixes: 2026-10-17.
 
 Retry video generation with provider-aware Groq cooldown handling: 2026-10-17.
+
+New video requested with verified immediate Gemini fallback: 2026-10-18 Asia/Dhaka.
