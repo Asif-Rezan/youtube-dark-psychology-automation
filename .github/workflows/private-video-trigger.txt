@@ -15,3 +15,5 @@ Manual fresh video requested: 2026-10-15 11:56 UTC.
 Fresh video requested with verified Drive upload retries and encrypted failure backups: 2026-10-15 17:02 UTC.
 
 Fresh historical documentary requested after packaging fallback and five-plus-five image safety recovery fixes: 2026-10-17.
+
+Retry video generation with provider-aware Groq cooldown handling: 2026-10-17.
