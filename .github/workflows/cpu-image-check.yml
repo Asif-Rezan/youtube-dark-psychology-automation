@@ -31,7 +31,7 @@ jobs:
       - name: Generate an image without API credentials
         env:
           IMAGE_SEED: '9931'
-          CPU_IMAGE_STEPS: '32'
+          CPU_IMAGE_STEPS: '16'
         run: |
           python - <<'PYCODE'
           import json

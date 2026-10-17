@@ -33,7 +33,7 @@ jobs:
       - name: Generate complete original video without upload credentials
         env:
           IMAGE_BACKEND: cpu
-          CPU_IMAGE_STEPS: '10'
+          CPU_IMAGE_STEPS: '16'
           TTS_BACKEND: kokoro
           CPU_TTS_VOICE: am_michael
           CAPTION_BACKEND: cpu

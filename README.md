@@ -12,7 +12,7 @@ Each topic now supplies a source-backed visual scene: a scale contrast, a passag
 
 ## Historical illustrations
 
-Images use `segmind/SSD-1B` on CPU at **1024×576**, 32 inference steps and guidance scale 9. A new image appears every **seven seconds**. Each image prompt follows the spoken historical scene, showing relevant sites, objects, architecture or people with period-appropriate details. No wizard reference image is loaded in the video or thumbnail path. The CPU image check produces a historical test image for visual review. AI reconstructions may still contain inaccuracies; inspect the private video before public release.
+Images use `segmind/SSD-1B` on CPU at **1024×576**, 16 inference steps and guidance scale 9. A new image appears every **seven seconds**. Each image prompt follows the spoken historical scene, showing relevant sites, objects, architecture or people with period-appropriate details. No wizard reference image is loaded in the video or thumbnail path. The CPU image check produces a historical test image for visual review. AI reconstructions may still contain inaccuracies; inspect the private video before public release.
 
 ## Required isolated setup
 

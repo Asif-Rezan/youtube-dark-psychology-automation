@@ -56,7 +56,7 @@ def generate(prompt, path):
         _pipeline.enable_vae_slicing()
     width = int(os.getenv('CPU_IMAGE_WIDTH', '1024'))
     height = int(os.getenv('CPU_IMAGE_HEIGHT', '576'))
-    steps = int(os.getenv('CPU_IMAGE_STEPS', '32'))
+    steps = int(os.getenv('CPU_IMAGE_STEPS', '16'))
     if width % 8 or height % 8 or not 256 <= width <= 1536 or not 256 <= height <= 1536:
         raise ValueError('CPU image dimensions must be multiples of eight in 256–1536')
     if not 1 <= steps <= 50:
