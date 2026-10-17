@@ -10,7 +10,7 @@ class PackagingTests(unittest.TestCase):
     def setUp(self):
         self.topic = {'search_phrase': 'Great Pyramid of Giza', 'category': 'Ancient Egypt',
                       'sources': ['https://whc.unesco.org/en/list/86/'], 'thumbnail_anchor': 'limestone blocks',
-                      'thumbnail_visual_story': 'Enormous fitted limestone blocks dwarf one small human figure, with the Great Pyramid rising behind them on the right'}
+                      'thumbnail_visual_story': 'Close view of colossal fitted limestone blocks on the right dwarfing a small human figure; Giza pyramid only a distant silhouette'}
         self.story = {'title': 'Draft', 'scenes': [{'summary': 'Limestone blocks remain'}]}
         self.payload = {
             'option_a': {'title': 'Great Pyramid of Giza: What the Stonework Tells Us',
