@@ -11,10 +11,10 @@ def _font(size):
     return ImageFont.load_default()
 
 
-def render_thumbnail(source, text, target):
+def render_thumbnail(source, text, target, category='History'):
     words = text.upper().split()
-    if not 2 <= len(words) <= 4 or len(text) > 26:
-        raise ValueError('Thumbnail hook must be 2-4 short words')
+    if not 2 <= len(words) <= 5 or len(text) > 30 or not text.endswith('?'):
+        raise ValueError('Thumbnail hook must be a short historical question')
     with Image.open(source) as original:
         image = ImageOps.fit(original.convert('RGB'), (1280, 720), method=Image.Resampling.LANCZOS)
     # Darken only the text side; preserve the main historical subject on the right.
@@ -26,12 +26,23 @@ def render_thumbnail(source, text, target):
     image = Image.alpha_composite(image.convert('RGBA'), overlay)
     draw = ImageDraw.Draw(image)
     cream, gold = (250, 247, 235, 255), (255, 195, 87, 255)
-    draw.rounded_rectangle((60, 72, 236, 124), radius=9, fill=(230, 161, 55, 255))
-    draw.text((78, 82), 'HISTORY', font=_font(25), fill=(13, 24, 29, 255))
+    category_lower = category.casefold()
+    if 'egypt' in category_lower:
+        label = 'ANCIENT EGYPT'
+    elif 'islamic' in category_lower or 'famous people' in category_lower:
+        label = 'ISLAMIC HISTORY'
+    elif 'civilization' in category_lower:
+        label = 'ANCIENT WORLD'
+    else:
+        label = 'ARCHAEOLOGY'
+    label_font = _font(23)
+    label_width = draw.textbbox((0, 0), label, font=label_font)[2]
+    draw.rounded_rectangle((60, 72, 95+label_width, 124), radius=9, fill=(230, 161, 55, 255))
+    draw.text((78, 83), label, font=label_font, fill=(13, 24, 29, 255))
     # Short hooks use one or two lines with a fixed left edge and ample mobile-safe margins.
     lines = [' '.join(words)]
     if len(words) >= 3:
-        split = len(words)//2
+        split = (len(words)+1)//2
         lines = [' '.join(words[:split]), ' '.join(words[split:])]
     width = 540
     size = 110

@@ -11,7 +11,8 @@
     "sources": [
       "https://whc.unesco.org/en/list/86/"
     ],
-    "search_phrase": "Great Pyramid of Giza"
+    "search_phrase": "Great Pyramid of Giza",
+    "thumbnail_anchor": "limestone blocks"
   },
   {
     "id": "saqqara-step-pyramid",
@@ -24,7 +25,8 @@
     "sources": [
       "https://whc.unesco.org/en/list/86/"
     ],
-    "search_phrase": "Step Pyramid of Djoser"
+    "search_phrase": "Step Pyramid of Djoser",
+    "thumbnail_anchor": "Step Pyramid"
   },
   {
     "id": "goreme-underground",
@@ -37,7 +39,8 @@
     "sources": [
       "https://whc.unesco.org/en/list/357/"
     ],
-    "search_phrase": "Cappadocia Underground Cities"
+    "search_phrase": "Cappadocia Underground Cities",
+    "thumbnail_anchor": "rock-cut underground settlement"
   },
   {
     "id": "persian-qanat",
@@ -50,7 +53,8 @@
     "sources": [
       "https://whc.unesco.org/en/list/1506/"
     ],
-    "search_phrase": "Persian Qanat"
+    "search_phrase": "Persian Qanat",
+    "thumbnail_anchor": "underground water channel"
   },
   {
     "id": "petra-water",
@@ -63,7 +67,8 @@
     "sources": [
       "https://whc.unesco.org/en/list/326/"
     ],
-    "search_phrase": "Petra Water System"
+    "search_phrase": "Petra Water System",
+    "thumbnail_anchor": "rock-cut water channel"
   },
   {
     "id": "mohenjo-daro",
@@ -76,7 +81,8 @@
     "sources": [
       "https://whc.unesco.org/en/list/138/"
     ],
-    "search_phrase": "Mohenjo-daro"
+    "search_phrase": "Mohenjo-daro",
+    "thumbnail_anchor": "ancient street drains"
   },
   {
     "id": "pompeii",
@@ -89,7 +95,8 @@
     "sources": [
       "https://whc.unesco.org/en/list/829/"
     ],
-    "search_phrase": "Pompeii"
+    "search_phrase": "Pompeii",
+    "thumbnail_anchor": "buried Roman street"
   },
   {
     "id": "historic-cairo",
@@ -105,7 +112,8 @@
     "sources": [
       "https://whc.unesco.org/en/list/89/"
     ],
-    "search_phrase": "Historic Cairo"
+    "search_phrase": "Historic Cairo",
+    "thumbnail_anchor": "historic mosque gateway"
   },
   {
     "id": "samarra",
@@ -118,7 +126,8 @@
     "sources": [
       "https://whc.unesco.org/en/list/276/"
     ],
-    "search_phrase": "Samarra"
+    "search_phrase": "Samarra",
+    "thumbnail_anchor": "spiral minaret"
   },
   {
     "id": "ibn-battuta",
@@ -134,7 +143,8 @@
     "sources": [
       "https://www.loc.gov/item/2021666192/"
     ],
-    "search_phrase": "Ibn Battuta"
+    "search_phrase": "Ibn Battuta",
+    "thumbnail_anchor": "historical travel route map"
   },
   {
     "id": "ibn-sina",
@@ -147,6 +157,7 @@
     "sources": [
       "https://plato.stanford.edu/entries/ibn-sina/"
     ],
-    "search_phrase": "Ibn Sina"
+    "search_phrase": "Ibn Sina",
+    "thumbnail_anchor": "medieval medical manuscript"
   }
 ]

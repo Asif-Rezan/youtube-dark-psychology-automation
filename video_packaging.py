@@ -3,6 +3,8 @@ import json
 import re
 
 CLICKBAIT = re.compile(r'\b(?:shocking|unbelievable|exposed|proof|finally revealed|they hid|you won.t believe)\b', re.I)
+VAGUE_HOOK = re.compile(r'^(?:WHAT HAPPENED|THE HIDDEN TRUTH|WHAT IS THIS|WHAT\'S INSIDE)\?$', re.I)
+QUESTION_OPENERS = {'HOW', 'WHY', 'WHAT', 'WHO', 'WHERE'}
 
 
 def _plain(value):
@@ -22,7 +24,11 @@ def choose_package(story, topic, payload):
             continue
         if CLICKBAIT.search(title) or CLICKBAIT.search(text):
             continue
-        if not 2 <= len(text.split()) <= 4 or len(text) > 26 or not 25 <= len(prompt) <= 260:
+        hook_words = text.rstrip('?').split()
+        if (not text.endswith('?') or not 2 <= len(hook_words) <= 5 or len(text) > 30
+                or hook_words[0].upper() not in QUESTION_OPENERS or VAGUE_HOOK.fullmatch(text)):
+            continue
+        if not 25 <= len(prompt) <= 300 or topic['thumbnail_anchor'].casefold() not in prompt.casefold():
             continue
         if text.casefold() in title.casefold():
             continue
@@ -31,7 +37,8 @@ def choose_package(story, topic, payload):
         score = 5 if title.casefold().startswith(keyword.casefold()) else 0
         score += 2 if 45 <= len(title) <= 65 else 0
         score += 1 if '?' in title else 0
-        score += 1 if len(text.split()) <= 3 else 0
+        score += 2 if len(hook_words) <= 4 else 0
+        score += 1 if any(word in text.casefold() for word in topic['thumbnail_anchor'].casefold().split()) else 0
         valid.append((score, {'title': title, 'thumbnail_text': text, 'thumbnail_prompt': prompt}))
     if not valid:
         raise ValueError('No accurate, readable YouTube title and thumbnail pair')
@@ -94,11 +101,17 @@ Return three DISTINCT title-thumbnail pairs (option_a, option_b, option_c).
 Each title: 35-75 characters, put the exact search subject phrase in the first 52 characters,
 accurately promise a specific question or evidence in this episode, use normal capitalization.
 Avoid generic "mystery revealed" wording, sensational certainty, unsupported claims and clickbait.
-Thumbnail text: 2-4 short words, maximum 26 characters, a visual hook that complements the
-corresponding title without repeating a phrase from it. It must remain legible on a phone.
-Thumbnail prompt: 25-260 characters, one historically appropriate focal subject on the RIGHT,
-clear dark space on the LEFT for text, rich contrast, no embedded letters, labels or logos.
-Do not depict disputed hypotheses as established fact. No wizard or fantasy imagery.
+Thumbnail text: a SPECIFIC unresolved question with a curiosity gap, 2-5 short words,
+maximum 30 characters, ending in ?. Start with HOW, WHY, WHAT, WHO or WHERE.
+The question must be answerable or honestly investigated in this episode. Avoid vague
+questions such as WHAT HAPPENED? or false suggestions of hidden chambers or cover-ups.
+Complement the title without repeating its phrasing. It must be legible on a phone.
+Thumbnail's documented visual anchor: {topic['thumbnail_anchor']}.
+Thumbnail prompt: 25-300 characters; include that exact visual-anchor phrase. Show this
+real historical detail prominently on the RIGHT, with one highlighted feature and
+surrounding shadow to make the viewer wonder about it. Leave clear dark space on the LEFT
+for the question. Use dramatic but plausible light, no embedded letters, labels, arrows
+or logos. Do not depict disputed hypotheses as established fact. No fantasy imagery.
 Description intro: 80-400 characters, put the exact subject phrase naturally in the FIRST sentence
 and state what the viewer will learn. Description details: 80-800 characters, unique to this episode,
 explain the key evidence and remaining uncertainty. Do not invent historical claims.

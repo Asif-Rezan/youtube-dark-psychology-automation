@@ -9,17 +9,17 @@ from thumbnail_design import render_thumbnail
 class PackagingTests(unittest.TestCase):
     def setUp(self):
         self.topic = {'search_phrase': 'Great Pyramid of Giza', 'category': 'Ancient Egypt',
-                      'sources': ['https://whc.unesco.org/en/list/86/']}
+                      'sources': ['https://whc.unesco.org/en/list/86/'], 'thumbnail_anchor': 'limestone blocks'}
         self.story = {'title': 'Draft', 'scenes': [{'summary': 'Limestone blocks remain'}]}
         self.payload = {
             'option_a': {'title': 'Great Pyramid of Giza: What the Stonework Tells Us',
-                         'thumbnail_text': 'STONE CLUES',
-                         'thumbnail_prompt': 'Ancient Egyptian pyramid stonework on the right, natural desert light and open dark space on the left, no written letters.'},
+                         'thumbnail_text': 'HOW WAS IT BUILT?',
+                         'thumbnail_prompt': 'Ancient Egyptian limestone blocks on the right, one sunlit construction detail and open dark space on the left, no written letters.'},
             'option_b': {'title': 'The Shocking Great Pyramid of Giza Secret Exposed',
-                         'thumbnail_text': 'SECRET EXPOSED',
-                         'thumbnail_prompt': 'Pyramid stonework fills the right side in natural light, with empty dark space on the left, no text.'},
+                         'thumbnail_text': 'WHAT WAS HIDDEN?',
+                         'thumbnail_prompt': 'Limestone blocks fill the right side in natural light, with empty dark space on the left, no text.'},
             'option_c': {'title': 'Great Pyramid of Giza and the Questions Its Stones Raise',
-                         'thumbnail_text': 'ANCIENT EVIDENCE',
+                         'thumbnail_text': 'WHY THESE STONES?',
                          'thumbnail_prompt': 'Limestone blocks and the Great Pyramid appear at right, dark open desert foreground at left, no letters.'},
             'description_intro': 'The Great Pyramid of Giza still raises questions about ancient Egyptian building. This documentary examines its surviving stonework.',
             'description_details': 'We follow the visible remains, the larger Memphis necropolis and the limits of the surviving evidence. Where the record is uncertain, the narration says so.',
@@ -41,11 +41,17 @@ class PackagingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'No accurate'):
             choose_package(self.story, self.topic, self.payload)
 
+    def test_rejects_vague_or_unanchored_thumbnail_question(self):
+        self.payload['option_a']['thumbnail_text'] = 'WHAT HAPPENED?'
+        self.payload['option_c']['thumbnail_prompt'] = 'A generic desert panorama with a vague object on the right and dark space on the left.'
+        with self.assertRaisesRegex(ValueError, 'No accurate'):
+            choose_package(self.story, self.topic, self.payload)
+
     def test_thumbnail_is_wide_readable_and_small_enough(self):
         with tempfile.TemporaryDirectory() as temp:
             source, target = Path(temp)/'source.png', Path(temp)/'thumbnail.jpg'
             Image.new('RGB', (1024, 576), (194, 138, 69)).save(source)
-            render_thumbnail(source, 'STONE CLUES', target)
+            render_thumbnail(source, 'HOW WAS IT BUILT?', target, 'Ancient Egypt and pyramids')
             with Image.open(target) as image:
                 self.assertEqual(image.size, (1280, 720))
                 self.assertLess(sum(image.getpixel((80, 590))), sum(image.getpixel((1200, 590))))

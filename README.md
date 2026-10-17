@@ -6,9 +6,9 @@ Topics rotate through Ancient Egypt and pyramids; archaeology and underground st
 
 ## YouTube title, description and thumbnail
 
-After the historical script is written, a separate packaging step drafts three accurate title and thumbnail pairs. It requires the topic's search phrase near the start of a concise title, rejects sensational wording, and selects a complementary 2–4 word thumbnail hook. The unique description states the subject in its first sentence, explains the evidence, links the episode's sources and labels reconstructions. Tags are limited to a small set of relevant search variants; they are a secondary discovery signal. Uploads use YouTube's Education category.
+After the historical script is written, a separate packaging step drafts three accurate title and thumbnail pairs. It requires the topic's search phrase near the start of a concise title, rejects sensational wording, and selects a complementary 2–5 word question that creates a specific curiosity gap. The question must connect to a documented visual feature and be addressed in the episode. The unique description states the subject in its first sentence, explains the evidence, links the episode's sources and labels reconstructions. Tags are limited to a small set of relevant search variants; they are a secondary discovery signal. Uploads use YouTube's Education category.
 
-The thumbnail image prompt reserves the left side for large text and puts one historical focal subject on the right. A high-contrast 1280×720 layout is added in code, with no text bar covering the bottom of the scene. These rules improve clarity but cannot predict CTR; review private uploads and compare titles and thumbnails against actual YouTube Analytics before publication.
+The thumbnail image prompt puts one source-backed historical detail on the right, partly in dramatic but plausible light, and reserves the left side for a large question. A high-contrast 1280×720 layout is added in code, with no text bar covering the bottom of the scene. These rules improve clarity but cannot predict CTR; review private uploads and compare titles and thumbnails against actual YouTube Analytics before publication.
 
 ## Historical illustrations
 

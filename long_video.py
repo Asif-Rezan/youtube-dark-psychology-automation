@@ -446,7 +446,7 @@ def finish(root=ROOT):
     os.environ['IMAGE_NEGATIVE_PROMPT'] = ''
     os.environ['IMAGE_SEED'] = '9931'
     w.make_image(story['thumbnail_prompt'], root/'thumbnail-source.png')
-    render_thumbnail(root/'thumbnail-source.png', story['thumbnail_text'], root/'thumbnail.jpg')
+    render_thumbnail(root/'thumbnail-source.png', story['thumbnail_text'], root/'thumbnail.jpg', story.get('category', 'History'))
     scene_reports = [json.loads((root/f"shot-{s['index']:03}.qa.json").read_text()) for s in plan['shots']]
     advisory_shots = validate_scene_reports(plan, scene_reports)
     print(json.dumps({'visual_quality_advisory_count': len(advisory_shots), 'shot_indices': advisory_shots}), flush=True)
