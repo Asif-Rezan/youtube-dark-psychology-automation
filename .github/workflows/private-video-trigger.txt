@@ -19,3 +19,5 @@ Fresh historical documentary requested after packaging fallback and five-plus-fi
 Retry video generation with provider-aware Groq cooldown handling: 2026-10-17.
 
 New video requested with verified immediate Gemini fallback: 2026-10-18 Asia/Dhaka.
+
+Restart video generation after Gemini temporary-server recovery fix: 2026-10-18 Asia/Dhaka.
