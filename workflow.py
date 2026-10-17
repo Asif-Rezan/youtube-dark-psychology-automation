@@ -65,54 +65,65 @@ def validate_story(data):
     return data
 
 
-def groq_retry_delay(response, attempt):
-    """Honor the provider's Retry-After; use exponential delay if absent."""
-    import math
-    from email.utils import parsedate_to_datetime
-    value = response.headers.get('retry-after')
+_text_provider = 'groq'
+
+
+def request_gemini(payload):
+    """Use Google's OpenAI-compatible structured text endpoint."""
+    import requests
+    key = os.getenv('GEMINI_API_KEY')
+    if not key:
+        raise RuntimeError('Groq failed; GEMINI_API_KEY is required for immediate fallback')
+    candidate = dict(payload, model=os.getenv('GEMINI_MODEL', 'gemini-2.5-flash'))
+    # A larger output allowance leaves room for Gemini reasoning and the JSON.
+    candidate['max_completion_tokens'] = max(8192, payload.get('max_completion_tokens', 8192))
     try:
-        delay = float(value)
-    except (TypeError, ValueError):
-        try:
-            delay = parsedate_to_datetime(value).timestamp() - time.time()
-        except (TypeError, ValueError, OverflowError):
-            delay = 60 * 2 ** attempt
-    return max(1, math.ceil(delay) + 1) if math.isfinite(delay) else 60 * 2 ** attempt
+        response = requests.post('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+            headers={'Authorization': 'Bearer ' + key}, json=candidate, timeout=180)
+    except requests.RequestException:
+        raise RuntimeError('Gemini fallback transport failed') from None
+    if not response.ok:
+        raise RuntimeError(f'Gemini fallback failed with HTTP {response.status_code}')
+    try:
+        result = response.json()
+        choice = result['choices'][0]
+        if choice.get('finish_reason') != 'stop' or not choice['message'].get('content'):
+            raise ValueError('Incomplete or blocked Gemini response')
+        json.loads(choice['message']['content'])
+    except (ValueError, KeyError, IndexError, TypeError):
+        raise RuntimeError('Gemini fallback returned incomplete or invalid JSON') from None
+    print(json.dumps({'check': 'Gemini fallback', 'passed': True}), flush=True)
+    return result
 
 
 def request_groq(endpoint, payload, binary=False):
+    """Try Groq once; immediately switch text generation to Gemini on failure."""
+    global _text_provider
     import requests
-    # Retry only explicit rate-limit rejections and one invalid-JSON response.
-    waited, json_retries = 0, 0
-    for attempt in range(8):
+    text_request = endpoint == 'chat/completions' and not binary
+    if text_request and (_text_provider == 'gemini' or not os.getenv('GROQ_API_KEY')):
+        return request_gemini(payload)
+    try:
         response = requests.post('https://api.groq.com/openai/v1/' + endpoint,
             headers={'Authorization': 'Bearer ' + required('GROQ_API_KEY')}, json=payload, timeout=180)
         if response.ok:
-            return response.content if binary else response.json()
-        try:
-            error_code = response.json().get('error', {}).get('code')
-        except ValueError:
-            error_code = None
-        print(json.dumps({'check': 'Groq generation', 'http_status': response.status_code,
-            'api_error_code': error_code, 'attempt': attempt+1}), flush=True)
-        delay = None
-        if response.status_code == 429:
-            delay = groq_retry_delay(response, attempt)
-        elif response.status_code == 400 and error_code == 'json_validate_failed' and json_retries == 0:
-            delay, json_retries = 60, 1
-        if delay is None:
-            raise RuntimeError(f'Groq request failed with HTTP {response.status_code}; code={error_code}')
-        if attempt == 7 or waited + delay > 900:
-            raise RuntimeError(f'Groq retry budget exhausted with HTTP {response.status_code}; '
-                               f'code={error_code}; retry_after_seconds={delay}; try again after the provider limit resets')
-        print(json.dumps({'check': 'Groq cooldown', 'seconds': delay,
-                          'attempt': attempt+1}), flush=True)
-        # Short sleeps allow progress output while honoring the full server delay.
-        remaining = delay
-        while remaining:
-            time.sleep(min(remaining, 60))
-            remaining -= min(remaining, 60)
-        waited += delay
+            if binary:
+                return response.content
+            result = response.json()
+            choice = result['choices'][0]
+            if choice.get('finish_reason') != 'stop' or not choice['message'].get('content'):
+                raise ValueError('Incomplete Groq response')
+            json.loads(choice['message']['content'])
+            return result
+        reason = 'HTTP ' + str(response.status_code)
+    except (requests.RequestException, ValueError, KeyError, IndexError, TypeError):
+        reason = 'transport or invalid response'
+    if text_request:
+        print(json.dumps({'check': 'Text provider fallback', 'from': 'groq',
+                          'to': 'gemini', 'reason': reason, 'wait_seconds': 0}), flush=True)
+        _text_provider = 'gemini'
+        return request_gemini(payload)
+    raise RuntimeError(f'Groq audio request failed: {reason}; text fallback does not support audio')
 
 
 def make_story(day, previous):
