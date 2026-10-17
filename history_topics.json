@@ -10,7 +10,8 @@
     ],
     "sources": [
       "https://whc.unesco.org/en/list/86/"
-    ]
+    ],
+    "search_phrase": "Great Pyramid of Giza"
   },
   {
     "id": "saqqara-step-pyramid",
@@ -22,7 +23,8 @@
     ],
     "sources": [
       "https://whc.unesco.org/en/list/86/"
-    ]
+    ],
+    "search_phrase": "Step Pyramid of Djoser"
   },
   {
     "id": "goreme-underground",
@@ -34,7 +36,8 @@
     ],
     "sources": [
       "https://whc.unesco.org/en/list/357/"
-    ]
+    ],
+    "search_phrase": "Cappadocia Underground Cities"
   },
   {
     "id": "persian-qanat",
@@ -46,7 +49,8 @@
     ],
     "sources": [
       "https://whc.unesco.org/en/list/1506/"
-    ]
+    ],
+    "search_phrase": "Persian Qanat"
   },
   {
     "id": "petra-water",
@@ -58,7 +62,8 @@
     ],
     "sources": [
       "https://whc.unesco.org/en/list/326/"
-    ]
+    ],
+    "search_phrase": "Petra Water System"
   },
   {
     "id": "mohenjo-daro",
@@ -70,7 +75,8 @@
     ],
     "sources": [
       "https://whc.unesco.org/en/list/138/"
-    ]
+    ],
+    "search_phrase": "Mohenjo-daro"
   },
   {
     "id": "pompeii",
@@ -82,7 +88,8 @@
     ],
     "sources": [
       "https://whc.unesco.org/en/list/829/"
-    ]
+    ],
+    "search_phrase": "Pompeii"
   },
   {
     "id": "historic-cairo",
@@ -97,7 +104,8 @@
     ],
     "sources": [
       "https://whc.unesco.org/en/list/89/"
-    ]
+    ],
+    "search_phrase": "Historic Cairo"
   },
   {
     "id": "samarra",
@@ -109,7 +117,8 @@
     ],
     "sources": [
       "https://whc.unesco.org/en/list/276/"
-    ]
+    ],
+    "search_phrase": "Samarra"
   },
   {
     "id": "ibn-battuta",
@@ -124,7 +133,8 @@
     ],
     "sources": [
       "https://www.loc.gov/item/2021666192/"
-    ]
+    ],
+    "search_phrase": "Ibn Battuta"
   },
   {
     "id": "ibn-sina",
@@ -136,6 +146,7 @@
     ],
     "sources": [
       "https://plato.stanford.edu/entries/ibn-sina/"
-    ]
+    ],
+    "search_phrase": "Ibn Sina"
   }
 ]

@@ -423,8 +423,8 @@ def validate_scene_reports(plan, scene_reports):
 
 
 def finish(root=ROOT):
-    from PIL import Image, ImageDraw, ImageFont, ImageOps
     from music_cpu import generate
+    from thumbnail_design import render_thumbnail
     plan = json.loads((root/'plan.json').read_text())
     clips = [root/f"shot-{s['index']:03}.mp4" for s in plan['shots']]
     if not all(p.exists() for p in clips):
@@ -446,17 +446,7 @@ def finish(root=ROOT):
     os.environ['IMAGE_NEGATIVE_PROMPT'] = ''
     os.environ['IMAGE_SEED'] = '9931'
     w.make_image(story['thumbnail_prompt'], root/'thumbnail-source.png')
-    image = ImageOps.fit(Image.open(root/'thumbnail-source.png').convert('RGB'), (1280, 720))
-    draw = ImageDraw.Draw(image)
-    font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 75)
-    draw.rectangle((0, 510, 1280, 720), fill=(17, 37, 37))
-    text = story['thumbnail_text'].upper()
-    while draw.textbbox((0, 0), text, font=font)[2] > 1170 and font.size > 24:
-        font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', font.size-2)
-    draw.text((55, 555), text, font=font, fill=(255, 244, 212))
-    image.save(root/'thumbnail.jpg', quality=92)
-    if (root/'thumbnail.jpg').stat().st_size >= 2*1024*1024:
-        raise RuntimeError('Thumbnail exceeds size limit')
+    render_thumbnail(root/'thumbnail-source.png', story['thumbnail_text'], root/'thumbnail.jpg')
     scene_reports = [json.loads((root/f"shot-{s['index']:03}.qa.json").read_text()) for s in plan['shots']]
     advisory_shots = validate_scene_reports(plan, scene_reports)
     print(json.dumps({'visual_quality_advisory_count': len(advisory_shots), 'shot_indices': advisory_shots}), flush=True)

@@ -4,6 +4,12 @@ This repository makes one original English historical documentary video per day 
 
 Topics rotate through Ancient Egypt and pyramids; archaeology and underground structures; ancient civilizations; Islamic history; and people in Islamic intellectual and travel history. The curated [topic and source list](history_topics.json) supplies factual anchors for each episode. The planner avoids topics from the last ten videos and rejects highly similar recent titles and outlines. Scripts must distinguish evidence from interpretation, avoid invented dialogue and unsupported claims, and include source links in descriptions. Generated scenes are labeled as artistic historical reconstructions.
 
+## YouTube title, description and thumbnail
+
+After the historical script is written, a separate packaging step drafts three accurate title and thumbnail pairs. It requires the topic's search phrase near the start of a concise title, rejects sensational wording, and selects a complementary 2–4 word thumbnail hook. The unique description states the subject in its first sentence, explains the evidence, links the episode's sources and labels reconstructions. Tags are limited to a small set of relevant search variants; they are a secondary discovery signal. Uploads use YouTube's Education category.
+
+The thumbnail image prompt reserves the left side for large text and puts one historical focal subject on the right. A high-contrast 1280×720 layout is added in code, with no text bar covering the bottom of the scene. These rules improve clarity but cannot predict CTR; review private uploads and compare titles and thumbnails against actual YouTube Analytics before publication.
+
 ## Historical illustrations
 
 Images use `segmind/SSD-1B` on CPU at **1024×576**, 32 inference steps and guidance scale 9. A new image appears every **seven seconds**. Each image prompt follows the spoken historical scene, showing relevant sites, objects, architecture or people with period-appropriate details. No wizard reference image is loaded in the video or thumbnail path. The CPU image check produces a historical test image for visual review. AI reconstructions may still contain inaccuracies; inspect the private video before public release.

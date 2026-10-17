@@ -179,6 +179,8 @@ def make_story(day, previous):
         prior = parts[-1]
     outline['scenes'][-1]['narration'] += (' Which historical question should we investigate next? '
         'Leave a comment, like this video, and subscribe for more history documentaries.')
+    from video_packaging import request_package
+    request_package(outline, topic, ask)
     from long_video import validate_engagement
     validate_engagement(outline)
     return validate_story(outline)
@@ -627,7 +629,7 @@ def upload_private(video, thumbnail, story, state, store, key, music_credit=''):
     state['phase'] = 'upload_started'
     store.save(key, state)
     request = client.videos().insert(part='snippet,status', notifySubscribers=False,
-        body={'snippet': {'title': story['title'], 'description': state['upload_description'], 'tags': story['tags'], 'categoryId': '22',
+        body={'snippet': {'title': story['title'], 'description': state['upload_description'], 'tags': story['tags'], 'categoryId': '27',
              'defaultLanguage': 'en'}, 'status': {'privacyStatus': 'private', 'selfDeclaredMadeForKids': False}},
         media_body=MediaFileUpload(str(video), chunksize=8*1024*1024, resumable=True))
     result = None
