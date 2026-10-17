@@ -19,6 +19,7 @@ WIZARD_DESIGN = ('elderly wizard with a long silver beard, weathered face, dark 
 FANTASY_STYLE = ('cinematic dark fantasy, realistic painterly detail, textured robes and skin, '
                  'atmospheric mist, dramatic volumetric lighting, deep blue-gray shadows, '
                  'warm amber highlights, landscape composition, no text or watermark')
+WIZARD_REFERENCE = Path(__file__).resolve().parent/'assets/wizard-reference-wide.jpg'
 
 
 def run_id():
@@ -362,8 +363,7 @@ def generate_shard(shard, root=ROOT, count=SHARDS):
         image, clip = root/f'shot-{index:03}.png', root/f'shot-{index:03}.mp4'
         check = root/f'shot-{index:03}.qa.json'
         os.environ['IMAGE_NEGATIVE_PROMPT'] = shot.get('negative_prompt', '')
-        reference = (Path(__file__).resolve().parent/'assets/wizard-reference.jpg'
-                     if 'Recurring wizard:' in shot['prompt'] else None)
+        reference = WIZARD_REFERENCE if 'Recurring wizard:' in shot['prompt'] else None
         for attempt in range(3):
             os.environ['IMAGE_SEED'] = str(shot['seed']+attempt*10000)
             if not image.exists():
@@ -467,7 +467,7 @@ def finish(root=ROOT):
     os.environ['IMAGE_NEGATIVE_PROMPT'] = ''
     os.environ['IMAGE_SEED'] = '9931'
     w.make_image(story['thumbnail_prompt'], root/'thumbnail-source.png',
-        reference_image=Path(__file__).resolve().parent/'assets/wizard-reference.jpg')
+        reference_image=WIZARD_REFERENCE)
     image = ImageOps.fit(Image.open(root/'thumbnail-source.png').convert('RGB'), (1280, 720))
     draw = ImageDraw.Draw(image)
     font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 75)

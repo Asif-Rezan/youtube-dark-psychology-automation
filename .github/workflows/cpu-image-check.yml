@@ -29,7 +29,7 @@ jobs:
         env:
           CPU_IMAGE_STEPS: '10'
         run: |
-          python image_cpu.py --prompt 'Cinematic dark fantasy. Elderly silver-bearded wizard in an embroidered brown robe raises a staff with a glowing amber orb in a misty forest. Realistic painterly texture, dramatic light, deep shadows.' --reference assets/wizard-reference.jpg --output output/cpu-check.png
+          python image_cpu.py --prompt 'Cinematic dark fantasy. Elderly silver-bearded wizard in an embroidered brown robe raises a staff with a glowing amber orb in a misty forest. Realistic painterly texture, dramatic light, deep shadows.' --reference assets/wizard-reference-wide.jpg --output output/cpu-check.png
           python - <<'PY'
           from PIL import Image
           from scene_check import check_scene

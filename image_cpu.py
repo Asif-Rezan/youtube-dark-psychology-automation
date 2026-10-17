@@ -81,7 +81,7 @@ def generate(prompt, path, reference_image=None):
         if _reference_pipeline is None:
             _reference_pipeline = AutoPipelineForImage2Image.from_pipe(_pipeline)
         pipeline = _reference_pipeline
-        extra = {'image': reference_canvas(reference_image, width, height), 'strength': 0.72}
+        extra = {'image': reference_canvas(reference_image, width, height), 'strength': 0.58}
     start = time.monotonic()
     seed = int(os.getenv('IMAGE_SEED', '42'))
     image = None

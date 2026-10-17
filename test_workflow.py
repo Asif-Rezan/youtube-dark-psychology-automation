@@ -131,13 +131,13 @@ class Checks(unittest.TestCase):
                   patch('scene_check.check_scene', return_value={'passed': True}),
                   patch('long_video.picture_clip', side_effect=lambda image, seconds, target: target.write_bytes(b'clip'))):
                 generate_shard(0, root, count=1)
-            self.assertEqual(references[0].name, 'wizard-reference.jpg')
+            self.assertEqual(references[0].name, 'wizard-reference-wide.jpg')
             self.assertTrue(references[0].is_file())
             self.assertIsNone(references[1])
 
     def test_reference_canvas_keeps_requested_resolution(self):
         from image_cpu import reference_canvas
-        source = Path(__file__).resolve().parent/'assets/wizard-reference.jpg'
+        source = Path(__file__).resolve().parent/'assets/wizard-reference-wide.jpg'
         canvas = reference_canvas(source, 1024, 576)
         self.assertEqual(canvas.size, (1024, 576))
 
@@ -145,7 +145,7 @@ class Checks(unittest.TestCase):
         import sys
         import types
         import image_cpu
-        source = Path(__file__).resolve().parent/'assets/wizard-reference.jpg'
+        source = Path(__file__).resolve().parent/'assets/wizard-reference-wide.jpg'
         calls = []
         class FakeGenerator:
             def __init__(self, device):
@@ -170,7 +170,7 @@ class Checks(unittest.TestCase):
                       patch.dict('os.environ', {'CPU_IMAGE_WIDTH': '1024', 'CPU_IMAGE_HEIGHT': '576', 'CPU_IMAGE_STEPS': '32'})):
                     image_cpu.generate('elderly wizard in a forest', target, reference_image=source)
                 self.assertEqual(calls[0]['image'].size, (1024, 576))
-                self.assertEqual(calls[0]['strength'], 0.72)
+                self.assertEqual(calls[0]['strength'], 0.58)
                 with Image.open(target) as result:
                     self.assertEqual(result.size, (1024, 576))
         finally:
