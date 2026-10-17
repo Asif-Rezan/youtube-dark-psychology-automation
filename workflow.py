@@ -65,26 +65,54 @@ def validate_story(data):
     return data
 
 
+def groq_retry_delay(response, attempt):
+    """Honor the provider's Retry-After; use exponential delay if absent."""
+    import math
+    from email.utils import parsedate_to_datetime
+    value = response.headers.get('retry-after')
+    try:
+        delay = float(value)
+    except (TypeError, ValueError):
+        try:
+            delay = parsedate_to_datetime(value).timestamp() - time.time()
+        except (TypeError, ValueError, OverflowError):
+            delay = 60 * 2 ** attempt
+    return max(1, math.ceil(delay) + 1) if math.isfinite(delay) else 60 * 2 ** attempt
+
+
 def request_groq(endpoint, payload, binary=False):
     import requests
-    # Generation calls are not automatically repeated: repeats can consume credits.
-    for attempt in range(2):
+    # Retry only explicit rate-limit rejections and one invalid-JSON response.
+    waited, json_retries = 0, 0
+    for attempt in range(8):
         response = requests.post('https://api.groq.com/openai/v1/' + endpoint,
             headers={'Authorization': 'Bearer ' + required('GROQ_API_KEY')}, json=payload, timeout=180)
         if response.ok:
-            break
+            return response.content if binary else response.json()
         try:
             error_code = response.json().get('error', {}).get('code')
         except ValueError:
             error_code = None
         print(json.dumps({'check': 'Groq generation', 'http_status': response.status_code,
             'api_error_code': error_code, 'attempt': attempt+1}), flush=True)
-        if attempt == 0 and (response.status_code == 429 or
-                (response.status_code == 400 and error_code == 'json_validate_failed')):
-            time.sleep(60)
-            continue
-        raise RuntimeError(f'Groq request failed with HTTP {response.status_code}; code={error_code}')
-    return response.content if binary else response.json()
+        delay = None
+        if response.status_code == 429:
+            delay = groq_retry_delay(response, attempt)
+        elif response.status_code == 400 and error_code == 'json_validate_failed' and json_retries == 0:
+            delay, json_retries = 60, 1
+        if delay is None:
+            raise RuntimeError(f'Groq request failed with HTTP {response.status_code}; code={error_code}')
+        if attempt == 7 or waited + delay > 900:
+            raise RuntimeError(f'Groq retry budget exhausted with HTTP {response.status_code}; '
+                               f'code={error_code}; retry_after_seconds={delay}; try again after the provider limit resets')
+        print(json.dumps({'check': 'Groq cooldown', 'seconds': delay,
+                          'attempt': attempt+1}), flush=True)
+        # Short sleeps allow progress output while honoring the full server delay.
+        remaining = delay
+        while remaining:
+            time.sleep(min(remaining, 60))
+            remaining -= min(remaining, 60)
+        waited += delay
 
 
 def make_story(day, previous):
