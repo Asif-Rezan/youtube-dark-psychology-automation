@@ -30,6 +30,9 @@ def choose_package(story, topic, payload):
             continue
         if not 25 <= len(prompt) <= 220 or topic['thumbnail_anchor'].casefold() not in prompt.casefold():
             continue
+        if any(re.search(r'\b'+re.escape(term)+r'\b', prompt, re.I)
+               for term in topic.get('thumbnail_forbidden_terms', [])):
+            continue
         if text.casefold() in title.casefold():
             continue
         if re.search(r'\b(?:wizard|magic|fantasy)\b', prompt, re.I):
@@ -112,6 +115,7 @@ questions such as WHAT HAPPENED? or false suggestions of hidden chambers or cove
 Complement the title without repeating its phrasing. It must be legible on a phone.
 Thumbnail's documented visual anchor: {topic['thumbnail_anchor']}.
 The image must tell this source-backed visual story: {topic['thumbnail_visual_story']}.
+Do not mention or depict these elements in thumbnail artwork: {json.dumps(topic.get('thumbnail_forbidden_terms', []))}.
 Thumbnail prompt: 25-220 characters, include the exact visual-anchor phrase, and add
 a specific scene composition that builds on the visual story. Make the historical scale,
 entrance, path or object relationship the source of curiosity even with no words visible.

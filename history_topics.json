@@ -13,7 +13,10 @@
     ],
     "search_phrase": "Great Pyramid of Giza",
     "thumbnail_anchor": "limestone blocks",
-    "thumbnail_visual_story": "Close view of colossal fitted limestone blocks on the right dwarfing a small human figure; Giza pyramid only a distant silhouette"
+    "thumbnail_visual_story": "A narrow dark seam between colossal fitted limestone blocks dominates the right foreground, with one small human figure for scale",
+    "thumbnail_forbidden_terms": [
+      "pyramid"
+    ]
   },
   {
     "id": "saqqara-step-pyramid",

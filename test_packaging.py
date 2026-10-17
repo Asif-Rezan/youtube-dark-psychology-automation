@@ -10,7 +10,8 @@ class PackagingTests(unittest.TestCase):
     def setUp(self):
         self.topic = {'search_phrase': 'Great Pyramid of Giza', 'category': 'Ancient Egypt',
                       'sources': ['https://whc.unesco.org/en/list/86/'], 'thumbnail_anchor': 'limestone blocks',
-                      'thumbnail_visual_story': 'Close view of colossal fitted limestone blocks on the right dwarfing a small human figure; Giza pyramid only a distant silhouette'}
+                      'thumbnail_visual_story': 'A narrow dark seam between colossal fitted limestone blocks dominates the right foreground, with one small human figure for scale',
+                      'thumbnail_forbidden_terms': ['pyramid']}
         self.story = {'title': 'Draft', 'scenes': [{'summary': 'Limestone blocks remain'}]}
         self.payload = {
             'option_a': {'title': 'Great Pyramid of Giza: What the Stonework Tells Us',
@@ -21,7 +22,7 @@ class PackagingTests(unittest.TestCase):
                          'thumbnail_prompt': 'Limestone blocks fill the right side in natural light, with empty dark space on the left, no text.'},
             'option_c': {'title': 'Great Pyramid of Giza and the Questions Its Stones Raise',
                          'thumbnail_text': 'WHY THESE STONES?',
-                         'thumbnail_prompt': 'Limestone blocks and the Great Pyramid appear at right, dark open desert foreground at left, no letters.'},
+                         'thumbnail_prompt': 'Limestone blocks and a deep stone seam appear at right, dark open desert foreground at left, no letters.'},
             'description_intro': 'The Great Pyramid of Giza still raises questions about ancient Egyptian building. This documentary examines its surviving stonework.',
             'description_details': 'We follow the visible remains, the larger Memphis necropolis and the limits of the surviving evidence. Where the record is uncertain, the narration says so.',
             'tags': ['Giza pyramid', 'Egyptian pyramids', 'unrelated trending topic']}
