@@ -295,7 +295,7 @@ def make_image(prompt, path):
     from huggingface_hub import InferenceClient
     image = InferenceClient(api_key=required('HF_TOKEN')).text_to_image(
         prompt=prompt + ', cinematic lighting, landscape composition, no text or watermarks',
-        model=required('IMAGE_MODEL'), width=1344, height=768)
+        model=required('IMAGE_MODEL'), width=1024, height=576)
     image.save(path)
 
 
@@ -713,7 +713,7 @@ def run(daily=False):
     root.mkdir(parents=True, exist_ok=True)
     store, key = Store(), f'runs/{run_id}/state.json'
     test_record = store.load('last-private-test.json', {}) if daily else {}
-    if daily and (not test_record.get('passed') or not test_record.get('remote_verification', {}).get('private_test_passed') or test_record.get('validation', {}).get('image_interval_seconds') != 5 or not test_record.get('validation', {}).get('storyboard_verified') or test_record.get('validation', {}).get('style') != 'cinematic-fantasy'):
+    if daily and (not test_record.get('passed') or not test_record.get('remote_verification', {}).get('private_test_passed') or test_record.get('validation', {}).get('image_interval_seconds') != 7 or not test_record.get('validation', {}).get('storyboard_verified') or test_record.get('validation', {}).get('style') != 'cinematic-fantasy'):
         raise RuntimeError('No fully verified private HD upload test is recorded')
     state = store.load(key, {})
     if state.get('phase') in ('upload_started', 'uploaded', 'complete', 'published', 'verified_private'):

@@ -111,15 +111,15 @@ class Checks(unittest.TestCase):
             self.assertFalse(qa['passed'])
             self.assertTrue(qa['advisory'])
 
-    def test_global_five_second_timeline_and_spoken_events(self):
+    def test_global_seven_second_timeline_and_spoken_events(self):
         from long_video import shot_plan
         story = {'scenes': [{'narration': 'She lifts a red suitcase.'},
                             {'narration': 'He repairs a broken clock.'}]}
         words = [[dict(word='suitcase', start=0, end=7.2)],
                  [dict(word='clock', start=0, end=8.3)]]
         plan = shot_plan(story, [7.2, 8.3], words)
-        self.assertEqual([s['start'] for s in plan['shots']], [0, 5, 10, 15])
-        self.assertEqual([s['duration'] for s in plan['shots']], [5, 5, 5, .5])
+        self.assertEqual([s['start'] for s in plan['shots']], [0, 7, 14])
+        self.assertEqual([s['duration'] for s in plan['shots']], [7, 7, 1.5])
         self.assertEqual(plan['shots'][0]['narration'], 'suitcase')
         self.assertEqual(plan['shots'][1]['narration'], 'suitcase clock')
         self.assertEqual(plan['shots'][1]['chapter'], 1)
@@ -179,15 +179,15 @@ class Checks(unittest.TestCase):
             self.assertIn('solo', meeting['negative_prompt'])
             self.assertNotEqual(letter['prompt'], meeting['prompt'])
 
-    def test_actual_five_second_image_change(self):
+    def test_actual_seven_second_image_change(self):
         from long_video import picture_clip
         import subprocess
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             for i, color in enumerate(((230, 20, 20), (20, 20, 230))):
                 Image.new('RGB', (640, 360), color).save(root/f'{i}.png')
-                picture_clip(root/f'{i}.png', 5, root/f'{i}.mp4')
-                self.assertAlmostEqual(w.duration(root/f'{i}.mp4'), 5, places=2)
+                picture_clip(root/f'{i}.png', 7, root/f'{i}.mp4')
+                self.assertAlmostEqual(w.duration(root/f'{i}.mp4'), 7, places=2)
             (root/'list.txt').write_text("file '0.mp4'\nfile '1.mp4'\n")
             w.shell('ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', str(root/'list.txt'),
                 '-c', 'copy', str(root/'joined.mp4'))
@@ -195,7 +195,7 @@ class Checks(unittest.TestCase):
                 return subprocess.check_output(['ffmpeg', '-v', 'error', '-ss', str(at),
                     '-i', str(root/'joined.mp4'), '-frames:v', '1', '-s', '1x1',
                     '-pix_fmt', 'rgb24', '-f', 'rawvideo', 'pipe:1'])
-            before, after = pixel(4.8), pixel(5.2)
+            before, after = pixel(6.8), pixel(7.2)
             self.assertGreater(before[0], before[2])
             self.assertGreater(after[2], after[0])
 
@@ -290,7 +290,7 @@ class Checks(unittest.TestCase):
         # Synthetic test fixtures only; this is not the requested AI story test.
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            Image.new('RGB', (1344,768), (25,40,60)).save(root/'image.png')
+            Image.new('RGB', (1024,576), (25,40,60)).save(root/'image.png')
             w.shell('ffmpeg','-y','-f','lavfi','-i','sine=frequency=440:duration=2',str(root/'audio.wav'))
             length = w.render_scene(root/'image.png',root/'audio.wav',root/'clip.mp4')
             self.assertAlmostEqual(length, 2, places=1)

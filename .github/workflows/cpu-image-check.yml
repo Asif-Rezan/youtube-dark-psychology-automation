@@ -34,7 +34,7 @@ jobs:
           from PIL import Image
           from scene_check import check_scene
           image = Image.open('output/cpu-check.png')
-          assert image.size == (1344, 768)
+          assert image.size == (1024, 576)
           assert image.convert('L').getextrema()[1] > 0
           scene = check_scene('output/cpu-check.png', {'focus': 'person', 'semantic_target': 'An elderly wizard raises a glowing amber orb on his staff while searching a misty forest'})
           print({'actual_image_size': image.size, 'scene_match': scene})

@@ -130,7 +130,7 @@ class CacheAndAlignmentTests(unittest.TestCase):
                 self.assertNotEqual(third['source_hash'], old_hash)
                 self.assertNotIn('storyboard_verified', third)
                 self.assertEqual(third['shots'][0]['start'], 0)
-                self.assertEqual(third['shots'][1]['start'], 5)
+                self.assertEqual(third['shots'][1]['start'], 7)
 
     def test_audio_and_transcript_hashes_invalidate_stale_chapter(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -168,7 +168,7 @@ class CacheAndAlignmentTests(unittest.TestCase):
             transcribe.assert_called_once()
             self.assertEqual(words[0]['word'], 'Maya')
             plan = lv.shot_plan(story, lengths, [words])
-            self.assertEqual(plan['image_interval_seconds'], 5)
+            self.assertEqual(plan['image_interval_seconds'], 7)
             self.assertEqual(plan['shots'][0]['narration'], 'Maya')
 
     def test_rebuild_and_checkpoint_reject_stale_story(self):
