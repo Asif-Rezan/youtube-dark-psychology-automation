@@ -31,6 +31,14 @@ def safer_prompt(prompt):
     return (prompt + ' Safe non-graphic historical reconstruction; fully clothed people, '
             'no violence or exposed bodies.')
 
+def recovery_prompt(prompt):
+    """Reframe the same setting and props as an unoccupied evidence scene."""
+    scene = re.sub(r'\b(?:people|person|man|woman|men|women|crowd|workers|soldiers|ruler|child|children)\b',
+                   'historical setting', prompt, flags=re.I)
+    return safer_prompt('Unoccupied historical site and artifacts, environmental documentary view. '
+                        + scene + ' Focus on architecture, tools and landscape; no people depicted.')
+
+
 # Previous image model, retained for easy restoration:
 # MODEL = 'Lykon/dreamshaper-8'
 # REVISION = 'a7e52b98680b1ba8ff7bce97c7f9f2e2e5337917'
@@ -65,19 +73,23 @@ def generate(prompt, path):
     start = time.monotonic()
     seed = int(os.getenv('IMAGE_SEED', '42'))
     image = None
-    for attempt in range(3):
-        # SSD-1B's SDXL output has no NSFW flag, so sanitize its input up front.
-        candidate = safer_prompt(prompt) if model == MODEL or attempt else prompt
+    initial_prompt = safer_prompt(prompt)
+    rewritten = recovery_prompt(prompt)
+    for attempt in range(10):
+        # Five seeds per composition; keep input sanitization and output checks.
+        candidate = initial_prompt if attempt < 5 else rewritten
+        if attempt == 5:
+            print('Five safety rejections; switching to an environmental reconstruction.', flush=True)
         result = pipeline(prompt=candidate, negative_prompt='anime, cartoon, watercolor, flat colors, line art, cel shading, blurry, low detail, poor quality, 3D render, CGI, extra arms, extra legs, deformed hands, duplicate person, text, letters, watermark, logo, ' + os.getenv('IMAGE_NEGATIVE_PROMPT', ''), width=width, height=height,
             num_inference_steps=steps, guidance_scale=9.0,
             generator=torch.Generator(device='cpu').manual_seed(seed + attempt * 10007))
         if any(getattr(result, 'nsfw_content_detected', None) or []):
-            print(f'Image safety check rejected attempt {attempt+1}; trying a safer scene.', flush=True)
+            print(f'Image safety check rejected attempt {attempt+1}/10.', flush=True)
             continue
         image = result.images[0]
         break
     if image is None:
-        raise ImageSafetyBlocked('Image blocked after three safe rendering attempts; preserve run for review')
+        raise ImageSafetyBlocked('Image blocked after five initial and five rewritten-prompt attempts; preserve run for review')
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     image.save(path)
     print(f'CPU image generated: {image.width}x{image.height}; {time.monotonic()-start:.1f}s', flush=True)
