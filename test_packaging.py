@@ -65,3 +65,22 @@ class PackagingTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class VisualPromptTests(unittest.TestCase):
+    def test_sanitization_preserves_visual_anchor_at_start(self):
+        from image_cpu import safer_prompt
+        scene = 'Close-up of fitted limestone blocks with a dark joint at Giza.'
+        prompt = safer_prompt(scene)
+        self.assertTrue(prompt.startswith(scene))
+        self.assertIn('fully clothed', prompt)
+        self.assertIn('no violence', prompt)
+
+    def test_giza_art_does_not_suggest_an_invented_chamber(self):
+        import json
+        topics = json.loads(Path('history_topics.json').read_text())
+        giza = next(t for t in topics if t['id'] == 'giza-pyramids')
+        visual = giza['thumbnail_visual_story'].casefold()
+        self.assertIn('limestone blocks', visual)
+        self.assertIn('joint', visual)
+        for invented in ['hidden chamber', 'statue', 'treasure', 'wizard']:
+            self.assertNotIn(invented, visual)

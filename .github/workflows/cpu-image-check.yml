@@ -5,6 +5,9 @@ on:
     paths:
       - image_cpu.py
       - requirements-cpu.txt
+      - video_packaging.py
+      - thumbnail_design.py
+      - history_topics.json
       - .github/workflows/cpu-image-check.yml
   workflow_dispatch:
 permissions:
@@ -27,22 +30,33 @@ jobs:
           pip install -r requirements.txt -r requirements-cpu.txt
       - name: Generate an image without API credentials
         env:
-          CPU_IMAGE_STEPS: '10'
+          IMAGE_SEED: '9931'
+          CPU_IMAGE_STEPS: '32'
         run: |
-          python image_cpu.py --prompt 'A narrow dark seam between colossal fitted limestone blocks dominates the right foreground, with one small human figure for scale. Historically grounded ancient Egyptian archaeological reconstruction, dramatic natural light, deep shadows, clear dark space on the left, no text.' --output output/cpu-check.png
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          from image_cpu import generate
+          topic = json.loads(Path('history_topics.json').read_text())[0]
+          prompt = topic['thumbnail_visual_story'] + '. Documentary photograph, natural side light, no text.'
+          Path('output').mkdir(exist_ok=True)
+          Path('output/thumbnail-prompt.txt').write_text(prompt)
+          generate(prompt, Path('output/cpu-check.png'))
+          PYCODE
           python - <<'PY'
           from PIL import Image
           from scene_check import check_scene
           image = Image.open('output/cpu-check.png')
           assert image.size == (1024, 576)
           assert image.convert('L').getextrema()[1] > 0
-          scene = check_scene('output/cpu-check.png', {'focus': 'object', 'semantic_target': 'Colossal limestone blocks and a narrow seam dwarf a small human figure'})
+          scene = check_scene('output/cpu-check.png', {'focus': 'object', 'semantic_target': 'Close-up of fitted limestone blocks with a narrow dark joint and visible stone texture'})
           print({'actual_image_size': image.size, 'scene_match': scene})
           from thumbnail_design import render_thumbnail
           render_thumbnail('output/cpu-check.png', 'HOW WAS IT BUILT?', 'output/thumbnail-check.jpg', 'Ancient Egypt and pyramids')
           assert Image.open('output/thumbnail-check.jpg').size == (1280, 720)
           if not scene['passed']:
               print('CLIP scene score is advisory; inspect the saved artwork before accepting it')
+          Image.open('output/thumbnail-check.jpg').resize((320,180)).save('output/thumbnail-mobile.jpg')
           PY
       - name: Save generated historical test image for visual review
         if: always()
@@ -52,5 +66,7 @@ jobs:
           path: |
             output/cpu-check.png
             output/thumbnail-check.jpg
+            output/thumbnail-mobile.jpg
+            output/thumbnail-prompt.txt
           retention-days: 1
           if-no-files-found: error

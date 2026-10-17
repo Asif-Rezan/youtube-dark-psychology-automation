@@ -44,8 +44,11 @@ def choose_package(story, topic, payload):
         score += 1 if any(word in text.casefold() for word in topic['thumbnail_anchor'].casefold().split()) else 0
         visual_story = topic['thumbnail_visual_story'].strip().rstrip('.')
         # Put the source-backed visual story first so diffusion's token limit preserves it.
+        # One concise composition, not several competing scene descriptions.
+        # Keep the anchor and its unresolved visual relationship ahead of style.
         artwork_prompt = f'{visual_story}. {prompt}'
-        artwork_prompt = ' '.join(artwork_prompt.split()[:55])
+        artwork_prompt = ' '.join(artwork_prompt.split()[:45])
+        artwork_prompt += '. Documentary photograph, natural side light, no text.'
         valid.append((score, {'title': title, 'thumbnail_text': text, 'thumbnail_prompt': artwork_prompt}))
     if not valid:
         raise ValueError('No accurate, readable YouTube title and thumbnail pair')

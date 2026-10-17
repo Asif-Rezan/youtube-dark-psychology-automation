@@ -29,8 +29,8 @@ def render_thumbnail(source, text, target, category='History'):
     # Darken only the text side; preserve the main historical subject on the right.
     overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
     stripe = ImageDraw.Draw(overlay)
-    for x in range(0, 820, 4):
-        opacity = round(225 * max(0, 1 - (x / 820) ** 1.9))
+    for x in range(0, 650, 4):
+        opacity = round(225 * max(0, 1 - (x / 650) ** 1.9))
         stripe.rectangle((x, 0, x+3, 720), fill=(4, 13, 20, opacity))
     image = Image.alpha_composite(image.convert('RGBA'), overlay)
     draw = ImageDraw.Draw(image)
@@ -53,8 +53,8 @@ def render_thumbnail(source, text, target, category='History'):
     if len(words) >= 3:
         split = (len(words)+1)//2
         lines = [' '.join(words[:split]), ' '.join(words[split:])]
-    width = 540
-    size = 110
+    width = 440
+    size = 96
     while size >= 56:
         font = _font(size)
         if all(draw.textbbox((0, 0), line, font=font, stroke_width=2)[2] <= width for line in lines):
@@ -62,7 +62,7 @@ def render_thumbnail(source, text, target, category='History'):
         size -= 4
     if size < 56:
         raise ValueError('Thumbnail hook cannot fit at readable size')
-    y = 298 if len(lines) == 1 else 240
+    y = 310 if len(lines) == 1 else 260
     for index, line in enumerate(lines):
         draw.text((61, y + index*(size+18)), line, font=font,
                   fill=cream if index == 0 else gold, stroke_width=3,

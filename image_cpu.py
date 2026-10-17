@@ -27,8 +27,9 @@ def safer_prompt(prompt):
     ]
     for pattern, replacement in replacements:
         prompt = re.sub(pattern, replacement, prompt, flags=re.I)
-    return ('Safe non-graphic, fully clothed historical documentary reconstruction; '
-            'show tension through facial expression and environment, no violence or exposed bodies. ' + prompt)
+    # Preserve the scene's visual anchor before the encoders' token limit.
+    return (prompt + ' Safe non-graphic historical reconstruction; fully clothed people, '
+            'no violence or exposed bodies.')
 
 # Previous image model, retained for easy restoration:
 # MODEL = 'Lykon/dreamshaper-8'
