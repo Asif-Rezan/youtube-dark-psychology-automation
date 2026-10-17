@@ -16,7 +16,7 @@ class ProviderFallbackTests(unittest.TestCase):
             'json_schema': {'name': 'test', 'strict': True, 'schema': {'type': 'object'}}}}
 
     def response(self, status=200, finish='stop', content='{"ok":true}'):
-        return Mock(ok=status == 200, status_code=status,
+        return Mock(ok=status == 200, status_code=status, headers={},
             json=Mock(return_value={'choices': [{'finish_reason': finish, 'message': {'content': content}}]}))
 
     def test_groq_success_never_calls_gemini(self):
@@ -61,3 +61,29 @@ class ProviderFallbackTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'does not support audio'):
                 w.request_groq('audio/speech', {}, binary=True)
         self.assertEqual(post.call_count, 1)
+
+    def test_gemini_temporary_failure_recovers_without_retrying_groq(self):
+        with patch('requests.post', side_effect=[self.response(429), self.response(503), self.response(502), self.response()]) as post, patch.object(w.time, 'sleep') as sleep:
+            w.request_groq('chat/completions', self.payload)
+        self.assertEqual(post.call_count, 4)
+        self.assertEqual([c.args[0] for c in sleep.call_args_list], [2, 4])
+        self.assertEqual(sum('api.groq.com' in c.args[0] for c in post.call_args_list), 1)
+
+    def test_persistent_gemini_server_failure_is_bounded(self):
+        with patch('requests.post', return_value=self.response(503)) as post, patch.object(w.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(RuntimeError, 'after 4 attempt'):
+                w.request_gemini(self.payload)
+        self.assertEqual(post.call_count, 4)
+        self.assertEqual([c.args[0] for c in sleep.call_args_list], [2, 4, 8])
+
+    def test_gemini_honors_short_retry_after_and_refuses_long_cooldown(self):
+        response = self.response(503)
+        response.headers = {'retry-after': '12.5'}
+        with patch('requests.post', side_effect=[response, self.response()]), patch.object(w.time, 'sleep') as sleep:
+            w.request_gemini(self.payload)
+        sleep.assert_called_once_with(13)
+        response.headers = {'retry-after': '3600'}
+        with patch('requests.post', return_value=response), patch.object(w.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(RuntimeError, 'beyond'):
+                w.request_gemini(self.payload)
+        sleep.assert_not_called()
