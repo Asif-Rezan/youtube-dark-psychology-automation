@@ -74,7 +74,7 @@ def request_gemini(payload):
     key = os.getenv('GEMINI_API_KEY')
     if not key:
         raise RuntimeError('Groq failed; GEMINI_API_KEY is required for immediate fallback')
-    candidate = dict(payload, model=os.getenv('GEMINI_MODEL', 'gemini-3.8-flash'))
+    candidate = dict(payload, model=os.getenv('GEMINI_MODEL', 'gemini-3.5-flash'))
     # A larger output allowance leaves room for Gemini reasoning and the JSON.
     candidate['max_completion_tokens'] = max(8192, payload.get('max_completion_tokens', 8192))
     try:
