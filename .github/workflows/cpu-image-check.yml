@@ -40,5 +40,10 @@ jobs:
           print({'actual_image_size': image.size, 'scene_match': scene})
           assert scene['passed'], 'Generated image did not match the requested wizard action'
           PY
-# Generated images stay on the temporary runner, with no public artifacts.
-# This verifies execution, not cinematic quality or character consistency.
+      - name: Save generated reference test image for visual review
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: wizard-reference-check
+          path: output/cpu-check.png
+          retention-days: 1
+          if-no-files-found: error
