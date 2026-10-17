@@ -12,6 +12,19 @@ def _plain(value):
     return re.sub(r'\s+', ' ', value).strip()
 
 
+def artwork_candidate(prompt, topic):
+    """Use the curated composition when generated artwork misses mechanical limits.
+
+    Never truncate a scene or append an anchor to unrelated generated content.
+    The replacement still passes every visual validation below.
+    """
+    anchor = topic['thumbnail_anchor']
+    if 25 <= len(prompt) <= 220 and anchor.casefold() in prompt.casefold():
+        return prompt
+    curated = _plain(topic['thumbnail_visual_story'])
+    return curated if anchor.casefold() in curated.casefold() else f'{anchor}. {curated}'
+
+
 def choose_package(story, topic, payload):
     """Use a concise, accurate title and matching thumbnail hook; retain alternatives for review."""
     keyword = topic['search_phrase']
@@ -21,7 +34,7 @@ def choose_package(story, topic, payload):
     for name, option in zip(('option_a', 'option_b', 'option_c'), candidates):
         title = _plain(option.get('title', ''))
         text = _plain(option.get('thumbnail_text', ''))
-        prompt = _plain(option.get('thumbnail_prompt', ''))
+        prompt = artwork_candidate(_plain(option.get('thumbnail_prompt', '')), topic)
         if not 35 <= len(title) <= 75 or keyword.casefold() not in title[:52].casefold():
             rejected.append(f'{name}: title must be 35-75 characters and contain the exact subject within its first 52 characters')
             continue
@@ -55,7 +68,7 @@ def choose_package(story, topic, payload):
         # Put the source-backed visual story first so diffusion's token limit preserves it.
         # One concise composition, not several competing scene descriptions.
         # Keep the anchor and its unresolved visual relationship ahead of style.
-        artwork_prompt = f'{visual_story}. {prompt}'
+        artwork_prompt = visual_story if prompt.rstrip('.') == visual_story else f'{visual_story}. {prompt}'
         artwork_prompt = ' '.join(artwork_prompt.split()[:45])
         artwork_prompt += '. Documentary photograph, natural side light, no text.'
         valid.append((score, {'title': title, 'thumbnail_text': text, 'thumbnail_prompt': artwork_prompt}))
