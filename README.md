@@ -1,22 +1,12 @@
-# Grow with Rezan: dark psychology video automation
+# Grow with Rezan: historical documentary automation
 
-This repository is an isolated copy of the `youtube-motivation-automation` pipeline for the **Grow with Rezan** channel (`UCYjz7d66SsshimfpxZahlhQ`). It creates one original fictional English dark psychology story and uploads one 10–15 minute illustrated video per day **privately**, starting at 06:00 Asia/Dhaka. The 20 CPU image workers, seven-second visual timeline, Kokoro narration, captions, original music, thumbnail, private upload verification, run checkpoints, and run-scoped Drive cleanup follow the source pipeline.
+This repository makes one original English historical documentary video per day for the **Grow with Rezan** channel (`UCYjz7d66SsshimfpxZahlhQ`). Videos are uploaded **privately** at 06:00 Asia/Dhaka. The 20 CPU image workers, seven-second visual timeline, Kokoro narration, captions, music, thumbnail, private upload verification and recovery checkpoints remain in place.
 
-Stories explore manipulation, coercive control, gaslighting, deception, social pressure, and boundaries. Prompts require fictional labeling, believable consequences, and a protagonist who regains agency. They avoid glamorizing abuse, instructions for exploitation, and unsupported diagnoses.
+Topics rotate through Ancient Egypt and pyramids; archaeology and underground structures; ancient civilizations; Islamic history; and people in Islamic intellectual and travel history. The curated [topic and source list](history_topics.json) supplies factual anchors for each episode. The planner avoids topics from the last ten videos and rejects highly similar recent titles and outlines. Scripts must distinguish evidence from interpretation, avoid invented dialogue and unsupported claims, and include source links in descriptions. Generated scenes are labeled as artistic historical reconstructions.
 
-Daily episodes rotate among mystery, boundary, ensemble, moral-choice, aftermath,
-and social-pressure formats within this niche. The planner must vary the central
-relationship, setting, conflict, turning point, and resolution, and give each
-episode a specific insight. Recent formats are avoided, and highly similar recent
-titles or plot summaries stop the run before rendering. This is a quality gate,
-not a guarantee of YouTube monetization eligibility: review the complete video
-and channel before making any private upload public.
+## Historical illustrations
 
-## Story illustrations
-
-Story images use pinned public `segmind/SSD-1B` weights on CPU at 1024×576, with 32 inference steps and guidance scale 9. The previous DreamShaper model constants remain commented in `image_cpu.py` for restoration. The supplied [wizard reference](assets/wizard-reference.jpg) defines the recurring protagonist: long silver beard, weathered face, dark pointed hood, embroidered brown robe, wooden staff and glowing amber orb. A [1024×576 landscape reference](assets/wizard-reference-wide.jpg) was derived from that supplied image to avoid blurred side panels. Wizard shots and the thumbnail use its pixels through SSD-1B image-to-image generation as well as the written character description. Object-only shots continue to use text-to-image. The reference guides appearance but cannot guarantee an identical face or pose in every scene, so results should be reviewed before public release.
-
-Fresh stories place the wizard in a fictional fantasy setting. Narration-aligned prompts change his action, expression, setting and camera framing with each seven-second window. Object-only scenes omit him. Images aim for realistic painterly detail, textured robes and skin, cinematic fantasy lighting, mist, deep blue-gray shadows and amber orb light where the wizard is present. Anime, flat watercolor, and line art are excluded in the model's negative prompt. The `Free CPU image generation check` workflow creates a local test image and checks its size, content and scene match without producing or uploading a video.
+Images use `segmind/SSD-1B` on CPU at **1024×576**, 32 inference steps and guidance scale 9. A new image appears every **seven seconds**. Each image prompt follows the spoken historical scene, showing relevant sites, objects, architecture or people with period-appropriate details. No wizard reference image is loaded in the video or thumbnail path. The CPU image check produces a historical test image for visual review. AI reconstructions may still contain inaccuracies; inspect the private video before public release.
 
 ## Required isolated setup
 
@@ -39,7 +29,7 @@ The source repository and its secrets, Drive folder, OAuth project, YouTube toke
 
 ## Story duration recovery
 
-Fresh daily stories keep the twenty-chapter Dark Psychology outline and target 84
+Fresh daily stories keep the twenty-chapter historical documentary outline and target 84
 spoken words per chapter, plus the closing CTA. Set `STORY_CHAPTER_WORD_TARGET`
 between 75 and 88 to tune the initial request. Actual Kokoro audio duration,
 not word count, controls acceptance: 600–900 seconds is required, with 720–840
@@ -47,7 +37,7 @@ seconds preferred.
 
 Preparation measures every chapter before making images. A slight overrun uses
 at most a 4% FFmpeg tempo correction. Larger overruns use Groq to shorten
-selected chapters; underruns use Groq to add meaningful story events and dialogue.
+selected chapters; underruns use Groq to add relevant documented historical details.
 At most three correction attempts run. Changed chapters alone are resynthesized,
 then word timestamps, captions, and every seven-second visual window are rebuilt.
 Audio and transcript caches are tied to content hashes so changed text cannot

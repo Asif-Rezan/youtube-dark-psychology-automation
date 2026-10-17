@@ -1,4 +1,4 @@
-name: Daily dark psychology storytelling publishing
+name: Daily historical documentary publishing
 on:
   push:
     branches: [main]
@@ -19,7 +19,7 @@ concurrency:
 env:
   SAVED_RUN_ID: ${{ inputs.cleanup_run || format('daily-{0}', github.run_id) }}
   RUN_SCOPED_CLEANUP: 'true'
-  CONTENT_TYPE: dark-psychology-storytelling
+  CONTENT_TYPE: historical-documentary
   OUTPUT_DIR: output/ghibli-long-test
   TTS_BACKEND: kokoro
   CAPTION_BACKEND: cpu
@@ -67,7 +67,7 @@ jobs:
           EXPECTED_CHANNEL_ID: UCYjz7d66SsshimfpxZahlhQ
           REQUIRE_PUBLIC_PUBLISH: 'false'
         run: python oauth_check.py
-      - name: Generate fresh dark psychology story and exact narration storyboard
+      - name: Generate fresh historical documentary and exact narration storyboard
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           DRIVE_TOKEN_JSON: ${{ secrets.DRIVE_TOKEN_JSON }}

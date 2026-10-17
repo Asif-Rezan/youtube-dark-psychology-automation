@@ -14,16 +14,13 @@ ROOT = Path(os.getenv('OUTPUT_DIR', 'output/ghibli-long-test'))
 INTERVAL = 7
 SHARDS = 20
 ASSETS = ('story.json', 'plan.json', 'narration.wav', 'captions.srt', 'duration.json')
-WIZARD_DESIGN = ('elderly wizard with a long silver beard, weathered face, dark pointed hood, '
-                 'embroidered brown robe, wooden staff topped by a glowing amber orb')
-FANTASY_STYLE = ('cinematic dark fantasy, realistic painterly detail, textured robes and skin, '
-                 'atmospheric mist, dramatic volumetric lighting, deep blue-gray shadows, '
-                 'warm amber highlights, landscape composition, no text or watermark')
-WIZARD_REFERENCE = Path(__file__).resolve().parent/'assets/wizard-reference-wide.jpg'
+HISTORY_STYLE = ('historically grounded archaeological documentary reconstruction, '
+                 'period-appropriate architecture, clothing and tools, realistic material texture, '
+                 'natural cinematic lighting, landscape composition, no text or watermark')
 
 
 def run_id():
-    return os.getenv('SAVED_RUN_ID') or (dt.datetime.now(ZoneInfo('Asia/Dhaka')).strftime('%Y-%m-%d-%H%M%S')+'-improved-story')
+    return os.getenv('SAVED_RUN_ID') or (dt.datetime.now(ZoneInfo('Asia/Dhaka')).strftime('%Y-%m-%d-%H%M%S')+'-history-documentary')
 
 
 def shot_plan(story, lengths, word_lists):
@@ -55,7 +52,7 @@ def shot_plan(story, lengths, word_lists):
             'chapter': chapter, 'narration': ' '.join(word['word'] for word in anchor),
             'seed': 1700+index})
     return {'duration_seconds': total, 'image_interval_seconds': INTERVAL,
-        'style': 'cinematic-fantasy', 'alignment': 'measured-word-timestamps', 'shots': shots}
+        'style': 'historical-documentary', 'alignment': 'measured-word-timestamps', 'shots': shots}
 
 
 def storyboard(root=ROOT, ask=None, pause=None):
@@ -71,10 +68,6 @@ def storyboard(root=ROOT, ask=None, pause=None):
         raise RuntimeError('Storyboard source changed since narration validation')
     if plan.get('storyboard_verified'):
         return plan
-    character = story.get('character_description', '').strip()
-    if not character:
-        raise ValueError('Visual synchronization needs a character description')
-    character = WIZARD_DESIGN
     shots = plan['shots']
     for begin in range(0, len(shots), 8):
         if begin:
@@ -84,21 +77,18 @@ def storyboard(root=ROOT, ask=None, pause=None):
         schema = {'type': 'object', 'properties': properties,
                   'required': list(properties), 'additionalProperties': False}
         context = {str(shot['chapter']): story['scenes'][shot['chapter']]['narration'] for shot in batch}
-        prompt = f"""Storyboard this fictional narrated story. Return one image prompt per exact shot key.
-Each shot is a measured seven-second narration window. Depict ONLY the concrete action, location,
-objects and emotion being spoken in that window. Chapter text resolves pronouns and continuity only;
-NEVER illustrate a later or earlier chapter event in place of the current window.
-For abstract reflection or dialogue, show the current character in the current physical scene.
-No metaphorical mountains, gardens or random scenery unless literally present in that event.
-The recurring protagonist is the wizard. His reference design: {character}.
-Show the wizard only when present in the spoken event. Keep his identity consistent; vary his
-actions, surroundings, expressions and camera distance. If the words describe an object or
-another person alone, show that subject without inserting the wizard or his orb.
-When he is present, use the word "wizard" in the visual prompt so scene composition can identify him.
+        prompt = f"""Storyboard this historical documentary. Return one image prompt per exact shot key.
+Each shot is a measured seven-second narration window. Depict the concrete historical action,
+site, artifact or evidence being discussed in that window. Chapter text resolves context only;
+never illustrate a later or earlier event. For abstract ideas, show a relevant documented site,
+artifact or map-like physical setting. Avoid generic portraits and unrelated scenery.
+Historical scenes are artistic reconstructions, with period-appropriate architecture, clothing
+and tools. Do not insert a recurring character. For Islamic history, show people respectfully;
+avoid speculative likenesses of revered religious figures. Never add fantasy elements.
 Each prompt MUST be 12-22 English words: subject and concrete action FIRST, then relevant objects
-and location. Describe one simple drawable composition. Include other people only when narrated.
-Do not put style, camera lists, narration text, typography or character design into the prompt;
-the renderer adds character design and illustration style. Do not replace specific objects with generic ones.
+and location. Describe one simple drawable composition. Include people only when narrated.
+Do not put typography or narration text into the prompt. Do not invent archaeological evidence.
+Topic: {story.get('category', '')}. Verified facts: {json.dumps(story.get('verified_facts', []))}.
 Chapter context: {json.dumps(context)}
 Exact shot windows: {json.dumps([{'key': f"shot_{shot['index']:03}", 'spoken': shot['narration']} for shot in batch])}
 """
@@ -118,7 +108,7 @@ Exact shot windows: {json.dumps([{'key': f"shot_{shot['index']:03}", 'spoken': s
             if not isinstance(visual, str) or not 5 <= len(visual.split()) <= 30:
                 raise ValueError('Visual prompt must be a concise concrete scene')
             shot['visual_action'] = visual
-            shot['prompt'] = visual + '. Character: ' + character
+            shot['prompt'] = visual
         # Private local checkpoint; do not log unpublished narration or prompts.
         (root/'plan.json').write_text(json.dumps(plan, indent=2))
         print(json.dumps({'aligned_shots': min(begin+8, len(shots)), 'total': len(shots)}), flush=True)
@@ -314,36 +304,26 @@ def picture_clip(image, seconds, target):
 
 
 def refine_visual_plan(root=ROOT):
-    """Keep the narrated subject dominant and add the wizard only to his scenes."""
+    """Keep each historical artifact, site or narrated group visually prominent."""
     import re
-    story = json.loads((root/'story.json').read_text())
     plan = json.loads((root/'plan.json').read_text())
-    name = story.get('protagonist_name')
-    if not name:
-        candidates = re.findall(r'(?<=[ ,])([A-Z][a-z]{2,})(?=[, .])', story['scenes'][0]['narration'])
-        name = next((n for n in candidates if n not in ('The', 'This', 'With', 'Later', 'Below')), None)
-    if not name:
-        raise ValueError('Protagonist name is needed for scene-specific character inclusion')
     for shot in plan['shots']:
         action = shot['visual_action'].strip().rstrip('.')
-        main = bool(re.search(r'\b(?:'+re.escape(name)+r'|wizard|mage|sorcerer)\b', action, re.I))
-        group = bool(re.search(r'\b(?:people|crowd|villagers|council|group|companions)\b', action, re.I))
-        focus = 'group' if group else ('person' if main else 'object')
+        group = bool(re.search(r'\b(?:people|crowd|workers|community|group|scholars|travelers)\b', action, re.I))
+        person = bool(re.search(r'\b(?:person|man|woman|ruler|architect|explorer|historian|scholar)\b', action, re.I))
+        focus = 'group' if group else ('person' if person else 'object')
         framing = ('wide environmental view', 'medium view', 'low angle view',
-                   'over-the-shoulder view', 'close view of the narrated action')[shot['index'] % 5]
-        shot['prompt'] = f'{action}. {framing}.'
-        if main:
-            shot['prompt'] += ' Recurring wizard: ' + WIZARD_DESIGN + '. Warm amber orb light.'
-        shot['prompt'] += ' ' + FANTASY_STYLE
+                   'over-the-shoulder view', 'close view of the narrated evidence')[shot['index'] % 5]
+        shot['prompt'] = f'{action}. {framing}. {HISTORY_STYLE}'
         shot['focus'] = focus
-        shot['negative_prompt'] = 'static pose, repeated composition'
+        shot['negative_prompt'] = 'fantasy, wizard, magic, modern buildings, modern clothing, text, watermark, repeated composition'
         if focus == 'object':
-            shot['negative_prompt'] += ', wizard, person, people, human face, glowing orb'
+            shot['negative_prompt'] += ', portrait, unrelated person'
         elif focus == 'group':
-            shot['negative_prompt'] += ', solo, one person alone'
+            shot['negative_prompt'] += ', solo portrait'
         shot['semantic_target'] = action
     plan['storyboard_verified'] = True
-    plan['visual_review'] = {'passed': False, 'phase': 'corrected-object-and-group-render-required'}
+    plan['visual_review'] = {'passed': False, 'phase': 'historical-render-review-required'}
     plan['scene_composition_version'] = 3
     (root/'plan.json').write_text(json.dumps(plan, indent=2))
     print(json.dumps({'scene_plan_refined': True, 'shots': len(plan['shots'])}), flush=True)
@@ -363,11 +343,10 @@ def generate_shard(shard, root=ROOT, count=SHARDS):
         image, clip = root/f'shot-{index:03}.png', root/f'shot-{index:03}.mp4'
         check = root/f'shot-{index:03}.qa.json'
         os.environ['IMAGE_NEGATIVE_PROMPT'] = shot.get('negative_prompt', '')
-        reference = WIZARD_REFERENCE if 'Recurring wizard:' in shot['prompt'] else None
         for attempt in range(3):
             os.environ['IMAGE_SEED'] = str(shot['seed']+attempt*10000)
             if not image.exists():
-                w.make_image(shot['prompt'], image, reference_image=reference)
+                w.make_image(shot['prompt'], image)
             report = check_scene(image, shot)
             if report['passed']:
                 check.write_text(json.dumps(report))
@@ -398,8 +377,8 @@ def validate_engagement(story):
     ending = story['scenes'][-1]['narration'].lower()
     if not all(re.search(r'\b'+word+r'\b', ending) for word in ('like', 'comment', 'subscribe')):
         raise ValueError('Closing narration must request like, comment, and subscribe')
-    if not story.get('character_description', '').strip():
-        raise ValueError('Fresh story requires a consistent character description')
+    if story.get('format') == 'historical-documentary' and (not story.get('topic_id') or not story.get('sources')):
+        raise ValueError('Historical documentary requires a topic and sources')
 
 
 def mix_audio(voice, music, target, seconds):
@@ -466,8 +445,7 @@ def finish(root=ROOT):
     story = json.loads((root/'story.json').read_text())
     os.environ['IMAGE_NEGATIVE_PROMPT'] = ''
     os.environ['IMAGE_SEED'] = '9931'
-    w.make_image(story['thumbnail_prompt'], root/'thumbnail-source.png',
-        reference_image=WIZARD_REFERENCE)
+    w.make_image(story['thumbnail_prompt'], root/'thumbnail-source.png')
     image = ImageOps.fit(Image.open(root/'thumbnail-source.png').convert('RGB'), (1280, 720))
     draw = ImageDraw.Draw(image)
     font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 75)
@@ -484,7 +462,7 @@ def finish(root=ROOT):
     print(json.dumps({'visual_quality_advisory_count': len(advisory_shots), 'shot_indices': advisory_shots}), flush=True)
     report = {'render_passed': True, 'duration_seconds': float(metadata['format']['duration']),
         'width': 1920, 'height': 1080, 'images': len(clips), 'image_interval_seconds': INTERVAL,
-        'style': 'cinematic-fantasy', 'privacy': 'private', 'voice': 'Kokoro am_michael',
+        'style': 'historical-documentary', 'privacy': 'private', 'voice': 'Kokoro am_michael',
         'music': 'Magenta MusicRNN', 'image_model': os.getenv('CPU_IMAGE_MODEL', 'segmind/SSD-1B'),
         'audio_validation': audio_report, 'timeline_verified': True, 'storyboard_verified': plan.get('storyboard_verified', False),
         'alignment': plan.get('alignment'), 'scene_composition_version': plan.get('scene_composition_version'),
@@ -663,7 +641,7 @@ def upload():
     w.upload_private(ROOT/'video.mp4', ROOT/'thumbnail.jpg', story, state, store, key,
         'Background music: original Magenta MusicRNN melody with synthesized ambient piano.')
     history.append({'title': story['title'], 'hash': digest, 'run': run_id(),
-        'video_id': state['video_id'], 'format': story.get('format'),
+        'video_id': state['video_id'], 'format': story.get('format'), 'topic_id': story.get('topic_id'),
         'plot': ' '.join(scene.get('summary', '') for scene in story['scenes'])})
     store.save('history.json', history)
     store.save('last-private-test.json', {'passed': True, 'run': run_id(),

@@ -113,50 +113,37 @@ def make_story(day, previous):
         if choice.get('finish_reason') == 'length':
             raise RuntimeError('Story response was truncated; refusing incomplete script')
         return json.loads(choice['message']['content'])
-    dark_psychology = os.getenv('CONTENT_TYPE') == 'dark-psychology-storytelling'
-    formats = (
-        ('mystery', 'Investigate conflicting clues and reveal who benefits from a false belief.'),
-        ('boundary', 'Follow a personal boundary tested by someone close; show the cost of enforcing it.'),
-        ('ensemble', 'Use several characters with competing interpretations of the same event.'),
-        ('moral_choice', 'Build around a difficult choice with credible costs on both sides.'),
-        ('aftermath', 'Begin after a manipulation has been exposed and explore repair and accountability.'),
-        ('social_pressure', 'Show a group dynamic and how one person challenges its false consensus.'),
-    )
-    recent_formats = [item.get('format') for item in previous[-5:] if isinstance(item, dict)]
-    available = [item for item in formats if item[0] not in recent_formats] or list(formats)
-    chosen_format, format_direction = available[dt.date.fromisoformat(day).toordinal() % len(available)]
-    theme = ('Dark psychology storytelling: explore manipulation, coercive control, gaslighting, '
-        'deception, social pressure, and boundary setting through fictional character-driven stories. '
-        'Show warning signs, consequences, and the protagonist regaining agency. Do not glamorize abuse, '
-        'teach tactics for exploiting people, or claim a fictional story is a real case. Avoid clinical '
-        'diagnoses and unsupported claims about mental health.'
-        if dark_psychology else 'Character-driven storytelling.')
-    if dark_psychology:
-        theme += (' Set the fictional story in a cinematic fantasy world. The protagonist is an '
-            'elderly wizard with a long silver beard, weathered face, dark pointed hood, embroidered '
-            'brown robe, wooden staff and glowing amber orb. His choices and emotional responses '
-            'drive the story. Keep this design and one protagonist name throughout. Let other people, '
-            'objects and locations appear when their narrated actions call for them.')
-    outline = ask(f'''Plan an original fictional English story for {day}.
-    Content direction: {theme}
-    This episode's distinct format is {chosen_format}: {format_direction}
-    Vary the central relationship, setting, opening situation, source of pressure, turning point,
-    and resolution from recent episodes. Give this episode its own specific insight about human behavior.
-    Do not merely change names, props, or scenery while repeating a previous plot.
-    Avoid these previous titles and plots: {json.dumps(previous)}.
-    A vivid crisis or impossible choice must open the FIRST sentence, with an unanswered question.
-    No greeting or generic preamble. Give the protagonist one concrete goal, believable setbacks, and earned resolution.
-    No random magical trials, repeated mentor lessons, or repeated endings. Escalate choices, setbacks, surprising reversals,
-    specific dialogue, and emotional payoffs. Resolve the opening question in the final act.
-    Last chapter ends with an earned resolution and a specific reflection. No viewer calls to action in the story plan.
-    Create an original plot and title; avoid generic stock stories.
-    Return JSON: title (max 100 characters), description (clearly label fictional), tags (list),
-    thumbnail_text (2-5 words), thumbnail_prompt, protagonist_name (first name), character_description (max 14 words, appearance and outfit),
-    scenes (object with chapter_01 through chapter_20). Each chapter: summary (max 25 words), image_prompt,
-    image_prompts (four distinct visual beats, each max 8 words). Cinematic dark fantasy style.
-    Main character keeps the same appearance. Provide ONLY the plan, no full narration yet.''', 5200, outline_schema)
+    topics = json.loads((Path(__file__).parent/'history_topics.json').read_text())
+    recent_ids = {item.get('topic_id') for item in previous[-10:] if isinstance(item, dict)}
+    available = [topic for topic in topics if topic['id'] not in recent_ids] or topics
+    topic = available[dt.date.fromisoformat(day).toordinal() % len(available)]
+    theme = (f"Historical documentary about {topic['category']}: {topic['title_angle']}. "
+        f"Verified factual anchors: {json.dumps(topic['facts'])}. Sources: {json.dumps(topic['sources'])}. "
+        "Stay within these factual anchors. Separate established evidence from interpretation and uncertainty. "
+        "Do not invent dialogue, quotes, discoveries, dates, motives, or a fictional protagonist. "
+        "Treat religious figures and sites respectfully. Visual scenes are artistic reconstructions.")
+    outline = ask(f'''Plan an original English historical documentary for {day}.
+    Topic and evidence: {theme}
+    Avoid these recent titles and outlines: {json.dumps(previous)}.
+    Open with a concrete historical question or documented fact. Develop the setting,
+    surviving evidence, scholarly interpretation and open questions in a clear arc.
+    Every chapter must add a supported detail; never pad with imagined events.
+    Return JSON: title (max 100 characters), description, tags (list), thumbnail_text (2-5 words),
+    thumbnail_prompt, protagonist_name (empty if none), character_description (empty if none),
+    scenes (chapter_01 through chapter_20). Each chapter: summary (max 25 words), image_prompt,
+    image_prompts (four distinct visual beats). Period-appropriate historical imagery.
+    No fantasy imagery, modern objects in reconstructions, or unsupported sensational claims.
+    Provide ONLY the plan, no full narration yet.''', 5200, outline_schema)
     outline['scenes'] = [outline['scenes'][k] for k in chapter_keys]
-    outline['format'] = chosen_format
+    outline['format'] = 'historical-documentary'
+    outline['topic_id'] = topic['id']
+    outline['category'] = topic['category']
+    outline['sources'] = topic['sources']
+    outline['verified_facts'] = topic['facts']
+    for source in topic['sources']:
+        if source not in outline['description']:
+            outline['description'] += '\nSource: ' + source
+    outline['description'] += '\nVisual scenes are artistic historical reconstructions.'
     if len(outline.get('scenes', [])) != 20:
         raise ValueError('Outline requires exactly twenty chapters')
     summaries = [scene['summary'] for scene in outline['scenes']]
@@ -169,18 +156,18 @@ def make_story(day, previous):
         time.sleep(60)
         keys = chapter_keys[begin:begin+5]
         group_schema = object_schema({'narrations': object_schema({k: text_schema for k in keys})})
-        group = ask(f'''Write chapters {begin+1} through {begin+5} of this original fictional story.
+        group = ask(f'''Write chapters {begin+1} through {begin+5} of this historical documentary.
         Content direction: {theme}
-        Title: {outline['title']}. Character: {outline['character_description']}.
+        Title: {outline['title']}. Evidence: {json.dumps(topic['facts'])}. Sources: {json.dumps(topic['sources'])}.
         Assigned chapter events ONLY: {json.dumps([{'chapter': i+1, 'event': summaries[i]} for i in range(begin, begin+5)])}.
         Previous chapter ending: {prior[-700:]}.
         Return JSON with narrations: an object with the exact chapter keys {keys}, each value a narration string.
         Each string MUST contain approximately {chapter_target} English spoken words (within 5 words).
         Across all twenty chapters, aim for 1,650–1,800 narrated words including the separately added final CTA.
-        Natural narration with concrete actions and dialogue, not generic advice.
-        Begin chapter 1 with the crisis immediately, no welcome or setup preamble.
-        Escalate stakes, introduce reversals and emotional payoffs every few chapters.
-        Resolve the initial crisis by chapter 20. Do not include any viewer call to action in any chapter;
+        Natural documentary narration grounded in the listed evidence; distinguish interpretations and uncertainty.
+        Begin chapter 1 with a documented fact or historical question, no welcome or setup preamble.
+        Develop evidence and context without inventing events, dialogue, dates or motives.
+        End with what the evidence establishes and what remains unknown. Do not include any viewer call to action in any chapter;
         the application adds a final like, comment, and subscribe request separately.
         Narrate ONLY the five assigned events, one event per chapter in the listed order. Do not jump ahead.\n        No ending, farewell, viewer question, or call to action before chapter 20.
         Do not add chapter headings or directions to spoken text. No repeated introduction.''', 4200, group_schema)
@@ -190,9 +177,8 @@ def make_story(day, previous):
         for scene, narration in zip(outline['scenes'][begin:begin+5], parts):
             scene['narration'] = narration
         prior = parts[-1]
-    outline['scenes'][-1]['narration'] += (' Which choice would you have made in the protagonist\'s place? '
-        'Leave a comment with your answer, like this video if it inspired you, '
-        'and subscribe for more stories about hidden motives and human behavior.')
+    outline['scenes'][-1]['narration'] += (' Which historical question should we investigate next? '
+        'Leave a comment, like this video, and subscribe for more history documentaries.')
     from long_video import validate_engagement
     validate_engagement(outline)
     return validate_story(outline)
@@ -202,7 +188,7 @@ def assert_distinct_story(story, history):
     """Reject highly similar recent titles or plot summaries before rendering."""
     def words(value):
         return set(re.findall(r"[a-z]{4,}", value.lower())) - {
-            'the', 'that', 'with', 'from', 'when', 'this', 'into', 'their', 'wizard'}
+            'the', 'that', 'with', 'from', 'when', 'this', 'into', 'their', 'history'}
     title = words(story['title'])
     plot = words(' '.join(scene.get('summary', '') for scene in story['scenes']))
     for item in history[-30:]:
@@ -226,7 +212,7 @@ def revise_story_duration(story, ratio, direction, indices=None):
     from long_video import validate_engagement
     validate_engagement(story)
     ending = story['scenes'][-1]['narration']
-    marker = ' Which choice would you have made in the protagonist\'s place? '
+    marker = ' Which historical question should we investigate next? '
     if marker not in ending:
         raise ValueError('Closing CTA marker missing; refusing duration revision')
     cta = marker + ending.split(marker, 1)[1]
@@ -249,18 +235,17 @@ def revise_story_duration(story, ratio, direction, indices=None):
                   'required': batch, 'additionalProperties': False}
         targets = {keys[i]: max(45, min(130, round(len(original[i].split()) * ratio)))
                    for i in selected}
-        prompt = f'''Revise these chapters of one original fictional Dark Psychology story to {direction} the
-spoken narration. Preserve the plot, opening hook, psychological suspense, realistic dialogue,
-critical revelations, chapter order, character development, warning signs, consequences, and final
-resolution. Keep the current chapter's events in that chapter. Do not teach manipulation or glamorize abuse.
+        prompt = f'''Revise these chapters of a historical documentary to {direction} the
+spoken narration. Preserve documented facts, uncertainty, chronology, source boundaries,
+chapter order and conclusion. Do not invent dialogue, dates, discoveries or motives.
 Never add a viewer call to action; the application preserves the original CTA separately.
-Title: {story['title']}. Character: {story.get('character_description', '')}.
+Title: {story['title']}. Evidence: {json.dumps(story.get('verified_facts', []))}.
 Adjacent chapter context: {json.dumps({keys[i]: {'before': original[i-1][-350:] if i else '',
     'after': original[i+1][:350] if i < 19 else ''} for i in selected})}
 Chapter text: {json.dumps({keys[i]: original[i] for i in selected})}
 Approximate spoken-word targets: {json.dumps(targets)}.
 Return JSON with exactly these chapter keys, each a complete revised narration string.
-Chapter 1 must retain the immediate crisis and unanswered question. Chapter 20 must resolve it.'''
+Chapter 1 retains the historical hook. Chapter 20 summarizes evidence and remaining questions.'''
         result = request_groq('chat/completions', {'model': model,
             'messages': [{'role': 'user', 'content': prompt}],
             'response_format': {'type': 'json_schema', 'json_schema': {
@@ -283,12 +268,12 @@ Chapter 1 must retain the immediate crisis and unanswered question. Chapter 20 m
     return validate_story(revised)
 
 
-def make_image(prompt, path, reference_image=None):
-    prompt = ('cinematic dark fantasy, realistic painterly detail, intricate fabric and beard texture, '
-        'dim misty atmosphere, dramatic volumetric light, deep shadows, amber firelight, ' + prompt)
+def make_image(prompt, path):
+    prompt = ('historically grounded archaeological documentary reconstruction, realistic material texture, '
+        'period-appropriate architecture, clothing and tools, natural cinematic light, landscape composition, ' + prompt)
     if os.getenv('IMAGE_BACKEND', 'cpu') == 'cpu':
         from image_cpu import generate
-        generate(prompt + ', no text, no watermark', path, reference_image=reference_image)
+        generate(prompt + ', no text, no watermark', path)
         return
     if os.getenv('IMAGE_BACKEND') != 'hf':
         raise ValueError('IMAGE_BACKEND must be cpu or hf')
@@ -713,7 +698,7 @@ def run(daily=False):
     root.mkdir(parents=True, exist_ok=True)
     store, key = Store(), f'runs/{run_id}/state.json'
     test_record = store.load('last-private-test.json', {}) if daily else {}
-    if daily and (not test_record.get('passed') or not test_record.get('remote_verification', {}).get('private_test_passed') or test_record.get('validation', {}).get('image_interval_seconds') != 7 or not test_record.get('validation', {}).get('storyboard_verified') or test_record.get('validation', {}).get('style') != 'cinematic-fantasy'):
+    if daily and (not test_record.get('passed') or not test_record.get('remote_verification', {}).get('private_test_passed') or test_record.get('validation', {}).get('image_interval_seconds') != 7 or not test_record.get('validation', {}).get('storyboard_verified') or test_record.get('validation', {}).get('style') != 'historical-documentary'):
         raise RuntimeError('No fully verified private HD upload test is recorded')
     state = store.load(key, {})
     if state.get('phase') in ('upload_started', 'uploaded', 'complete', 'published', 'verified_private'):
@@ -740,7 +725,7 @@ def run(daily=False):
         upload_private(video, thumb, story, state, store, key, music_credit)
     if state['phase'] == 'complete':
         history.append({'title': story['title'], 'hash': digest, 'run': run_id,
-            'format': story.get('format'),
+            'format': story.get('format'), 'topic_id': story.get('topic_id'),
             'plot': ' '.join(scene.get('summary', '') for scene in story['scenes'])})
         store.save('history.json', history)
         if not daily:

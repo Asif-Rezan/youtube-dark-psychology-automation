@@ -111,70 +111,24 @@ class Checks(unittest.TestCase):
             self.assertFalse(qa['passed'])
             self.assertTrue(qa['advisory'])
 
-    def test_wizard_shots_use_reference_and_object_shots_do_not(self):
+    def test_historical_shots_do_not_use_reference(self):
         from long_video import generate_shard
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            shots = [
-                {'index': 0, 'seed': 123, 'prompt': 'Wizard opens a letter. Recurring wizard: silver beard.',
-                 'focus': 'person', 'negative_prompt': '', 'duration': 7},
-                {'index': 1, 'seed': 124, 'prompt': 'A sealed letter burns alone on a table.',
-                 'focus': 'object', 'negative_prompt': '', 'duration': 7},
-            ]
+            shots = [{'index': 0, 'seed': 123, 'prompt': 'Ancient Egyptian workers shape limestone blocks.',
+                      'focus': 'group', 'negative_prompt': '', 'duration': 7}]
             (root/'plan.json').write_text(json.dumps({
                 'storyboard_verified': True, 'scene_composition_version': 3, 'shots': shots}))
-            references = []
-            def fake_render(prompt, path, reference_image=None):
-                references.append(reference_image)
-                Image.new('RGB', (256, 256), 'blue').save(path)
+            prompts = []
+            def fake_render(prompt, path):
+                prompts.append(prompt)
+                Image.new('RGB', (1024, 576), 'blue').save(path)
             with (patch('workflow.make_image', side_effect=fake_render),
                   patch('scene_check.check_scene', return_value={'passed': True}),
                   patch('long_video.picture_clip', side_effect=lambda image, seconds, target: target.write_bytes(b'clip'))):
                 generate_shard(0, root, count=1)
-            self.assertEqual(references[0].name, 'wizard-reference-wide.jpg')
-            self.assertTrue(references[0].is_file())
-            self.assertIsNone(references[1])
-
-    def test_reference_canvas_keeps_requested_resolution(self):
-        from image_cpu import reference_canvas
-        source = Path(__file__).resolve().parent/'assets/wizard-reference-wide.jpg'
-        canvas = reference_canvas(source, 1024, 576)
-        self.assertEqual(canvas.size, (1024, 576))
-
-    def test_reference_image_uses_img2img_pipeline(self):
-        import sys
-        import types
-        import image_cpu
-        source = Path(__file__).resolve().parent/'assets/wizard-reference-wide.jpg'
-        calls = []
-        class FakeGenerator:
-            def __init__(self, device):
-                pass
-            def manual_seed(self, seed):
-                return self
-        class FakeImagePipeline:
-            def __call__(self, **kwargs):
-                calls.append(kwargs)
-                return types.SimpleNamespace(images=[Image.new('RGB', (1024, 576), 'blue')])
-        previous = image_cpu._pipeline, image_cpu._reference_pipeline
-        try:
-            image_cpu._pipeline = object()
-            image_cpu._reference_pipeline = None
-            fake_torch = types.SimpleNamespace(set_num_threads=lambda n: None, Generator=FakeGenerator)
-            factory = types.SimpleNamespace(from_pipe=lambda base: FakeImagePipeline())
-            fake_diffusers = types.SimpleNamespace(DiffusionPipeline=object,
-                DPMSolverMultistepScheduler=object, AutoPipelineForImage2Image=factory)
-            with tempfile.TemporaryDirectory() as temp:
-                target = Path(temp)/'wizard.png'
-                with (patch.dict(sys.modules, {'torch': fake_torch, 'diffusers': fake_diffusers}),
-                      patch.dict('os.environ', {'CPU_IMAGE_WIDTH': '1024', 'CPU_IMAGE_HEIGHT': '576', 'CPU_IMAGE_STEPS': '32'})):
-                    image_cpu.generate('elderly wizard in a forest', target, reference_image=source)
-                self.assertEqual(calls[0]['image'].size, (1024, 576))
-                self.assertEqual(calls[0]['strength'], 0.58)
-                with Image.open(target) as result:
-                    self.assertEqual(result.size, (1024, 576))
-        finally:
-            image_cpu._pipeline, image_cpu._reference_pipeline = previous
+            self.assertEqual(len(prompts), 1)
+            self.assertIn('limestone', prompts[0])
 
     def test_global_seven_second_timeline_and_spoken_events(self):
         from long_video import shot_plan
@@ -215,7 +169,7 @@ class Checks(unittest.TestCase):
             aligned = storyboard(root, ask=ask, pause=lambda _: None)
             self.assertTrue(aligned['storyboard_verified'])
             self.assertIn('red suitcase', aligned['shots'][0]['prompt'])
-            self.assertIn('long silver beard', aligned['shots'][0]['prompt'])
+            self.assertNotIn('wizard', aligned['shots'][0]['prompt'])
             def incomplete(endpoint, payload):
                 return {'choices': [{'message': {'content': '{}'}}]}
             aligned.pop('storyboard_verified')
@@ -223,26 +177,22 @@ class Checks(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'every narration window'):
                 storyboard(root, ask=incomplete, pause=lambda _: None)
 
-    def test_scene_refinement_places_wizard_only_in_narrated_action(self):
+    def test_scene_refinement_uses_historical_action_without_reference(self):
         from long_video import refine_visual_plan
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            story = {'protagonist_name': 'Aldren', 'character_description': 'elderly wizard',
-                     'scenes': [{'narration': 'A sealed letter burned.'}]}
-            plan = {'shots': [{'index': 0, 'visual_action': 'A sealed letter burns on the stone altar'},
-                              {'index': 1, 'visual_action': 'Aldren questions villagers in the moonlit hall'}]}
+            story = {'category': 'Ancient Egypt', 'scenes': [{'narration': 'A sealed tomb was found.'}]}
+            plan = {'shots': [{'index': 0, 'visual_action': 'A sealed tomb entrance in limestone'},
+                              {'index': 1, 'visual_action': 'Workers examine the ancient stone blocks'}]}
             (root/'story.json').write_text(json.dumps(story))
             (root/'plan.json').write_text(json.dumps(plan))
             result = refine_visual_plan(root)
-            letter, meeting = result['shots']
-            self.assertEqual(letter['focus'], 'object')
-            self.assertNotIn('Recurring wizard', letter['prompt'])
-            self.assertIn('sealed letter', letter['prompt'])
-            self.assertIn('wizard', letter['negative_prompt'])
-            self.assertEqual(meeting['focus'], 'group')
-            self.assertIn('long silver beard', meeting['prompt'])
-            self.assertIn('solo', meeting['negative_prompt'])
-            self.assertNotEqual(letter['prompt'], meeting['prompt'])
+            tomb, workers = result['shots']
+            self.assertEqual(tomb['focus'], 'object')
+            self.assertEqual(workers['focus'], 'group')
+            self.assertIn('sealed tomb', tomb['prompt'])
+            self.assertIn('period-appropriate', workers['prompt'])
+            self.assertNotIn('Recurring wizard', workers['prompt'])
 
     def test_actual_seven_second_image_change(self):
         from long_video import picture_clip

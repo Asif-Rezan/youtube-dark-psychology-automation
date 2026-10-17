@@ -29,21 +29,21 @@ jobs:
         env:
           CPU_IMAGE_STEPS: '10'
         run: |
-          python image_cpu.py --prompt 'Cinematic dark fantasy. Elderly silver-bearded wizard in an embroidered brown robe raises a staff with a glowing amber orb in a misty forest. Realistic painterly texture, dramatic light, deep shadows.' --reference assets/wizard-reference-wide.jpg --output output/cpu-check.png
+          python image_cpu.py --prompt 'Historical documentary reconstruction of the Great Pyramid of Giza and surrounding ancient Egyptian stonework at sunrise, realistic limestone texture, archaeologically grounded landscape, no text.' --output output/cpu-check.png
           python - <<'PY'
           from PIL import Image
           from scene_check import check_scene
           image = Image.open('output/cpu-check.png')
           assert image.size == (1024, 576)
           assert image.convert('L').getextrema()[1] > 0
-          scene = check_scene('output/cpu-check.png', {'focus': 'person', 'semantic_target': 'An elderly wizard raises a glowing amber orb on his staff while searching a misty forest'})
+          scene = check_scene('output/cpu-check.png', {'focus': 'object', 'semantic_target': 'The Great Pyramid of Giza rises above ancient Egyptian limestone structures in a desert landscape'})
           print({'actual_image_size': image.size, 'scene_match': scene})
-          assert scene['passed'], 'Generated image did not match the requested wizard action'
+          assert scene['passed'], 'Generated image did not match the requested historical scene'
           PY
-      - name: Save generated reference test image for visual review
+      - name: Save generated historical test image for visual review
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: wizard-reference-check
+          name: historical-image-check
           path: output/cpu-check.png
           retention-days: 1
           if-no-files-found: error

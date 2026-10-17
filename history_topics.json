@@ -1,0 +1,141 @@
+[
+  {
+    "id": "giza-pyramids",
+    "category": "Ancient Egypt and pyramids",
+    "title_angle": "How the Giza pyramids shaped an ancient necropolis",
+    "facts": [
+      "Giza is part of the Memphis and its Necropolis World Heritage site.",
+      "The site includes the pyramids of Khufu, Khafre and Menkaure.",
+      "Distinguish archaeological evidence from theories about construction."
+    ],
+    "sources": [
+      "https://whc.unesco.org/en/list/86/"
+    ]
+  },
+  {
+    "id": "saqqara-step-pyramid",
+    "category": "Ancient Egypt and pyramids",
+    "title_angle": "The architectural leap at Saqqara",
+    "facts": [
+      "The Step Pyramid of Djoser belongs to the Memphis necropolis.",
+      "The monument marks an important stage in the development of pyramid building."
+    ],
+    "sources": [
+      "https://whc.unesco.org/en/list/86/"
+    ]
+  },
+  {
+    "id": "goreme-underground",
+    "category": "Underground cities and lost archaeology",
+    "title_angle": "Life below the rock of Cappadocia",
+    "facts": [
+      "The G\u00f6reme landscape contains rock-cut sanctuaries and underground settlements.",
+      "The area preserves traces of Byzantine art and history."
+    ],
+    "sources": [
+      "https://whc.unesco.org/en/list/357/"
+    ]
+  },
+  {
+    "id": "persian-qanat",
+    "category": "Ancient structures and underground cities",
+    "title_angle": "The underground water system of Persian qanats",
+    "facts": [
+      "Qanats use gently sloping underground channels to carry water by gravity.",
+      "The World Heritage property includes eleven qanats in Iran."
+    ],
+    "sources": [
+      "https://whc.unesco.org/en/list/1506/"
+    ]
+  },
+  {
+    "id": "petra-water",
+    "category": "Ancient structures and lost archaeology",
+    "title_angle": "How Petra endured in a desert landscape",
+    "facts": [
+      "Petra was the capital of the Nabataeans.",
+      "Its setting includes rock-cut architecture and an extensive water management system."
+    ],
+    "sources": [
+      "https://whc.unesco.org/en/list/326/"
+    ]
+  },
+  {
+    "id": "mohenjo-daro",
+    "category": "Ancient civilizations and archaeological documentaries",
+    "title_angle": "What Mohenjo-daro's streets reveal",
+    "facts": [
+      "Mohenjo-daro is a major archaeological site of the Indus civilization.",
+      "Its planned urban layout and drainage are important surviving evidence."
+    ],
+    "sources": [
+      "https://whc.unesco.org/en/list/138/"
+    ]
+  },
+  {
+    "id": "pompeii",
+    "category": "Ancient civilizations and archaeological documentaries",
+    "title_angle": "The evidence preserved at Pompeii",
+    "facts": [
+      "The eruption of Vesuvius in 79 CE buried Pompeii and Herculaneum.",
+      "Their remains preserve evidence of Roman urban life."
+    ],
+    "sources": [
+      "https://whc.unesco.org/en/list/829/"
+    ]
+  },
+  {
+    "id": "historic-cairo",
+    "category": "Islamic history",
+    "title_angle": "The layered history of Islamic Cairo",
+    "facts": [
+      "Historic Cairo was founded in the 10th century.",
+      "Its mosques, madrasas and other monuments reflect several centuries of Islamic history.",
+      "Cairo became the headquarters of the Fatimid Caliphate in 969 CE.",
+      "The city preserves mosques, madrasas, bathhouses and fountains.",
+      "Its surviving street plan and buildings also record Ayyubid, Mamluk and Ottoman periods."
+    ],
+    "sources": [
+      "https://whc.unesco.org/en/list/89/"
+    ]
+  },
+  {
+    "id": "samarra",
+    "category": "Islamic history",
+    "title_angle": "Samarra and the Abbasid world",
+    "facts": [
+      "Samarra served as an Abbasid capital in the 9th century.",
+      "Its archaeological remains include monumental mosques and distinctive architecture."
+    ],
+    "sources": [
+      "https://whc.unesco.org/en/list/276/"
+    ]
+  },
+  {
+    "id": "ibn-battuta",
+    "category": "Famous people in Islamic history",
+    "title_angle": "Ibn Battuta's travels and what his account can tell us",
+    "facts": [
+      "Ibn Battuta was born in Tangier in 1304.",
+      "He began a journey at about age 21, originally intending to make the hajj to Mecca.",
+      "His travels continued for almost 30 years and extended across North Africa, Asia and beyond.",
+      "After returning to Morocco in the early 1350s, he was commissioned to produce an account of his travels.",
+      "That account is commonly called the Rihla; distinguish its own claims from independently confirmed evidence."
+    ],
+    "sources": [
+      "https://www.loc.gov/item/2021666192/"
+    ]
+  },
+  {
+    "id": "ibn-sina",
+    "category": "Famous people in Islamic history",
+    "title_angle": "Ibn Sina's influence on medicine and philosophy",
+    "facts": [
+      "Ibn Sina, also known as Avicenna, lived in the 10th and 11th centuries.",
+      "His Canon of Medicine became an influential medical work."
+    ],
+    "sources": [
+      "https://plato.stanford.edu/entries/ibn-sina/"
+    ]
+  }
+]

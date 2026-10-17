@@ -10,7 +10,7 @@ import long_video as lv
 import workflow as w
 
 
-CTA = (" Which choice would you have made in the protagonist's place? "
+CTA = (" Which historical question should we investigate next? "
        "Leave a comment with your answer, like this video, and subscribe for more stories.")
 
 

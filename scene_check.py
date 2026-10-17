@@ -15,9 +15,9 @@ def check_scene(image, shot):
         _model = CLIPModel.from_pretrained('openai/clip-vit-base-patch32', trust_remote_code=False).eval()
         _processor = CLIPProcessor.from_pretrained('openai/clip-vit-base-patch32', trust_remote_code=False)
     target = shot['semantic_target']
-    alternatives = ['A static close-up portrait of an elderly wizard.',
-                    'An elderly wizard standing alone in a misty forest.',
-                    'An empty fantasy landscape.']
+    alternatives = ['A generic studio portrait unrelated to the historical scene.',
+                    'An unrelated modern person standing in an empty room.',
+                    'An empty landscape without the described historical evidence.']
     with Image.open(image) as picture:
         inputs = _processor(text=[target]+alternatives, images=picture.convert('RGB'),
                             return_tensors='pt', padding=True, truncation=True)
