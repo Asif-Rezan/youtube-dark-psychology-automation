@@ -362,10 +362,12 @@ def generate_shard(shard, root=ROOT, count=SHARDS):
         image, clip = root/f'shot-{index:03}.png', root/f'shot-{index:03}.mp4'
         check = root/f'shot-{index:03}.qa.json'
         os.environ['IMAGE_NEGATIVE_PROMPT'] = shot.get('negative_prompt', '')
+        reference = (Path(__file__).resolve().parent/'assets/wizard-reference.jpg'
+                     if 'Recurring wizard:' in shot['prompt'] else None)
         for attempt in range(3):
             os.environ['IMAGE_SEED'] = str(shot['seed']+attempt*10000)
             if not image.exists():
-                w.make_image(shot['prompt'], image)
+                w.make_image(shot['prompt'], image, reference_image=reference)
             report = check_scene(image, shot)
             if report['passed']:
                 check.write_text(json.dumps(report))
@@ -464,7 +466,8 @@ def finish(root=ROOT):
     story = json.loads((root/'story.json').read_text())
     os.environ['IMAGE_NEGATIVE_PROMPT'] = ''
     os.environ['IMAGE_SEED'] = '9931'
-    w.make_image(story['thumbnail_prompt'], root/'thumbnail-source.png')
+    w.make_image(story['thumbnail_prompt'], root/'thumbnail-source.png',
+        reference_image=Path(__file__).resolve().parent/'assets/wizard-reference.jpg')
     image = ImageOps.fit(Image.open(root/'thumbnail-source.png').convert('RGB'), (1280, 720))
     draw = ImageDraw.Draw(image)
     font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 75)

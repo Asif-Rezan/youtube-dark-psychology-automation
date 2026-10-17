@@ -97,7 +97,7 @@ class Checks(unittest.TestCase):
             plan = {'storyboard_verified': True, 'scene_composition_version': 3, 'shots': [shot]}
             (root/'plan.json').write_text(json.dumps(plan))
             calls = []
-            def fake_render(prompt, path):
+            def fake_render(prompt, path, reference_image=None):
                 calls.append(prompt)
                 Image.new('RGB', (256, 256), 'blue').save(path)
             with (patch('workflow.make_image', side_effect=fake_render),
@@ -110,6 +110,71 @@ class Checks(unittest.TestCase):
             qa = json.loads((root/'shot-000.qa.json').read_text())
             self.assertFalse(qa['passed'])
             self.assertTrue(qa['advisory'])
+
+    def test_wizard_shots_use_reference_and_object_shots_do_not(self):
+        from long_video import generate_shard
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            shots = [
+                {'index': 0, 'seed': 123, 'prompt': 'Wizard opens a letter. Recurring wizard: silver beard.',
+                 'focus': 'person', 'negative_prompt': '', 'duration': 7},
+                {'index': 1, 'seed': 124, 'prompt': 'A sealed letter burns alone on a table.',
+                 'focus': 'object', 'negative_prompt': '', 'duration': 7},
+            ]
+            (root/'plan.json').write_text(json.dumps({
+                'storyboard_verified': True, 'scene_composition_version': 3, 'shots': shots}))
+            references = []
+            def fake_render(prompt, path, reference_image=None):
+                references.append(reference_image)
+                Image.new('RGB', (256, 256), 'blue').save(path)
+            with (patch('workflow.make_image', side_effect=fake_render),
+                  patch('scene_check.check_scene', return_value={'passed': True}),
+                  patch('long_video.picture_clip', side_effect=lambda image, seconds, target: target.write_bytes(b'clip'))):
+                generate_shard(0, root, count=1)
+            self.assertEqual(references[0].name, 'wizard-reference.jpg')
+            self.assertTrue(references[0].is_file())
+            self.assertIsNone(references[1])
+
+    def test_reference_canvas_keeps_requested_resolution(self):
+        from image_cpu import reference_canvas
+        source = Path(__file__).resolve().parent/'assets/wizard-reference.jpg'
+        canvas = reference_canvas(source, 1024, 576)
+        self.assertEqual(canvas.size, (1024, 576))
+
+    def test_reference_image_uses_img2img_pipeline(self):
+        import sys
+        import types
+        import image_cpu
+        source = Path(__file__).resolve().parent/'assets/wizard-reference.jpg'
+        calls = []
+        class FakeGenerator:
+            def __init__(self, device):
+                pass
+            def manual_seed(self, seed):
+                return self
+        class FakeImagePipeline:
+            def __call__(self, **kwargs):
+                calls.append(kwargs)
+                return types.SimpleNamespace(images=[Image.new('RGB', (1024, 576), 'blue')])
+        previous = image_cpu._pipeline, image_cpu._reference_pipeline
+        try:
+            image_cpu._pipeline = object()
+            image_cpu._reference_pipeline = None
+            fake_torch = types.SimpleNamespace(set_num_threads=lambda n: None, Generator=FakeGenerator)
+            factory = types.SimpleNamespace(from_pipe=lambda base: FakeImagePipeline())
+            fake_diffusers = types.SimpleNamespace(DiffusionPipeline=object,
+                DPMSolverMultistepScheduler=object, AutoPipelineForImage2Image=factory)
+            with tempfile.TemporaryDirectory() as temp:
+                target = Path(temp)/'wizard.png'
+                with (patch.dict(sys.modules, {'torch': fake_torch, 'diffusers': fake_diffusers}),
+                      patch.dict('os.environ', {'CPU_IMAGE_WIDTH': '1024', 'CPU_IMAGE_HEIGHT': '576', 'CPU_IMAGE_STEPS': '32'})):
+                    image_cpu.generate('elderly wizard in a forest', target, reference_image=source)
+                self.assertEqual(calls[0]['image'].size, (1024, 576))
+                self.assertEqual(calls[0]['strength'], 0.72)
+                with Image.open(target) as result:
+                    self.assertEqual(result.size, (1024, 576))
+        finally:
+            image_cpu._pipeline, image_cpu._reference_pipeline = previous
 
     def test_global_seven_second_timeline_and_spoken_events(self):
         from long_video import shot_plan

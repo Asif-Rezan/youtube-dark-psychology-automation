@@ -283,12 +283,12 @@ Chapter 1 must retain the immediate crisis and unanswered question. Chapter 20 m
     return validate_story(revised)
 
 
-def make_image(prompt, path):
+def make_image(prompt, path, reference_image=None):
     prompt = ('cinematic dark fantasy, realistic painterly detail, intricate fabric and beard texture, '
         'dim misty atmosphere, dramatic volumetric light, deep shadows, amber firelight, ' + prompt)
     if os.getenv('IMAGE_BACKEND', 'cpu') == 'cpu':
         from image_cpu import generate
-        generate(prompt + ', no text, no watermark', path)
+        generate(prompt + ', no text, no watermark', path, reference_image=reference_image)
         return
     if os.getenv('IMAGE_BACKEND') != 'hf':
         raise ValueError('IMAGE_BACKEND must be cpu or hf')

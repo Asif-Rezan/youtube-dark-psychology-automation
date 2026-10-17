@@ -36,10 +36,22 @@ def safer_prompt(prompt):
 MODEL = 'segmind/SSD-1B'
 REVISION = '60987f37e94cd59c36b1cba832b9f97b57395a10'
 _pipeline = None
+_reference_pipeline = None
 
 
-def generate(prompt, path):
-    global _pipeline
+def reference_canvas(path, width, height):
+    """Fit the supplied character into a landscape frame without stretching him."""
+    from PIL import Image, ImageFilter, ImageOps
+    with Image.open(path) as source:
+        source = source.convert('RGB')
+        background = ImageOps.fit(source, (width, height)).filter(ImageFilter.GaussianBlur(36))
+        character = ImageOps.contain(source, (width, height))
+        background.paste(character, ((width-character.width)//2, (height-character.height)//2))
+    return background
+
+
+def generate(prompt, path, reference_image=None):
+    global _pipeline, _reference_pipeline
     import torch
     from diffusers import DiffusionPipeline, DPMSolverMultistepScheduler
     torch.set_num_threads(min(os.cpu_count() or 2, 4))
@@ -62,15 +74,23 @@ def generate(prompt, path):
         raise ValueError('CPU image dimensions must be multiples of eight in 256–1536')
     if not 1 <= steps <= 50:
         raise ValueError('CPU generation requires 1–50 steps')
+    pipeline = _pipeline
+    extra = {}
+    if reference_image is not None:
+        from diffusers import AutoPipelineForImage2Image
+        if _reference_pipeline is None:
+            _reference_pipeline = AutoPipelineForImage2Image.from_pipe(_pipeline)
+        pipeline = _reference_pipeline
+        extra = {'image': reference_canvas(reference_image, width, height), 'strength': 0.72}
     start = time.monotonic()
     seed = int(os.getenv('IMAGE_SEED', '42'))
     image = None
     for attempt in range(3):
         # SSD-1B's SDXL output has no NSFW flag, so sanitize its input up front.
         candidate = safer_prompt(prompt) if model == MODEL or attempt else prompt
-        result = _pipeline(prompt=candidate, negative_prompt='anime, cartoon, watercolor, flat colors, line art, cel shading, blurry, low detail, poor quality, 3D render, CGI, extra arms, extra legs, deformed hands, duplicate person, text, letters, watermark, logo, ' + os.getenv('IMAGE_NEGATIVE_PROMPT', ''), width=width, height=height,
+        result = pipeline(prompt=candidate, negative_prompt='anime, cartoon, watercolor, flat colors, line art, cel shading, blurry, low detail, poor quality, 3D render, CGI, extra arms, extra legs, deformed hands, duplicate person, text, letters, watermark, logo, ' + os.getenv('IMAGE_NEGATIVE_PROMPT', ''), width=width, height=height,
             num_inference_steps=steps, guidance_scale=9.0,
-            generator=torch.Generator(device='cpu').manual_seed(seed + attempt * 10007))
+            generator=torch.Generator(device='cpu').manual_seed(seed + attempt * 10007), **extra)
         if any(getattr(result, 'nsfw_content_detected', None) or []):
             print(f'Image safety check rejected attempt {attempt+1}; trying a safer scene.', flush=True)
             continue
@@ -87,5 +107,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--prompt', required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--reference', type=Path)
     args = parser.parse_args()
-    generate(args.prompt, args.output)
+    generate(args.prompt, args.output, reference_image=args.reference)
