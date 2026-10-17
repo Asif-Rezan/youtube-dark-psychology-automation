@@ -10,6 +10,7 @@ from thumbnail_design import render_thumbnail
 class PackagingTests(unittest.TestCase):
     def setUp(self):
         self.topic = {'search_phrase': 'Great Pyramid of Giza', 'category': 'Ancient Egypt',
+                      'facts': ['The Giza pyramid complex preserves ancient stone monuments.'],
                       'sources': ['https://whc.unesco.org/en/list/86/'], 'thumbnail_anchor': 'limestone blocks',
                       'thumbnail_visual_story': 'A narrow dark seam between colossal fitted limestone blocks dominates the right foreground, with one small human figure for scale',
                       'thumbnail_forbidden_terms': ['pyramid']}
