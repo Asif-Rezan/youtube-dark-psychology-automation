@@ -1,6 +1,7 @@
 """Source-aware YouTube packaging for historical documentaries."""
 import json
 import re
+import time
 
 CLICKBAIT = re.compile(r'\b(?:shocking|unbelievable|exposed|proof|finally revealed|they hid|you won.t believe)\b', re.I)
 VAGUE_HOOK = re.compile(r'^(?:WHAT HAPPENED|THE HIDDEN TRUTH|WHAT IS THIS|WHAT\'S INSIDE)\?$', re.I)
@@ -16,26 +17,34 @@ def choose_package(story, topic, payload):
     keyword = topic['search_phrase']
     candidates = [payload.get(key, {}) for key in ('option_a', 'option_b', 'option_c')]
     valid = []
-    for option in candidates:
+    rejected = []
+    for name, option in zip(('option_a', 'option_b', 'option_c'), candidates):
         title = _plain(option.get('title', ''))
         text = _plain(option.get('thumbnail_text', ''))
         prompt = _plain(option.get('thumbnail_prompt', ''))
         if not 35 <= len(title) <= 75 or keyword.casefold() not in title[:52].casefold():
+            rejected.append(f'{name}: title must be 35-75 characters and contain the exact subject within its first 52 characters')
             continue
         if CLICKBAIT.search(title) or CLICKBAIT.search(text):
+            rejected.append(f'{name}: title or thumbnail question uses prohibited clickbait')
             continue
         hook_words = text.rstrip('?').split()
         if (not text.endswith('?') or not 2 <= len(hook_words) <= 5 or len(text) > 30
                 or hook_words[0].upper() not in QUESTION_OPENERS or VAGUE_HOOK.fullmatch(text)):
+            rejected.append(f'{name}: thumbnail needs a specific 2-5 word question, max 30 characters, ending ?, starting HOW/WHY/WHAT/WHO/WHERE')
             continue
         if not 25 <= len(prompt) <= 220 or topic['thumbnail_anchor'].casefold() not in prompt.casefold():
+            rejected.append(f'{name}: artwork prompt must be 25-220 characters and contain the exact anchor phrase')
             continue
         if any(re.search(r'\b'+re.escape(term)+r'\b', prompt, re.I)
                for term in topic.get('thumbnail_forbidden_terms', [])):
+            rejected.append(f'{name}: artwork prompt contains a forbidden visual element, even if phrased as a negative instruction')
             continue
         if text.casefold() in title.casefold():
+            rejected.append(f'{name}: thumbnail question repeats the title')
             continue
         if re.search(r'\b(?:wizard|magic|fantasy)\b', prompt, re.I):
+            rejected.append(f'{name}: artwork prompt contains fantasy terms, even if phrased as a negative instruction')
             continue
         score = 5 if title.casefold().startswith(keyword.casefold()) else 0
         score += 2 if 45 <= len(title) <= 65 else 0
@@ -51,7 +60,7 @@ def choose_package(story, topic, payload):
         artwork_prompt += '. Documentary photograph, natural side light, no text.'
         valid.append((score, {'title': title, 'thumbnail_text': text, 'thumbnail_prompt': artwork_prompt}))
     if not valid:
-        raise ValueError('No accurate, readable YouTube title and thumbnail pair')
+        raise ValueError('No accurate, readable YouTube title and thumbnail pair: ' + '; '.join(rejected))
     valid.sort(key=lambda pair: pair[0], reverse=True)
     best = valid[0][1]
     intro = _plain(payload.get('description_intro', ''))
@@ -89,7 +98,8 @@ def choose_package(story, topic, payload):
     return story
 
 
-def request_package(story, topic, ask):
+def request_package(story, topic, ask, pause=None):
+    pause = pause or time.sleep
     text = {'type': 'string'}
     option = {'type': 'object', 'properties': {k: text for k in
               ('title', 'thumbnail_text', 'thumbnail_prompt')},
@@ -119,6 +129,7 @@ Complement the title without repeating its phrasing. It must be legible on a pho
 Thumbnail's documented visual anchor: {topic['thumbnail_anchor']}.
 The image must tell this source-backed visual story: {topic['thumbnail_visual_story']}.
 Do not mention or depict these elements in thumbnail artwork: {json.dumps(topic.get('thumbnail_forbidden_terms', []))}.
+Omit forbidden words entirely, including negative phrases such as "no pyramid"; the renderer handles exclusions.
 Thumbnail prompt: 25-220 characters, include the exact visual-anchor phrase, and add
 a specific scene composition that builds on the visual story. Make the historical scale,
 entrance, path or object relationship the source of curiosity even with no words visible.
@@ -130,5 +141,19 @@ and state what the viewer will learn. Description details: 80-800 characters, un
 explain the key evidence and remaining uncertainty. Do not invent historical claims.
 Tags: 4-8 concise specific search variants, including sensible spelling variants if useful;
 no unrelated trend tags, hashtags, or keyword stuffing. Return only the requested JSON.'''
-    result = ask(prompt, 2600, schema)
-    return choose_package(story, topic, result)
+    feedback = ''
+    for attempt in range(3):
+        if attempt:
+            pause(60)  # Respect the free provider's request/token budget.
+        result = ask(prompt + feedback, 2600, schema)
+        try:
+            return choose_package(story, topic, result)
+        except ValueError as error:
+            print(json.dumps({'check': 'Documentary packaging', 'attempt': attempt+1,
+                              'passed': False, 'reason': str(error)}), flush=True)
+            if attempt == 2:
+                raise
+            feedback = ('\nYour previous response failed validation: ' + str(error) +
+                        '\nPrevious metadata: ' + json.dumps(result) +
+                        '\nCorrect these issues. Return the complete requested JSON; '
+                        'keep every historical claim within the supplied evidence.')

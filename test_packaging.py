@@ -1,8 +1,9 @@
 import tempfile
+import copy
 import unittest
 from pathlib import Path
 from PIL import Image
-from video_packaging import choose_package
+from video_packaging import choose_package, request_package
 from thumbnail_design import render_thumbnail
 
 
@@ -61,6 +62,42 @@ class PackagingTests(unittest.TestCase):
                 self.assertLess(sum(image.getpixel((80, 590))), sum(image.getpixel((1200, 590))))
                 self.assertGreater(sum(image.getpixel((900, 360))), sum(image.getpixel((900, 20))))
             self.assertLess(target.stat().st_size, 2*1024*1024)
+
+    def test_rejected_metadata_is_corrected_without_replacing_script(self):
+        bad = copy.deepcopy(self.payload)
+        for key in ('option_a', 'option_b', 'option_c'):
+            bad[key]['thumbnail_prompt'] = 'Limestone blocks with no pyramid in the image, dark joint at right.'
+        prompts, pauses = [], []
+        def ask(prompt, limit, schema):
+            prompts.append(prompt)
+            return bad if len(prompts) == 1 else self.payload
+        scenes = copy.deepcopy(self.story['scenes'])
+        result = request_package(self.story, self.topic, ask, pause=pauses.append)
+        self.assertEqual(len(prompts), 2)
+        self.assertEqual(pauses, [60])
+        self.assertIn('forbidden visual element', prompts[1])
+        self.assertEqual(result['scenes'], scenes)
+        self.assertNotIn('pyramid', result['thumbnail_prompt'].lower())
+
+    def test_retries_are_bounded_and_never_accept_invalid_metadata(self):
+        attempts, pauses = [], []
+        def ask(prompt, limit, schema):
+            attempts.append(prompt)
+            return {**self.payload, 'description_intro': 'Too short'}
+        original = copy.deepcopy(self.story)
+        with self.assertRaisesRegex(ValueError, 'Description opening'):
+            request_package(self.story, self.topic, ask, pause=pauses.append)
+        self.assertEqual(len(attempts), 3)
+        self.assertEqual(pauses, [60, 60])
+        self.assertEqual(self.story, original)
+
+    def test_successful_metadata_does_not_retry(self):
+        calls = []
+        def ask(prompt, limit, schema):
+            calls.append(prompt)
+            return self.payload
+        request_package(self.story, self.topic, ask, pause=lambda _: self.fail('Unnecessary pause'))
+        self.assertEqual(len(calls), 1)
 
 
 if __name__ == '__main__':
