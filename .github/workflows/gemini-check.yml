@@ -1,0 +1,47 @@
+name: Gemini fallback live check
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fallback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Verify real Gemini response after simulated Groq rate limit
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: simulated-groq-key
+        run: |
+          python - <<'PY'
+          import json
+          from unittest.mock import Mock, patch
+          import requests
+          import workflow as w
+          if not w.os.getenv('GEMINI_API_KEY'):
+              raise SystemExit('GEMINI_API_KEY repository secret is missing')
+          real_post = requests.post
+          def route(url, **kwargs):
+              if url.startswith('https://api.groq.com/'):
+                  return Mock(ok=False, status_code=429)
+              return real_post(url, **kwargs)
+          schema = {'type': 'object', 'properties': {'shot_000': {'type': 'string'}},
+                    'required': ['shot_000'], 'additionalProperties': False}
+          payload = {'model': 'unused', 'messages': [{'role': 'user', 'content':
+              'Return JSON with shot_000: a concise historical image prompt depicting limestone blocks at Giza.'}],
+              'response_format': {'type': 'json_schema', 'json_schema':
+                  {'name': 'fallback_check', 'strict': True, 'schema': schema}},
+              'reasoning_effort': 'low', 'max_completion_tokens': 1000}
+          with patch('requests.post', side_effect=route), patch('workflow.time.sleep') as sleep:
+              result = w.request_groq('chat/completions', payload)
+          data = json.loads(result['choices'][0]['message']['content'])
+          assert set(data) == {'shot_000'} and isinstance(data['shot_000'], str) and data['shot_000']
+          sleep.assert_not_called()
+          assert w._text_provider == 'gemini'
+          print(json.dumps({'check': 'Live Gemini fallback', 'passed': True, 'groq_wait_seconds': 0}))
+          PY
