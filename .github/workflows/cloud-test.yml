@@ -38,6 +38,7 @@ jobs:
         if: inputs.mode != 'checks'
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           IMAGE_BACKEND: cpu
           TTS_BACKEND: kokoro
           CAPTION_BACKEND: cpu
