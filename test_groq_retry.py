@@ -1,56 +1,63 @@
+import copy
 import unittest
 from unittest.mock import Mock, patch
+import requests
 import workflow as w
 
 
-class GroqRetryTests(unittest.TestCase):
-    def response(self, status, headers=None, code='rate_limit_exceeded'):
-        return Mock(ok=status == 200, status_code=status, headers=headers or {},
-                    json=Mock(return_value={'error': {'code': code}}), content=b'audio')
+@patch.dict('os.environ', {'GROQ_API_KEY': 'groq-test', 'GEMINI_API_KEY': 'gemini-test'})
+class ProviderFallbackTests(unittest.TestCase):
+    def setUp(self):
+        self.provider = patch.object(w, '_text_provider', 'groq')
+        self.provider.start()
+        self.addCleanup(self.provider.stop)
+        self.payload = {'model': 'groq-model', 'messages': [{'role': 'user', 'content': 'Return JSON'}],
+            'max_completion_tokens': 100, 'response_format': {'type': 'json_schema',
+            'json_schema': {'name': 'test', 'strict': True, 'schema': {'type': 'object'}}}}
 
-    def call(self, responses, binary=False):
-        return patch('requests.post', side_effect=responses)
+    def response(self, status=200, finish='stop', content='{"ok":true}'):
+        return Mock(ok=status == 200, status_code=status,
+            json=Mock(return_value={'choices': [{'finish_reason': finish, 'message': {'content': content}}]}))
 
-    @patch.dict('os.environ', {'GROQ_API_KEY': 'test'})
-    def test_multiple_rate_limits_honor_server_delay_then_succeed(self):
-        responses = [self.response(429, {'retry-after': '125'}),
-                     self.response(429, {'retry-after': '2.5'}), self.response(200)]
-        with self.call(responses) as post, patch.object(w.time, 'sleep') as sleep:
-            self.assertEqual(w.request_groq('audio', {}, binary=True), b'audio')
-        self.assertEqual(post.call_count, 3)
-        self.assertEqual([c.args[0] for c in sleep.call_args_list], [60, 60, 6, 4])
-
-    @patch.dict('os.environ', {'GROQ_API_KEY': 'test'})
-    def test_daily_limit_does_not_retry_before_reset(self):
-        with self.call([self.response(429, {'retry-after': '3600'})]) as post, patch.object(w.time, 'sleep') as sleep:
-            with self.assertRaisesRegex(RuntimeError, 'retry_after_seconds=3601'):
-                w.request_groq('chat', {})
+    def test_groq_success_never_calls_gemini(self):
+        with patch('requests.post', return_value=self.response()) as post, patch.object(w.time, 'sleep') as sleep:
+            w.request_groq('chat/completions', self.payload)
         self.assertEqual(post.call_count, 1)
         sleep.assert_not_called()
 
-    @patch.dict('os.environ', {'GROQ_API_KEY': 'test'})
-    def test_missing_header_backoff_is_bounded(self):
-        with self.call([self.response(429)] * 8) as post, patch.object(w.time, 'sleep'):
-            with self.assertRaisesRegex(RuntimeError, 'budget exhausted'):
-                w.request_groq('chat', {})
-        self.assertLessEqual(post.call_count, 8)
+    def test_failures_switch_immediately_and_stay_on_gemini(self):
+        for failure in (self.response(429), self.response(500), self.response(401),
+                        requests.Timeout(), self.response(content='invalid'), self.response(finish='length')):
+            with self.subTest(failure=failure), patch.object(w, '_text_provider', 'groq'):
+                original = copy.deepcopy(self.payload)
+                with patch('requests.post', side_effect=[failure, self.response(), self.response()]) as post, patch.object(w.time, 'sleep') as sleep:
+                    w.request_groq('chat/completions', self.payload)
+                    w.request_groq('chat/completions', self.payload)
+                self.assertEqual(post.call_count, 3)
+                self.assertIn('api.groq.com', post.call_args_list[0].args[0])
+                self.assertIn('generativelanguage.googleapis.com', post.call_args_list[1].args[0])
+                self.assertIn('generativelanguage.googleapis.com', post.call_args_list[2].args[0])
+                self.assertEqual(post.call_args_list[1].kwargs['json']['response_format'], self.payload['response_format'])
+                self.assertNotEqual(post.call_args_list[1].kwargs['headers'], post.call_args_list[0].kwargs['headers'])
+                self.assertEqual(self.payload, original)
+                sleep.assert_not_called()
 
-    @patch.dict('os.environ', {'GROQ_API_KEY': 'test'})
-    def test_other_errors_are_not_retried(self):
-        with self.call([self.response(401)]) as post, patch.object(w.time, 'sleep') as sleep:
-            with self.assertRaisesRegex(RuntimeError, 'HTTP 401'):
-                w.request_groq('chat', {})
+    def test_missing_key_is_clear_and_no_wait(self):
+        with patch.dict('os.environ', {'GEMINI_API_KEY': ''}), patch('requests.post', return_value=self.response(429)) as post, patch.object(w.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(RuntimeError, 'GEMINI_API_KEY is required'):
+                w.request_groq('chat/completions', self.payload)
         self.assertEqual(post.call_count, 1)
         sleep.assert_not_called()
 
-    @patch.dict('os.environ', {'GROQ_API_KEY': 'test'})
-    def test_invalid_json_only_retries_once(self):
-        with self.call([self.response(400, code='json_validate_failed')] * 2) as post, patch.object(w.time, 'sleep'):
-            with self.assertRaisesRegex(RuntimeError, 'HTTP 400'):
-                w.request_groq('chat', {})
-        self.assertEqual(post.call_count, 2)
+    def test_gemini_failures_do_not_loop_or_accept_invalid_output(self):
+        for failure in (self.response(429), self.response(finish='length'), self.response(finish='content_filter'), self.response(content='invalid')):
+            with self.subTest(failure=failure), patch.object(w, '_text_provider', 'groq'), patch('requests.post', side_effect=[self.response(429), failure]) as post:
+                with self.assertRaisesRegex(RuntimeError, 'Gemini fallback'):
+                    w.request_groq('chat/completions', self.payload)
+                self.assertEqual(post.call_count, 2)
 
-    def test_date_and_invalid_header(self):
-        with patch.object(w.time, 'time', return_value=0):
-            self.assertEqual(w.groq_retry_delay(self.response(429, {'retry-after': 'Thu, 01 Jan 1970 00:02:00 GMT'}), 0), 121)
-        self.assertEqual(w.groq_retry_delay(self.response(429, {'retry-after': 'invalid'}), 1), 121)
+    def test_audio_is_not_sent_to_text_provider(self):
+        with patch('requests.post', return_value=self.response(429)) as post:
+            with self.assertRaisesRegex(RuntimeError, 'does not support audio'):
+                w.request_groq('audio/speech', {}, binary=True)
+        self.assertEqual(post.call_count, 1)
