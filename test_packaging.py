@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from PIL import Image
 from video_packaging import artwork_candidate, choose_package, description_parts, request_package
-from thumbnail_design import render_thumbnail
+from thumbnail_design import hook_layout, render_thumbnail
 
 
 class PackagingTests(unittest.TestCase):
@@ -95,6 +95,26 @@ class PackagingTests(unittest.TestCase):
                 self.assertLess(sum(image.getpixel((80, 590))), sum(image.getpixel((1200, 590))))
                 self.assertGreater(sum(image.getpixel((900, 360))), sum(image.getpixel((900, 20))))
             self.assertLess(target.stat().st_size, 2*1024*1024)
+
+    def test_long_valid_question_wraps_and_renders(self):
+        hook = 'WHERE WERE MONUMENTS BUILT?'
+        lines, size = hook_layout(hook)
+        self.assertGreaterEqual(size, 56)
+        self.assertLessEqual(len(lines), 3)
+        self.payload['option_a']['thumbnail_text'] = hook
+        result = choose_package(self.story, self.topic, self.payload)
+        self.assertEqual(result['thumbnail_text'], hook)
+        with tempfile.TemporaryDirectory() as temp:
+            source, target = Path(temp)/'source.png', Path(temp)/'thumbnail.jpg'
+            Image.new('RGB', (1024, 576), (194, 138, 69)).save(source)
+            render_thumbnail(source, hook, target)
+            self.assertTrue(target.exists())
+
+    def test_unrenderable_question_is_rejected_during_packaging(self):
+        self.payload['option_a']['thumbnail_text'] = 'WHAT SUPERCALIFRAGILISTIC?'
+        self.payload['option_c']['thumbnail_text'] = 'WHAT SUPERCALIFRAGILISTIC?'
+        with self.assertRaisesRegex(ValueError, 'cannot fit at readable size'):
+            choose_package(self.story, self.topic, self.payload)
 
     def test_rejected_metadata_is_corrected_without_replacing_script(self):
         bad = copy.deepcopy(self.payload)
