@@ -25,3 +25,5 @@ Restart video generation after Gemini temporary-server recovery fix: 2026-10-18 
 Fresh video generation explicitly requested now: 2026-10-18 Asia/Dhaka, request 2.
 
 New video requested after repairing description metadata failures: 2026-10-19 Asia/Dhaka.
+
+Fresh video generation requested after thumbnail layout fix: 2026-10-19 Asia/Dhaka.
