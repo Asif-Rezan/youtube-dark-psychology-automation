@@ -632,7 +632,7 @@ def upload():
         store.upload(ROOT/name, f'runs/{run_id()}/{name}')
     store.save(key, state)
     w.upload_private(ROOT/'video.mp4', ROOT/'thumbnail.jpg', story, state, store, key,
-        'Background music: original Magenta MusicRNN historical exploration score with synthesized strings, drone and soft pulse.')
+        'Background music: original Magenta MusicRNN historical exploration score with synthesized string chords and airy accents.')
     history.append({'title': story['title'], 'hash': digest, 'run': run_id(),
         'video_id': state['video_id'], 'format': story.get('format'), 'topic_id': story.get('topic_id'),
         'plot': ' '.join(scene.get('summary', '') for scene in story['scenes'])})
