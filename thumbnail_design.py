@@ -1,6 +1,7 @@
 """Readable 16:9 historical documentary thumbnail layout."""
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
+from itertools import combinations
 
 
 def _font(size):
@@ -11,10 +12,26 @@ def _font(size):
     return ImageFont.load_default()
 
 
-def render_thumbnail(source, text, target, category='History'):
+def hook_layout(text):
+    """Find a readable one to three line layout before artwork is generated."""
     words = text.upper().split()
     if not 2 <= len(words) <= 5 or len(text) > 30 or not text.endswith('?'):
         raise ValueError('Thumbnail hook must be a short historical question')
+    measure = ImageDraw.Draw(Image.new('RGB', (1, 1)))
+    for size in range(96, 55, -4):
+        font = _font(size)
+        for count in (1, 2, 3):
+            for breaks in combinations(range(1, len(words)), count - 1):
+                cuts = (0,) + breaks + (len(words),)
+                lines = [' '.join(words[cuts[i]:cuts[i + 1]]) for i in range(count)]
+                if all(measure.textbbox((0, 0), line, font=font, stroke_width=3)[2] <= 500
+                       for line in lines):
+                    return lines, size
+    raise ValueError('Thumbnail hook cannot fit at readable size')
+
+
+def render_thumbnail(source, text, target, category='History'):
+    lines, size = hook_layout(text)
     with Image.open(source) as original:
         image = ImageOps.fit(original.convert('RGB'), (1280, 720), method=Image.Resampling.LANCZOS)
     # Build a photographic focal point from the generated artwork itself: one lit
@@ -48,21 +65,9 @@ def render_thumbnail(source, text, target, category='History'):
     label_width = draw.textbbox((0, 0), label, font=label_font)[2]
     draw.rounded_rectangle((60, 72, 95+label_width, 124), radius=9, fill=(230, 161, 55, 255))
     draw.text((78, 83), label, font=label_font, fill=(13, 24, 29, 255))
-    # Short hooks use one or two lines with a fixed left edge and ample mobile-safe margins.
-    lines = [' '.join(words)]
-    if len(words) >= 3:
-        split = (len(words)+1)//2
-        lines = [' '.join(words[:split]), ' '.join(words[split:])]
-    width = 440
-    size = 96
-    while size >= 56:
-        font = _font(size)
-        if all(draw.textbbox((0, 0), line, font=font, stroke_width=2)[2] <= width for line in lines):
-            break
-        size -= 4
-    if size < 56:
-        raise ValueError('Thumbnail hook cannot fit at readable size')
-    y = 310 if len(lines) == 1 else 260
+    # The same layout was checked when the package was selected.
+    font = _font(size)
+    y = 310 if len(lines) == 1 else (260 if len(lines) == 2 else 210)
     for index, line in enumerate(lines):
         draw.text((61, y + index*(size+18)), line, font=font,
                   fill=cream if index == 0 else gold, stroke_width=3,
