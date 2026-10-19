@@ -2,6 +2,7 @@
 import json
 import re
 import time
+from thumbnail_design import hook_layout
 
 CLICKBAIT = re.compile(r'\b(?:shocking|unbelievable|exposed|proof|finally revealed|they hid|you won.t believe)\b', re.I)
 VAGUE_HOOK = re.compile(r'^(?:WHAT HAPPENED|THE HIDDEN TRUTH|WHAT IS THIS|WHAT\'S INSIDE)\?$', re.I)
@@ -70,6 +71,11 @@ def choose_package(story, topic, payload):
         if (not text.endswith('?') or not 2 <= len(hook_words) <= 5 or len(text) > 30
                 or hook_words[0].upper() not in QUESTION_OPENERS or VAGUE_HOOK.fullmatch(text)):
             rejected.append(f'{name}: thumbnail needs a specific 2-5 word question, max 30 characters, ending ?, starting HOW/WHY/WHAT/WHO/WHERE')
+            continue
+        try:
+            hook_layout(text)
+        except ValueError:
+            rejected.append(f'{name}: thumbnail question cannot fit at readable size')
             continue
         if not 25 <= len(prompt) <= 220 or topic['thumbnail_anchor'].casefold() not in prompt.casefold():
             rejected.append(f'{name}: artwork prompt must be 25-220 characters and contain the exact anchor phrase')
