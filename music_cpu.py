@@ -8,9 +8,13 @@ import numpy as np
 
 
 RATE = 24000
-STEP = 60 / 76 / 4
-# D minor pentatonic avoids busy chromatic turns beneath spoken history.
-SCALE = (50, 53, 55, 57, 60, 62, 65, 67, 69, 72)
+STEP = 60 / 88 / 4
+# D Dorian keeps the mystery while its natural sixth leaves room for wonder.
+SCALE = (55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79)
+CHORDS = ((62, 65, 69, 76),  # D minor add9
+          (60, 64, 67, 71),  # C major 7
+          (55, 59, 62, 69),  # G add9
+          (60, 64, 67, 74))  # C add9
 
 
 def render_sequence(sequence, path):
@@ -18,15 +22,25 @@ def render_sequence(sequence, path):
     if not 20 <= seconds <= 180 or not sequence.get('notes'):
         raise ValueError('Generated score has no usable notes or duration')
     audio = np.zeros((math.ceil(seconds * RATE), 2), dtype=np.float32)
-    # Slowly moving low strings create a sense of distance without copying a
-    # region-specific musical tradition or overpowering the historical story.
-    t = np.arange(len(audio), dtype=np.float32) / RATE
-    swell = .7 + .3 * np.sin(2 * np.pi * .045 * t) ** 2
-    drone = (.038 * np.sin(2 * np.pi * 73.416 * t) +
-             .019 * np.sin(2 * np.pi * 110 * t) +
-             .010 * np.sin(2 * np.pi * 146.832 * t)) * swell
-    audio[:, 0] += drone * .92
-    audio[:, 1] += drone
+    # Mid-range string chords rise and change rather than sitting on a heavy
+    # bass drone. Each new chord suggests another room or vista opening up.
+    total_steps = int(sequence['totalQuantizedSteps'])
+    for chord_index, start_step in enumerate(range(0, total_steps, 64)):
+        start = int(start_step * STEP * RATE)
+        count = min(int(64 * STEP * RATE), len(audio) - start)
+        ct = np.arange(count, dtype=np.float32) / RATE
+        attack = np.minimum(ct / 1.5, 1)
+        release = np.minimum((count / RATE - ct) / 1.5, 1)
+        envelope = attack * release * (.85 + .15 * np.sin(2 * np.pi * .07 * ct))
+        for voice, pitch in enumerate(CHORDS[chord_index % len(CHORDS)]):
+            hz = 440 * 2 ** ((pitch - 69) / 12)
+            string = (np.sin(2 * np.pi * hz * ct) +
+                      .16 * np.sin(2 * np.pi * hz * 1.006 * ct) +
+                      .10 * np.sin(2 * np.pi * hz * 2 * ct))
+            pan = .35 + .1 * voice
+            signal = string * envelope * .014
+            audio[start:start+count, 0] += signal * (1-pan)
+            audio[start:start+count, 1] += signal * pan
     for index, note in enumerate(sequence['notes']):
         start = int(int(note['quantizedStartStep']) * STEP * RATE)
         if start < 0 or start >= len(audio):
@@ -36,25 +50,27 @@ def render_sequence(sequence, path):
         nt = np.arange(count, dtype=np.float32) / RATE
         pitch = min(SCALE, key=lambda value: abs(value - int(note['pitch'])))
         hz = 440 * 2 ** ((pitch - 69) / 12)
-        # Warm plucked strings: quick attack, long soft decay, little high end.
-        envelope = np.minimum(nt / .035, 1) * np.exp(-nt / 1.8)
+        # A lightly bowed/plucked motif moves above the chords without a piano attack.
+        envelope = np.minimum(nt / .13, 1) * np.exp(-nt / 2.2)
         envelope *= np.exp(-np.maximum(nt - length, 0) * 1.4)
         tone = (np.sin(2 * np.pi * hz * nt) +
                 .20 * np.sin(2 * np.pi * hz * 2 * nt) +
                 .06 * np.sin(2 * np.pi * hz * 3 * nt))
         pan = .43 + .14 * (index % 3) / 2
-        signal = tone * envelope * .065
+        signal = tone * envelope * .052
         audio[start:start+count, 0] += signal * (1-pan)
         audio[start:start+count, 1] += signal * pan
-    # A sparse, soft low pulse suggests forward movement through a place.
-    for start_step in range(0, int(sequence['totalQuantizedSteps']), 16):
+    # A very quiet upper-register glint gives the scene discovery and air.
+    for index, start_step in enumerate(range(0, total_steps, 32)):
         start = int(start_step * STEP * RATE)
-        count = min(int(.42 * RATE), len(audio) - start)
+        count = min(int(3 * RATE), len(audio) - start)
         if count <= 0:
             continue
-        pt = np.arange(count, dtype=np.float32) / RATE
-        pulse = .028 * np.sin(2 * np.pi * (64 - 18 * pt) * pt) * np.exp(-pt * 12)
-        audio[start:start+count] += pulse[:, None]
+        st = np.arange(count, dtype=np.float32) / RATE
+        hz = 440 * 2 ** (([74, 76, 79, 76][index % 4] - 69) / 12)
+        glint = .008 * np.sin(2 * np.pi * hz * st) * np.minimum(st / .08, 1) * np.exp(-st / 1.5)
+        audio[start:start+count, 0] += glint * .4
+        audio[start:start+count, 1] += glint * .6
     # A short stereo reflection adds space without turning the bed into a wash.
     for delay, gain in ((.37, .15), (.73, .08)):
         shift = int(delay * RATE)
