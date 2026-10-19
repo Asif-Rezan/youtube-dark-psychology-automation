@@ -18,4 +18,5 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core
           pip install -r requirements.txt
+          pip install soundfile==0.13.1
           python -m unittest -v
