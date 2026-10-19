@@ -3,7 +3,7 @@ import copy
 import unittest
 from pathlib import Path
 from PIL import Image
-from video_packaging import artwork_candidate, choose_package, request_package
+from video_packaging import artwork_candidate, choose_package, description_parts, request_package
 from thumbnail_design import render_thumbnail
 
 
@@ -116,13 +116,39 @@ class PackagingTests(unittest.TestCase):
         attempts, pauses = [], []
         def ask(prompt, limit, schema):
             attempts.append(prompt)
-            return {**self.payload, 'description_intro': 'Too short'}
+            return {**self.payload, 'description_intro': 'Shocking proof exposed'}
         original = copy.deepcopy(self.story)
-        with self.assertRaisesRegex(ValueError, 'Description opening'):
+        with self.assertRaisesRegex(ValueError, 'prohibited clickbait'):
             request_package(self.story, self.topic, ask, pause=pauses.append)
         self.assertEqual(len(attempts), 3)
         self.assertEqual(pauses, [60, 60])
         self.assertEqual(self.story, original)
+
+    def test_description_failures_recover_without_regenerating_story(self):
+        payload = copy.deepcopy(self.payload)
+        payload.update(description_intro='A different subject opens this otherwise long enough description. More historical evidence follows.',
+                       description_details='Too short')
+        scenes = copy.deepcopy(self.story['scenes'])
+        result = request_package(self.story, self.topic, lambda *args: payload,
+                                 pause=lambda _: self.fail('Unnecessary regeneration'))
+        self.assertTrue(result['description'].startswith(self.topic['search_phrase']))
+        self.assertIn(self.topic['facts'][0], result['description'])
+        self.assertEqual(result['scenes'], scenes)
+
+    def test_curated_descriptions_cover_every_topic(self):
+        import json
+        for topic in json.loads(Path('history_topics.json').read_text()):
+            with self.subTest(topic=topic['id']):
+                intro, details = description_parts({}, topic)
+                self.assertTrue(80 <= len(intro) <= 400)
+                self.assertTrue(80 <= len(details) <= 800)
+                self.assertIn(topic['search_phrase'], intro.split(':')[0])
+                for fact in topic['facts']:
+                    self.assertIn(fact, details)
+
+    def test_valid_description_is_preserved(self):
+        self.assertEqual(description_parts(self.payload, self.topic),
+            (self.payload['description_intro'], self.payload['description_details']))
 
     def test_successful_metadata_does_not_retry(self):
         calls = []
