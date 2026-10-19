@@ -9,9 +9,8 @@ async function main() {
   const model = new MusicRNN('https://storage.googleapis.com/magentadata/js/checkpoints/music_rnn/basic_rnn');
   await model.initialize();
   // Newly composed seed phrase, not a borrowed song.
-  // An original D-minor exploration motif; the renderer keeps generated notes
-  // in the same palette and gives them a restrained string timbre.
-  const pitches = [62, 65, 69, 72, 69, 67, 65, 62];
+  // An original D-Dorian motif: mysterious, with a brighter natural sixth.
+  const pitches = [62, 64, 65, 69, 71, 69, 67, 64];
   const primer = {quantizationInfo: {stepsPerQuarter: 4}, totalQuantizedSteps: 32,
     notes: pitches.map((pitch, i) => ({pitch, quantizedStartStep: i * 4, quantizedEndStep: i * 4 + 3}))};
   const result = await model.continueSequence(primer, 512, 0.55);
