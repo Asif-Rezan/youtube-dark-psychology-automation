@@ -26,6 +26,12 @@ class AudioDesignTests(unittest.TestCase):
             samples, _ = sf.read(target)
             self.assertGreater(np.sqrt(np.mean(samples**2)), .005)
             self.assertLess(np.max(np.abs(samples)), .5)
+            # The previous low drone dominated the preview; this score should
+            # keep its energy in the lighter mid range.
+            spectrum = abs(np.fft.rfft(samples[:, 0])) ** 2
+            frequencies = np.fft.rfftfreq(len(samples), 1/RATE)
+            self.assertLess(spectrum[frequencies < 100].sum() /
+                            spectrum[(frequencies >= 100) & (frequencies < 1200)].sum(), .05)
 
     def test_deeper_voice_preserves_duration(self):
         with tempfile.TemporaryDirectory() as temp:
