@@ -25,6 +25,31 @@ def artwork_candidate(prompt, topic):
     return curated if anchor.casefold() in curated.casefold() else f'{anchor}. {curated}'
 
 
+def description_parts(payload, topic):
+    """Repair mechanical description failures using only the curated topic facts."""
+    keyword = topic['search_phrase']
+    intro = _plain(payload.get('description_intro', ''))
+    details = _plain(payload.get('description_details', ''))
+    # Sensational claims must be rejected, even if another constraint also fails.
+    if CLICKBAIT.search(intro) or CLICKBAIT.search(details):
+        raise ValueError('Description contains prohibited clickbait')
+    if (not 80 <= len(intro) <= 400 or keyword.casefold() not in
+            re.split(r'(?<=[.!?])\s', intro, maxsplit=1)[0].casefold()):
+        intro = (f'{keyword}: explore the historical evidence, surviving remains, '
+                 'and questions examined in this documentary.')
+    if not 80 <= len(details) <= 800:
+        facts = [_plain(fact) for fact in topic.get('facts', []) if _plain(fact)]
+        if not facts:
+            raise ValueError('Description fallback requires curated historical facts')
+        details = ' '.join(facts) + ' The documentary distinguishes the supplied evidence from uncertain interpretation.'
+    if (not 80 <= len(intro) <= 400 or not 80 <= len(details) <= 800
+            or CLICKBAIT.search(intro) or CLICKBAIT.search(details)):
+        raise ValueError('Curated description exceeds metadata constraints')
+    if not intro.endswith(('.', '?', '!')):
+        intro += '.'
+    return intro, details
+
+
 def choose_package(story, topic, payload):
     """Use a concise, accurate title and matching thumbnail hook; retain alternatives for review."""
     keyword = topic['search_phrase']
@@ -76,14 +101,7 @@ def choose_package(story, topic, payload):
         raise ValueError('No accurate, readable YouTube title and thumbnail pair: ' + '; '.join(rejected))
     valid.sort(key=lambda pair: pair[0], reverse=True)
     best = valid[0][1]
-    intro = _plain(payload.get('description_intro', ''))
-    if not 80 <= len(intro) <= 400 or keyword.casefold() not in re.split(r'(?<=[.!?])\s', intro, maxsplit=1)[0].casefold() or CLICKBAIT.search(intro):
-        raise ValueError('Description opening must name the historical subject accurately')
-    if not intro.endswith(('.', '?', '!')):
-        intro += '.'
-    details = _plain(payload.get('description_details', ''))
-    if not 80 <= len(details) <= 800 or CLICKBAIT.search(details):
-        raise ValueError('Description must explain the evidence and viewer payoff')
+    intro, details = description_parts(payload, topic)
     relevant_text = ' '.join([keyword, topic['category']] + topic.get('facts', []))
     relevant_stems = {word[:5] for word in re.findall(r'[a-z]{5,}', relevant_text.casefold())
                       if word not in {'history', 'ancient', 'historical', 'documentary', 'archaeology'}}
