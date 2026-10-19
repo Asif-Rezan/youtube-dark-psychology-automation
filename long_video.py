@@ -126,8 +126,10 @@ def file_hash(path):
 
 
 def text_fingerprint(text):
+    from voice_cpu import VOICE_RENDER_VERSION
     settings = (text, os.getenv('TTS_BACKEND', 'kokoro'),
-                os.getenv('CPU_TTS_VOICE', 'am_michael'), 'kokoro-speed-0.9-v1')
+                os.getenv('CPU_TTS_VOICE', 'am_michael'), 'kokoro-speed-0.9-v1',
+                VOICE_RENDER_VERSION)
     return hashlib.sha256(json.dumps(settings).encode()).hexdigest()
 
 
@@ -389,8 +391,9 @@ def mix_audio(voice, music, target, seconds):
     w.shell('ffmpeg', '-y', '-i', str(voice), '-stream_loop', '-1', '-i', str(music),
         '-filter_complex',
         '[0:a]loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,asplit=2[voice][side];'
-        '[1:a]loudnorm=I=-27:TP=-3:LRA=7,aresample=48000[music];'
-        '[music][side]sidechaincompress=threshold=0.08:ratio=2:attack=100:release=700:mix=0.35,asplit=2[bed][check];'
+        '[1:a]equalizer=f=160:t=q:w=1:g=-3,equalizer=f=1100:t=q:w=1:g=-2,'
+        'loudnorm=I=-27:TP=-3:LRA=7,aresample=48000[music];'
+        '[music][side]sidechaincompress=threshold=0.08:ratio=3:attack=100:release=700:mix=0.55,asplit=2[bed][check];'
         '[voice][bed]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95:level=0[a]',
         '-map', '[a]', '-t', str(seconds), '-ac', '2', '-c:a', 'pcm_s16le', str(target),
         '-map', '[check]', '-t', str(seconds), '-ac', '2', '-c:a', 'pcm_s16le', str(bed))
@@ -452,8 +455,8 @@ def finish(root=ROOT):
     print(json.dumps({'visual_quality_advisory_count': len(advisory_shots), 'shot_indices': advisory_shots}), flush=True)
     report = {'render_passed': True, 'duration_seconds': float(metadata['format']['duration']),
         'width': 1920, 'height': 1080, 'images': len(clips), 'image_interval_seconds': INTERVAL,
-        'style': 'historical-documentary', 'privacy': 'private', 'voice': 'Kokoro am_michael',
-        'music': 'Magenta MusicRNN', 'image_model': os.getenv('CPU_IMAGE_MODEL', 'segmind/SSD-1B'),
+        'style': 'historical-documentary', 'privacy': 'private', 'voice': 'Kokoro am_michael, gently lowered pitch',
+        'music': 'Original Magenta MusicRNN historical exploration score', 'image_model': os.getenv('CPU_IMAGE_MODEL', 'segmind/SSD-1B'),
         'audio_validation': audio_report, 'timeline_verified': True, 'storyboard_verified': plan.get('storyboard_verified', False),
         'alignment': plan.get('alignment'), 'scene_composition_version': plan.get('scene_composition_version'),
         'semantic_checked_images': sum(r.get('required', False) for r in scene_reports),
@@ -629,7 +632,7 @@ def upload():
         store.upload(ROOT/name, f'runs/{run_id()}/{name}')
     store.save(key, state)
     w.upload_private(ROOT/'video.mp4', ROOT/'thumbnail.jpg', story, state, store, key,
-        'Background music: original Magenta MusicRNN melody with synthesized ambient piano.')
+        'Background music: original Magenta MusicRNN historical exploration score with synthesized strings, drone and soft pulse.')
     history.append({'title': story['title'], 'hash': digest, 'run': run_id(),
         'video_id': state['video_id'], 'format': story.get('format'), 'topic_id': story.get('topic_id'),
         'plot': ' '.join(scene.get('summary', '') for scene in story['scenes'])})

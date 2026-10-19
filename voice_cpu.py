@@ -1,9 +1,25 @@
 """Free Kokoro English narration and Faster-Whisper word alignment on cloud CPUs."""
 import os
+import subprocess
 import numpy as np
 
 _pipeline = None
 _whisper = None
+VOICE_RENDER_VERSION = 'deeper-documentary-v1'
+
+
+def deepen_voice(path):
+    """Lower pitch gently while keeping narration and captions in sync."""
+    ratio = .94
+    shifted = path.with_name(path.stem + '.shifted.wav')
+    try:
+        subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(path),
+            '-af', f'asetrate={round(24000 * ratio)},aresample=24000,'
+                   f'atempo={1 / ratio:.8f},highpass=f=65',
+            '-ar', '24000', '-ac', '1', str(shifted)], check=True)
+        shifted.replace(path)
+    finally:
+        shifted.unlink(missing_ok=True)
 
 
 def generate(text, path):
@@ -19,6 +35,7 @@ def generate(text, path):
     if not parts:
         raise RuntimeError('Kokoro returned no narration')
     sf.write(str(path), np.concatenate(parts), 24000)
+    deepen_voice(path)
 
 
 def transcribe_audio(path):
