@@ -23,3 +23,5 @@ New video requested with verified immediate Gemini fallback: 2026-10-18 Asia/Dha
 Restart video generation after Gemini temporary-server recovery fix: 2026-10-18 Asia/Dhaka.
 
 Fresh video generation explicitly requested now: 2026-10-18 Asia/Dhaka, request 2.
+
+New video requested after repairing description metadata failures: 2026-10-19 Asia/Dhaka.
