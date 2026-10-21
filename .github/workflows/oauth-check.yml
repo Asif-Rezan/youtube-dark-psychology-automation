@@ -22,4 +22,5 @@ jobs:
           EXPECTED_CHANNEL_ID: UCYjz7d66SsshimfpxZahlhQ
           REQUIRE_PUBLIC_PUBLISH: 'false'
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_API_KEY_FALLBACK: ${{ secrets.GROQ_API_KEY_FALLBACK }}
         run: python oauth_check.py

@@ -14,6 +14,7 @@ jobs:
       - name: Check existing Actions secret without printing it
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_API_KEY_FALLBACK: ${{ secrets.GROQ_API_KEY_FALLBACK }}
         shell: python
         run: |
           import json, os, urllib.request, urllib.error

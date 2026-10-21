@@ -115,32 +115,45 @@ def request_gemini(payload):
 
 
 def request_groq(endpoint, payload, binary=False):
-    """Try Groq once; immediately switch text generation to Gemini on failure."""
+    """Retry each unique Groq key before the final Gemini text fallback."""
     global _text_provider
     import requests
     text_request = endpoint == 'chat/completions' and not binary
-    if text_request and (_text_provider == 'gemini' or not os.getenv('GROQ_API_KEY')):
+    keys = list(dict.fromkeys(key.strip() for key in (
+        os.getenv('GROQ_API_KEY', ''), os.getenv('GROQ_API_KEY_FALLBACK', '')) if key.strip()))
+    if text_request and _text_provider == 'gemini':
         return request_gemini(payload)
-    try:
-        response = requests.post('https://api.groq.com/openai/v1/' + endpoint,
-            headers={'Authorization': 'Bearer ' + required('GROQ_API_KEY')}, json=payload, timeout=180)
-        if response.ok:
-            if binary:
-                return response.content
-            result = response.json()
-            choice = result['choices'][0]
-            if choice.get('finish_reason') != 'stop' or not choice['message'].get('content'):
-                raise ValueError('Incomplete Groq response')
-            json.loads(choice['message']['content'])
-            return result
-        reason = 'HTTP ' + str(response.status_code)
-    except (requests.RequestException, ValueError, KeyError, IndexError, TypeError):
-        reason = 'transport or invalid response'
+    reason = 'no Groq key configured'
+    for key_index, key in enumerate(keys):
+        for attempt in range(3):
+            try:
+                response = requests.post('https://api.groq.com/openai/v1/' + endpoint,
+                    headers={'Authorization': 'Bearer ' + key}, json=payload, timeout=180)
+                if response.ok:
+                    if binary:
+                        return response.content
+                    result = response.json()
+                    choice = result['choices'][0]
+                    if choice.get('finish_reason') != 'stop' or not choice['message'].get('content'):
+                        raise ValueError('Incomplete Groq response')
+                    json.loads(choice['message']['content'])
+                    return result
+                reason = 'HTTP ' + str(response.status_code)
+            except (requests.RequestException, ValueError, KeyError, IndexError, TypeError):
+                reason = 'transport or invalid response'
+            # Never log response bodies, headers, or credentials.
+            print(json.dumps({'check': 'Groq request failed', 'key_slot': key_index + 1,
+                'attempt': attempt + 1, 'reason': reason}), flush=True)
+            if attempt < 2:
+                time.sleep(2 ** (attempt + 1))
+        if key_index + 1 < len(keys):
+            print(json.dumps({'check': 'Groq key fallback', 'to_key_slot': key_index + 2}), flush=True)
     if text_request:
         print(json.dumps({'check': 'Text provider fallback', 'from': 'groq',
                           'to': 'gemini', 'reason': reason, 'wait_seconds': 0}), flush=True)
-        _text_provider = 'gemini'
-        return request_gemini(payload)
+        result = request_gemini(payload)
+        _text_provider = 'gemini'  # Only retain a provider that actually succeeded.
+        return result
     raise RuntimeError(f'Groq audio request failed: {reason}; text fallback does not support audio')
 
 
