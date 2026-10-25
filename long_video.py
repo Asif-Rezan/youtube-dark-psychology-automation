@@ -237,7 +237,7 @@ def correct_duration(story, root):
             direction = 'shorten' if total > dc.MAX_SECONDS else 'expand'
             selected, ratio = dc.select_revisions(lengths, direction)
             print(json.dumps({'correction_attempt': f'{attempt}/{dc.MAX_ATTEMPTS}',
-                              'method': f'Groq story {direction}', 'chapters': [i+1 for i in selected],
+                              'method': f'{os.getenv("STORY_MODEL", "text model")} story {direction}', 'chapters': [i+1 for i in selected],
                               'target_word_ratio': round(ratio, 3)}), flush=True)
             candidate = w.revise_story_duration(story, ratio, direction, selected)
             for index in selected:

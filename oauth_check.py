@@ -91,8 +91,12 @@ try:
 except Exception as error:
     report_error('Drive OAuth', error)
 
-groq_configured = bool(os.getenv('GROQ_API_KEY'))
-print(json.dumps({'check': 'Groq secret presence', 'configured': groq_configured}))
-if os.getenv('TEXT_BACKEND', 'groq') == 'groq' and not groq_configured:
-    failed = True
+if os.getenv('TEXT_BACKEND', 'groq') == 'groq':
+    groq_configured = bool(os.getenv('GROQ_API_KEY') or os.getenv('GROQ_API_KEY_FALLBACK'))
+    print(json.dumps({'check': 'Groq secret presence', 'configured': groq_configured}))
+    if not groq_configured:
+        failed = True
+else:
+    print(json.dumps({'check': 'Text backend', 'backend': os.getenv('TEXT_BACKEND'),
+                      'model': os.getenv('STORY_MODEL'), 'external_text_credentials_required': False}))
 raise SystemExit(1 if failed else 0)

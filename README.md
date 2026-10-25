@@ -102,3 +102,18 @@ an upload: the old workflow reruns generation on a fresh runner and uses its old
 code revision. Successful upload-only shard recovery does not automatically
 assemble or upload a video; inspect all shard results and existing YouTube state
 before continuing those stages.
+
+### Daily script generation: local Qwen3.5-9B
+
+The daily workflow uses `TEXT_BACKEND=qwen-local` and `STORY_MODEL=Qwen/Qwen3.5-9B`.
+`setup_qwen.sh` downloads a pinned Q4_K_M conversion of the requested Qwen model
+from `unsloth/Qwen3.5-9B-GGUF` and builds a pinned llama.cpp CPU server. The model
+runs only on `127.0.0.1`, with thinking disabled and a 12,288-token context.
+Script outlines, chapter narration, duration revisions and storyboards use this
+local model. There is no Groq or Gemini text fallback and no paid inference API.
+Google Drive and YouTube credentials are still needed for storage and uploads.
+
+Run `TEXT_BACKEND=qwen-local python qwen_check.py` after starting the server to
+exercise the real eight-shot storyboard schema. The daily preparation job allows
+up to five hours for CPU generation, narration and alignment. Model downloads,
+runner time, and repository Actions allowances still apply.

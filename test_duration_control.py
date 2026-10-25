@@ -195,7 +195,7 @@ class StoryRevisionTests(unittest.TestCase):
             keys = payload['response_format']['json_schema']['schema']['required']
             values = {key: ' '.join(['Maya']*65) for key in keys}
             return {'choices': [{'message': {'content': json.dumps(values)}}]}
-        with patch('workflow.request_groq', side_effect=response), patch('workflow.time.sleep'):
+        with patch('workflow.request_text', side_effect=response), patch('workflow.time.sleep'):
             revised = w.revise_story_duration(story, .78, 'shorten', [3, 4])
         self.assertTrue(revised['scenes'][-1]['narration'].endswith(CTA))
         self.assertEqual(revised['scenes'][2], story['scenes'][2])
@@ -206,7 +206,7 @@ class StoryRevisionTests(unittest.TestCase):
     def test_failed_groq_revision_does_not_mutate_story(self):
         story = story_fixture()
         before = json.dumps(story)
-        with patch('workflow.request_groq', side_effect=RuntimeError('rate limited')):
+        with patch('workflow.request_text', side_effect=RuntimeError('rate limited')):
             with self.assertRaisesRegex(RuntimeError, 'rate limited'):
                 w.revise_story_duration(story, .8, 'shorten', [3])
         self.assertEqual(json.dumps(story), before)

@@ -122,7 +122,7 @@ def request_text(endpoint, payload, binary=False):
         return request(payload)
     if backend != 'groq':
         raise ValueError('Unknown text backend')
-    return request_groq(endpoint, payload, binary)
+    return request_groq(endpoint, payload, binary=True) if binary else request_groq(endpoint, payload)
 
 
 def text_batch_pause():
