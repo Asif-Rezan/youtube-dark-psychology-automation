@@ -24,6 +24,20 @@ def main():
         result = storyboard(root)
         assert result['storyboard_verified'] and len(result['shots']) == 8
         print(json.dumps({'check': 'Local Qwen storyboard', 'passed': True, 'shots': 8}))
+    import workflow as w
+    schema = {'type': 'object', 'properties': {'narration': w.narration_text_schema(74, 104)},
+              'required': ['narration'], 'additionalProperties': False}
+    result = w.request_text('chat/completions', {
+        'model': 'Qwen/Qwen3-4B-Instruct-2507',
+        'messages': [{'role': 'user', 'content': 'Write about 84 words of historical documentary narration. '
+            'Explain that ventilation shafts supplied air to underground chambers in Cappadocia. '
+            'Distinguish visible architectural evidence from uncertainty about its use. '
+            'Use plain English, ASCII punctuation and single spaces; finish with a complete sentence.'}],
+        'response_format': {'type': 'json_schema', 'json_schema': {'schema': schema}},
+        'max_completion_tokens': 512, 'temperature': .7})
+    count = len(json.loads(result['choices'][0]['message']['content'])['narration'].split())
+    assert 74 <= count <= 104
+    print(json.dumps({'check': 'Decoder-constrained chapter length', 'passed': True, 'words': count}), flush=True)
     if args.full_story:
         import workflow as w
         from long_video import validate_engagement

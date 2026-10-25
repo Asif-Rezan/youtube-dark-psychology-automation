@@ -130,6 +130,14 @@ def text_batch_pause():
         time.sleep(60)
 
 
+def narration_text_schema(lower, upper):
+    """Constrain complete English narration to a measured number of words."""
+    word = r"[A-Za-z0-9][A-Za-z0-9,.;:!?'\-]*"
+    final_word = r"[A-Za-z0-9][A-Za-z0-9'\-]*[.!?]"
+    pattern = '^' + word + '( ' + word + '){' + str(lower - 2) + ',' + str(upper - 2) + '} ' + final_word + '$'
+    return {'type': 'string', 'pattern': pattern}
+
+
 def fit_chapter_words(parts, keys, target, ask, context):
     """Keep chapters within 60–120 words; measured audio controls final duration.
 
@@ -148,7 +156,7 @@ def fit_chapter_words(parts, keys, target, ask, context):
             return [current[key] for key in keys]
         if attempt == 3:
             raise ValueError('Chapter word counts remain outside 60–120 words after three bounded rewrites')
-        properties = {key: {'type': 'string'} for key in outliers}
+        properties = {key: narration_text_schema(60, 120) for key in outliers}
         inner = {'type': 'object', 'properties': properties,
                  'required': list(properties), 'additionalProperties': False}
         schema = {'type': 'object', 'properties': {'narrations': inner},
@@ -161,6 +169,7 @@ Aim for {target} words. The accepted range is 60–120 whitespace-separated word
 The application measured the previous text and found it outside this range. Count words before returning.
 Use about four concise sentences. Preserve each chapter's documented facts, event, chronology,
 uncertainty and conclusion. Remove padding and repetition; never cut a sentence in half.
+Use ASCII punctuation and single spaces, without quotation marks or paragraph breaks. End with sentence punctuation.
 Do not add chapter headings, dialogue, unsupported claims or calls to action.
 Evidence and topic boundaries: {context}
 Chapters to revise: {json.dumps(outliers)}
@@ -240,7 +249,8 @@ def make_story(day, previous):
         # Separate bursts fit the free plan; never switch to a paid provider.
         text_batch_pause()
         keys = chapter_keys[begin:begin+5]
-        group_schema = object_schema({'narrations': object_schema({k: text_schema for k in keys})})
+        group_schema = object_schema({'narrations': object_schema({
+            k: narration_text_schema(max(60, chapter_target - 10), chapter_target + 20) for k in keys})})
         group = ask(f'''Write chapters {begin+1} through {begin+5} of this historical documentary.
         Content direction: {theme}
         Title: {outline['title']}. Evidence: {json.dumps(topic['facts'])}. Sources: {json.dumps(topic['sources'])}.
@@ -249,6 +259,7 @@ def make_story(day, previous):
         Return JSON with narrations: an object with the exact chapter keys {keys}, each value a narration string.
         Each string MUST contain approximately {chapter_target} English spoken words (within 5 words).
         Across all twenty chapters, aim for 1,650–1,800 narrated words including the separately added final CTA.
+        Use plain English with ASCII punctuation and single spaces between words. No quotation marks or paragraph breaks. Finish every chapter with a complete sentence.
         Natural documentary narration grounded in the listed evidence; distinguish interpretations and uncertainty.
         Begin chapter 1 with a documented fact or historical question, no welcome or setup preamble.
         Develop evidence and context without inventing events, dialogue, dates or motives.

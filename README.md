@@ -103,17 +103,20 @@ code revision. Successful upload-only shard recovery does not automatically
 assemble or upload a video; inspect all shard results and existing YouTube state
 before continuing those stages.
 
-### Daily script generation: local Qwen3.5-9B
+### Daily script generation: Qwen3-4B-Instruct-2507
 
-The daily workflow uses `TEXT_BACKEND=qwen-local` and `STORY_MODEL=Qwen/Qwen3.5-9B`.
-`setup_qwen.sh` downloads a pinned Q4_K_M conversion of the requested Qwen model
-from `unsloth/Qwen3.5-9B-GGUF` and builds a pinned llama.cpp CPU server. The model
-runs only on `127.0.0.1`, with thinking disabled and a 12,288-token context.
-Script outlines, chapter narration, duration revisions and storyboards use this
-local model. There is no Groq or Gemini text fallback and no paid inference API.
-Google Drive and YouTube credentials are still needed for storage and uploads.
+The daily workflow uses only `Qwen/Qwen3-4B-Instruct-2507` locally, in its native
+non-thinking mode. `story_cpu.py` and `requirements-story.txt` follow the working
+Rezan-After-Dark implementation at commit d6dcde36a636946279ec7bc20c05d2c56625b958.
+The runtime uses a prebuilt CPU wheel, a pinned Q4_K_M GGUF with SHA-256 verification,
+16,384 context tokens, schema-constrained output, and bounded JSON retries.
 
-Run `TEXT_BACKEND=qwen-local python qwen_check.py` after starting the server to
-exercise the real eight-shot storyboard schema. The daily preparation job allows
-up to five hours for CPU generation, narration and alignment. Model downloads,
-runner time, and repository Actions allowances still apply.
+Narration schemas constrain the word count during decoding, and generated chapters
+are independently measured. Historical evidence, sources, metadata checks and measured
+10–15 minute audio validation remain in this project's workflow. There is no Groq or
+Gemini fallback. Google credentials remain necessary for Drive and YouTube.
+
+Install `requirements.txt` and `requirements-story.txt`, then run
+`TEXT_BACKEND=qwen-local python -u qwen_check.py --full-story` to exercise the real
+storyboard schema and complete twenty-chapter script. Generation logs expose counts
+and timing, not unpublished text. Model weights are cached between runner jobs.

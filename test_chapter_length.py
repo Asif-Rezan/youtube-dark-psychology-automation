@@ -55,6 +55,14 @@ class ChapterLengthTests(unittest.TestCase):
         w.validate_story(story)
         self.assertLess(sum(len(scene['narration'].split()) for scene in story['scenes']), 2600)
 
+    def test_decoder_pattern_enforces_word_bounds_and_complete_sentence(self):
+        import re
+        pattern = w.narration_text_schema(74, 104)['pattern']
+        for count in (73, 74, 84, 104, 105):
+            text = 'Evidence ' * (count - 1) + 'survived.'
+            self.assertEqual(bool(re.fullmatch(pattern, text)), 74 <= count <= 104)
+        self.assertIsNone(re.fullmatch(pattern, 'Evidence ' * 83 + 'survived'))
+
     def test_wrong_keys_are_rejected(self):
         ask = Mock(return_value={'narrations': {'wrong': words(84)}})
         with self.assertRaisesRegex(ValueError, 'exactly the requested'):
