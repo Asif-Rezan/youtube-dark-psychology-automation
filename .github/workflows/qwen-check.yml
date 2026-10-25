@@ -1,8 +1,12 @@
 name: Local Qwen3-4B-Instruct-2507 generation check
 on:
   workflow_dispatch:
-  push:
-    branches: [feat/qwen3-4b-instruct]
+    inputs:
+      mode:
+        description: 'Validation scope'
+        type: choice
+        options: [full-story, packaging-only]
+        default: full-story
 permissions:
   contents: read
 jobs:
@@ -28,8 +32,8 @@ jobs:
         with:
           path: ~/.cache/huggingface/hub/models--unsloth--Qwen3-4B-Instruct-2507-GGUF
           key: qwen3-4b-instruct2507-q4km-a06e946bb6b655725eafa393f4a9745d460374c9
-      - name: Validate storyboard and complete twenty-chapter script
-        run: python qwen_check.py --full-story
+      - name: Validate Qwen storyboard, word limits and selected scope
+        run: python -u qwen_check.py --${{ inputs.mode || 'full-story' }}
       - name: Report runner resources after a failure
         if: failure()
         run: |

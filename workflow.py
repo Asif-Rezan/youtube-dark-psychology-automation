@@ -277,7 +277,7 @@ def make_story(day, previous):
     outline['scenes'][-1]['narration'] += (' Which historical question should we investigate next? '
         'Leave a comment, like this video, and subscribe for more history documentaries.')
     from video_packaging import request_package
-    request_package(outline, topic, ask)
+    request_package(outline, topic, ask, pause=(lambda _: None) if os.getenv('TEXT_BACKEND') == 'qwen-local' else None)
     from long_video import validate_engagement
     validate_engagement(outline)
     return validate_story(outline)

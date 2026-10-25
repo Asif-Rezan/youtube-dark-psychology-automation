@@ -10,6 +10,7 @@ from long_video import storyboard
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--full-story', action='store_true')
+    parser.add_argument('--packaging-only', action='store_true')
     args = parser.parse_args()
     started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix='qwen-check-') as directory:
@@ -38,6 +39,22 @@ def main():
     count = len(json.loads(result['choices'][0]['message']['content'])['narration'].split())
     assert 74 <= count <= 104
     print(json.dumps({'check': 'Decoder-constrained chapter length', 'passed': True, 'words': count}), flush=True)
+    if args.packaging_only:
+        import datetime
+        from video_packaging import request_package
+        topics = json.loads(Path('history_topics.json').read_text())
+        topic = topics[datetime.date(2026, 10, 25).toordinal() % len(topics)]
+        story = {'title': topic['title_angle'], 'scenes': [
+            {'summary': fact} for fact in topic['facts']]}
+        def ask(prompt, limit, schema):
+            result = w.request_text('chat/completions', {
+                'model': 'Qwen/Qwen3-4B-Instruct-2507',
+                'messages': [{'role': 'user', 'content': prompt}],
+                'response_format': {'type': 'json_schema', 'json_schema': {'schema': schema}},
+                'max_completion_tokens': limit, 'temperature': .7})
+            return json.loads(result['choices'][0]['message']['content'])
+        request_package(story, topic, ask, pause=lambda _: None)
+        print(json.dumps({'check': 'Qwen documentary packaging', 'passed': True}), flush=True)
     if args.full_story:
         import workflow as w
         from long_video import validate_engagement

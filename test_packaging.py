@@ -29,6 +29,35 @@ class PackagingTests(unittest.TestCase):
             'description_details': 'We follow the visible remains, the larger Memphis necropolis and the limits of the surviving evidence. Where the record is uncertain, the narration says so.',
             'tags': ['Giza pyramid', 'Egyptian pyramids', 'unrelated trending topic']}
 
+    def test_generation_schema_enforces_subject_and_title_lengths_for_every_topic(self):
+        import json
+        import re
+        topics = json.loads(Path('history_topics.json').read_text())
+        for topic in topics:
+            def ask(prompt, limit, schema):
+                pattern = schema['properties']['option_a']['properties']['title']['pattern']
+                title = topic['search_phrase'] + ': Evidence and Open Questions'
+                self.assertIsNotNone(re.fullmatch(pattern, title))
+                self.assertIsNone(re.fullmatch(pattern, 'An unrelated historical documentary title'))
+                self.assertIsNone(re.fullmatch(pattern, topic['search_phrase'] + 'x' * 76))
+                if len(topic['search_phrase']) < 35:
+                    self.assertIsNone(re.fullmatch(pattern, topic['search_phrase']))
+                raise RuntimeError('schema inspected')
+            with self.assertRaisesRegex(RuntimeError, 'schema inspected'):
+                request_package(copy.deepcopy(self.story), topic, ask)
+
+    def test_generation_hook_schema_limits_question_words_and_character_count(self):
+        import re
+        def ask(prompt, limit, schema):
+            pattern = schema['properties']['option_a']['properties']['thumbnail_text']['pattern']
+            for text in ('HOW DID AIR FLOW?', 'WHY BUILD BELOW?', 'WHERE DID WATER GO?'):
+                self.assertIsNotNone(re.fullmatch(pattern, text))
+                self.assertLessEqual(len(text), 30)
+            for text in ('This is a statement', 'HOW DID AIR FLOW', 'WHY DID EVERYONE GO FAR BELOW GROUND?'):
+                self.assertIsNone(re.fullmatch(pattern, text))
+            return copy.deepcopy(self.payload)
+        request_package(copy.deepcopy(self.story), self.topic, ask)
+
     def test_metadata_frontloads_subject_and_rejects_clickbait(self):
         result = choose_package(self.story, self.topic, self.payload)
         self.assertTrue(result['title'].startswith('Great Pyramid of Giza'))

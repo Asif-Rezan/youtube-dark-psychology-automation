@@ -138,9 +138,17 @@ def choose_package(story, topic, payload):
 def request_package(story, topic, ask, pause=None):
     pause = pause or time.sleep
     text = {'type': 'string'}
-    option = {'type': 'object', 'properties': {k: text for k in
-              ('title', 'thumbnail_text', 'thumbnail_prompt')},
-              'required': ['title', 'thumbnail_text', 'thumbnail_prompt'], 'additionalProperties': False}
+    keyword = topic['search_phrase']
+    if not 1 <= len(keyword) <= 52:
+        raise ValueError('Search subject must fit within the title opening')
+    prefix = re.escape(keyword).replace(r'\ ', ' ').replace(r'\-', '-')
+    title_pattern = '^' + prefix + '[^\\n]{' + str(max(0, 35 - len(keyword))) + ',' + str(75 - len(keyword)) + '}$'
+    option = {'type': 'object', 'properties': {
+        'title': {'type': 'string', 'pattern': title_pattern},
+        'thumbnail_text': {'type': 'string',
+            'pattern': r"^(HOW|WHY|WHAT|WHO|WHERE)( [A-Z][A-Z'\-]{0,6}){1,3}\?$"},
+        'thumbnail_prompt': text},
+        'required': ['title', 'thumbnail_text', 'thumbnail_prompt'], 'additionalProperties': False}
     schema = {'type': 'object', 'properties': {
         'option_a': option, 'option_b': option, 'option_c': option,
         'description_intro': text, 'description_details': text,
@@ -155,7 +163,7 @@ Verified facts: {json.dumps(topic['facts'])}
 Episode outline: {json.dumps(outline)}
 Existing title: {story['title']}
 Return three DISTINCT title-thumbnail pairs (option_a, option_b, option_c).
-Each title: 35-75 characters, put the exact search subject phrase in the first 52 characters,
+Each title: 35-75 characters, START with the exact subject phrase "{topic['search_phrase']}",
 accurately promise a specific question or evidence in this episode, use normal capitalization.
 Avoid generic "mystery revealed" wording, sensational certainty, unsupported claims and clickbait.
 Thumbnail text: a SPECIFIC unresolved question with a curiosity gap, 2-5 short words,
