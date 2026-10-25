@@ -322,18 +322,18 @@ def revise_story_duration(story, ratio, direction, indices=None):
     indices = list(range(20)) if indices is None else sorted(set(indices))
     if not indices or any(i not in range(20) for i in indices):
         raise ValueError('Invalid chapter selection for duration revision')
-    schema_text = {'type': 'string'}
     model = os.getenv('STORY_MODEL', 'openai/gpt-oss-120b')
     for batch_number, begin in enumerate(range(0, len(indices), 5)):
         if batch_number:
             text_batch_pause()
         selected = indices[begin:begin+5]
         batch = [keys[i] for i in selected]
-        properties = {key: schema_text for key in batch}
-        schema = {'type': 'object', 'properties': properties,
-                  'required': batch, 'additionalProperties': False}
         targets = {keys[i]: max(45, min(130, round(len(original[i].split()) * ratio)))
                    for i in selected}
+        properties = {key: narration_text_schema(max(35, targets[key] - 10), targets[key] + 10)
+                      for key in batch}
+        schema = {'type': 'object', 'properties': properties,
+                  'required': batch, 'additionalProperties': False}
         prompt = f'''Revise these chapters of a historical documentary to {direction} the
 spoken narration. Preserve documented facts, uncertainty, chronology, source boundaries,
 chapter order and conclusion. Do not invent dialogue, dates, discoveries or motives.
@@ -343,6 +343,7 @@ Adjacent chapter context: {json.dumps({keys[i]: {'before': original[i-1][-350:] 
     'after': original[i+1][:350] if i < 19 else ''} for i in selected})}
 Chapter text: {json.dumps({keys[i]: original[i] for i in selected})}
 Approximate spoken-word targets: {json.dumps(targets)}.
+Use plain ASCII punctuation and single spaces. No quotation marks or paragraph breaks; end with a complete sentence.
 Return JSON with exactly these chapter keys, each a complete revised narration string.
 Chapter 1 retains the historical hook. Chapter 20 summarizes evidence and remaining questions.'''
         result = request_text('chat/completions', {'model': model,

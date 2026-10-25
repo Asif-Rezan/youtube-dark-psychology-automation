@@ -203,6 +203,21 @@ class StoryRevisionTests(unittest.TestCase):
         self.assertIn('chapter5', prompts[0])
         self.assertEqual(len(revised['scenes']), 20)
 
+    def test_duration_rewrite_schema_constrains_measured_word_target(self):
+        import re
+        story = story_fixture()
+        def response(endpoint, payload):
+            schema = payload['response_format']['json_schema']['schema']
+            pattern = schema['properties']['chapter_04']['pattern']
+            target = max(45, min(130, round(len(story['scenes'][3]['narration'].split()) * .6)))
+            for count in (target - 11, target - 10, target, target + 10, target + 11):
+                text = 'Evidence ' * (count - 1) + 'survived.'
+                self.assertEqual(bool(re.fullmatch(pattern, text)), target - 10 <= count <= target + 10)
+            values = {'chapter_04': 'Evidence ' * (target - 1) + 'survived.'}
+            return {'choices': [{'message': {'content': json.dumps(values)}}]}
+        with patch('workflow.request_text', side_effect=response):
+            w.revise_story_duration(story, .6, 'shorten', [3])
+
     def test_failed_groq_revision_does_not_mutate_story(self):
         story = story_fixture()
         before = json.dumps(story)

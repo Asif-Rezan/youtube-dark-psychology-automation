@@ -117,6 +117,6 @@ are independently measured. Historical evidence, sources, metadata checks and me
 Gemini fallback. Google credentials remain necessary for Drive and YouTube.
 
 Install `requirements.txt` and `requirements-story.txt`, then run
-`TEXT_BACKEND=qwen-local python -u qwen_check.py --full-story` to exercise the real
+`TEXT_BACKEND=qwen-local STORY_MODEL=Qwen/Qwen3-4B-Instruct-2507 python -u qwen_check.py --full-story` to exercise the real
 storyboard schema and complete twenty-chapter script. Generation logs expose counts
 and timing, not unpublished text. Model weights are cached between runner jobs.
