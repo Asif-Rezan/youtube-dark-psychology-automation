@@ -68,12 +68,14 @@ def validate_story(data):
 def request_groq(endpoint, payload, binary=False):
     """Retry the primary and backup Groq keys; never call another provider."""
     import requests
+    import math
     text_request = endpoint == 'chat/completions' and not binary
     keys = list(dict.fromkeys(key.strip() for key in (
         os.getenv('GROQ_API_KEY', ''), os.getenv('GROQ_API_KEY_FALLBACK', '')) if key.strip()))
     reason = 'no Groq key configured'
     for key_index, key in enumerate(keys):
         for attempt in range(3):
+            delay = 2 ** (attempt + 1)
             try:
                 response = requests.post('https://api.groq.com/openai/v1/' + endpoint,
                     headers={'Authorization': 'Bearer ' + key}, json=payload, timeout=180)
@@ -87,13 +89,24 @@ def request_groq(endpoint, payload, binary=False):
                     json.loads(choice['message']['content'])
                     return result
                 reason = 'HTTP ' + str(response.status_code)
+                if response.status_code == 429:
+                    delay = 60  # Short exponential retries cannot clear a minute quota.
+                    try:
+                        requested = float(response.headers.get('retry-after', 60))
+                        if math.isfinite(requested) and requested >= 0:
+                            if requested > 120:
+                                reason += '; cooldown exceeds bounded retry window'
+                                break  # Try the next key without ignoring the server's cooldown.
+                            delay = max(delay, math.ceil(requested))
+                    except (TypeError, ValueError):
+                        pass
             except (requests.RequestException, ValueError, KeyError, IndexError, TypeError):
                 reason = 'transport or invalid response'
             # Never log response bodies, headers, or credentials.
             print(json.dumps({'check': 'Groq request failed', 'key_slot': key_index + 1,
                 'attempt': attempt + 1, 'reason': reason}), flush=True)
             if attempt < 2:
-                time.sleep(2 ** (attempt + 1))
+                time.sleep(delay)
         if key_index + 1 < len(keys):
             print(json.dumps({'check': 'Groq key fallback', 'to_key_slot': key_index + 2}), flush=True)
     kind = 'text' if text_request else 'audio'

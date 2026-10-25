@@ -52,3 +52,19 @@ class ProviderFallbackTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'Groq audio request failed'):
                 w.request_groq('audio/speech', {}, binary=True)
         self.assertEqual(post.call_count, 6)
+
+    def test_rate_limit_respects_retry_after(self):
+        limited = self.response(429)
+        limited.headers = {'retry-after': '75.5'}
+        with patch('requests.post', side_effect=[limited, self.response()]):
+            w.request_groq('chat/completions', self.payload)
+        self.sleep.assert_called_once_with(76)
+
+    def test_long_cooldown_switches_to_backup_without_short_retry(self):
+        limited = self.response(429)
+        limited.headers = {'retry-after': '3600'}
+        with patch('requests.post', side_effect=[limited, self.response()]) as post:
+            w.request_groq('chat/completions', self.payload)
+        self.assertEqual(post.call_count, 2)
+        self.assertEqual(post.call_args.kwargs['headers']['Authorization'], 'Bearer backup-test')
+        self.sleep.assert_not_called()
