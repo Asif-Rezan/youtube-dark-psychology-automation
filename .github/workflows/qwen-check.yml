@@ -1,0 +1,35 @@
+name: Local Qwen3.5-9B generation check
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/qwen35-local]
+permissions:
+  contents: read
+jobs:
+  qwen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TEXT_BACKEND: qwen-local
+      STORY_MODEL: Qwen/Qwen3.5-9B
+      HF_HUB_DISABLE_XET: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Install local text dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libssl-dev
+          pip install -r requirements.txt
+      - name: Start pinned Qwen3.5-9B CPU model
+        run: bash setup_qwen.sh
+      - name: Generate and validate eight structured storyboard prompts
+        run: python qwen_check.py
+      - name: Report server failure without exposing unpublished text
+        if: failure()
+        run: |
+          free -h
+          df -h
+          test ! -f "$RUNNER_TEMP/rezan-qwen-server.log" || tail -n 30 "$RUNNER_TEMP/rezan-qwen-server.log"

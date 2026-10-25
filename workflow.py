@@ -113,6 +113,23 @@ def request_groq(endpoint, payload, binary=False):
     raise RuntimeError(f'Groq {kind} request failed after all configured keys: {reason}')
 
 
+def request_text(endpoint, payload, binary=False):
+    backend = os.getenv('TEXT_BACKEND', 'groq')
+    if backend == 'qwen-local':
+        if endpoint != 'chat/completions' or binary:
+            raise ValueError('Local Qwen supports structured text only')
+        from qwen_text import request
+        return request(payload)
+    if backend != 'groq':
+        raise ValueError('Unknown text backend')
+    return request_groq(endpoint, payload, binary)
+
+
+def text_batch_pause():
+    if os.getenv('TEXT_BACKEND', 'groq') == 'groq':
+        time.sleep(60)
+
+
 def make_story(day, previous):
     if os.getenv('STORY_FILE'):
         # Explicit original test story only; daily jobs must generate fresh stories.
@@ -130,7 +147,7 @@ def make_story(day, previous):
         'tags': {'type': 'array', 'items': text_schema},
         'scenes': object_schema({k: scene_schema for k in chapter_keys})})
     def ask(prompt, limit, schema):
-        result = request_groq('chat/completions', {'model': model,
+        result = request_text('chat/completions', {'model': model,
             'messages': [{'role': 'user', 'content': prompt}],
             'response_format': {'type': 'json_schema', 'json_schema': {'name': 'story_payload',
                 'strict': True, 'schema': schema}}, 'reasoning_effort': 'low',
@@ -179,7 +196,7 @@ def make_story(day, previous):
     prior = ''
     for begin in (0, 5, 10, 15):
         # Separate bursts fit the free plan; never switch to a paid provider.
-        time.sleep(60)
+        text_batch_pause()
         keys = chapter_keys[begin:begin+5]
         group_schema = object_schema({'narrations': object_schema({k: text_schema for k in keys})})
         group = ask(f'''Write chapters {begin+1} through {begin+5} of this historical documentary.
@@ -255,7 +272,7 @@ def revise_story_duration(story, ratio, direction, indices=None):
     model = os.getenv('STORY_MODEL', 'openai/gpt-oss-120b')
     for batch_number, begin in enumerate(range(0, len(indices), 5)):
         if batch_number:
-            time.sleep(60)  # Keep the existing free-tier pacing between Groq batches.
+            text_batch_pause()
         selected = indices[begin:begin+5]
         batch = [keys[i] for i in selected]
         properties = {key: schema_text for key in batch}
@@ -274,7 +291,7 @@ Chapter text: {json.dumps({keys[i]: original[i] for i in selected})}
 Approximate spoken-word targets: {json.dumps(targets)}.
 Return JSON with exactly these chapter keys, each a complete revised narration string.
 Chapter 1 retains the historical hook. Chapter 20 summarizes evidence and remaining questions.'''
-        result = request_groq('chat/completions', {'model': model,
+        result = request_text('chat/completions', {'model': model,
             'messages': [{'role': 'user', 'content': prompt}],
             'response_format': {'type': 'json_schema', 'json_schema': {
                 'name': 'duration_revision', 'strict': True, 'schema': schema}},
@@ -690,7 +707,7 @@ def upload_private(video, thumbnail, story, state, store, key, music_credit=''):
 
 def preflight():
     needed = ['DRIVE_TOKEN_JSON']
-    if not os.getenv('STORY_FILE') or os.getenv('TTS_BACKEND', 'kokoro') == 'groq' or os.getenv('CAPTION_BACKEND', 'cpu') == 'groq':
+    if (not os.getenv('STORY_FILE') and os.getenv('TEXT_BACKEND', 'groq') == 'groq') or os.getenv('TTS_BACKEND', 'kokoro') == 'groq' or os.getenv('CAPTION_BACKEND', 'cpu') == 'groq':
         needed.append('GROQ_API_KEY')
     if os.getenv('IMAGE_BACKEND', 'cpu') == 'hf':
         needed += ['HF_TOKEN', 'IMAGE_MODEL']

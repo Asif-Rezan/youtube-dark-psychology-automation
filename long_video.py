@@ -58,7 +58,7 @@ def shot_plan(story, lengths, word_lists):
 def storyboard(root=ROOT, ask=None, pause=None):
     """Create concrete visual prompts AFTER narration timing, never from outline beats."""
     import time
-    ask = ask or w.request_groq
+    ask = ask or w.request_text
     pause = pause or time.sleep
     story = json.loads((root/'story.json').read_text())
     plan = json.loads((root/'plan.json').read_text())
@@ -70,7 +70,7 @@ def storyboard(root=ROOT, ask=None, pause=None):
         return plan
     shots = plan['shots']
     for begin in range(0, len(shots), 8):
-        if begin:
+        if begin and os.getenv('TEXT_BACKEND', 'groq') == 'groq':
             pause(60)
         batch = shots[begin:begin+8]
         properties = {f"shot_{shot['index']:03}": {'type': 'string'} for shot in batch}

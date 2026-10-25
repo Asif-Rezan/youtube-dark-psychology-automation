@@ -93,6 +93,6 @@ except Exception as error:
 
 groq_configured = bool(os.getenv('GROQ_API_KEY'))
 print(json.dumps({'check': 'Groq secret presence', 'configured': groq_configured}))
-if not groq_configured:
+if os.getenv('TEXT_BACKEND', 'groq') == 'groq' and not groq_configured:
     failed = True
 raise SystemExit(1 if failed else 0)
