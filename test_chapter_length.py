@@ -37,6 +37,24 @@ class ChapterLengthTests(unittest.TestCase):
             w.fit_chapter_words([words(140)], ['chapter_01'], 84, ask, 'facts')
         self.assertEqual(ask.call_count, 3)
 
+    def test_actual_failed_run_chapters_are_accepted_without_more_rewrites(self):
+        counts = [96, 107, 105, 102, 114]
+        parts = [words(count) for count in counts]
+        ask = Mock()
+        result = w.fit_chapter_words(parts, [f'chapter_{i:02}' for i in range(1, 6)], 84, ask, 'facts')
+        self.assertEqual(result, parts)
+        ask.assert_not_called()
+
+    def test_accepted_maximum_stays_under_global_word_cap_with_cta(self):
+        from test_duration_control import story_fixture
+        story = story_fixture()
+        for scene in story['scenes']:
+            scene['narration'] = words(120)
+        story['scenes'][-1]['narration'] += (' Which historical question should we investigate next? '
+            'Leave a comment, like this video, and subscribe for more history documentaries.')
+        w.validate_story(story)
+        self.assertLess(sum(len(scene['narration'].split()) for scene in story['scenes']), 2600)
+
     def test_wrong_keys_are_rejected(self):
         ask = Mock(return_value={'narrations': {'wrong': words(84)}})
         with self.assertRaisesRegex(ValueError, 'exactly the requested'):

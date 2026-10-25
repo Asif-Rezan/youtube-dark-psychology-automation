@@ -131,19 +131,23 @@ def text_batch_pause():
 
 
 def fit_chapter_words(parts, keys, target, ask, context):
-    """Measure each chapter and ask the same model to repair only outliers."""
+    """Keep chapters within 60–120 words; measured audio controls final duration.
+
+    The 84-word target guides writing, not acceptance. Even 20 maximum-length
+    chapters plus the fixed CTA stay below the existing 2,600-word story cap.
+    """
     if len(parts) != len(keys) or not all(isinstance(part, str) and part.strip() for part in parts):
         raise ValueError('Narration batch must contain complete strings')
     current = dict(zip(keys, parts))
     for attempt in range(4):
         outliers = {key: text for key, text in current.items()
-                    if not target - 5 <= len(text.split()) <= target + 5}
+                    if not 60 <= len(text.split()) <= 120}
         if not outliers:
             print(json.dumps({'check': 'Chapter word counts', 'passed': True,
                               'chapters': {key: len(text.split()) for key, text in current.items()}}), flush=True)
             return [current[key] for key in keys]
         if attempt == 3:
-            raise ValueError('Chapter word counts remain outside target after three bounded rewrites')
+            raise ValueError('Chapter word counts remain outside 60–120 words after three bounded rewrites')
         properties = {key: {'type': 'string'} for key in outliers}
         inner = {'type': 'object', 'properties': properties,
                  'required': list(properties), 'additionalProperties': False}
@@ -153,7 +157,7 @@ def fit_chapter_words(parts, keys, target, ask, context):
                           'chapters': {key: len(text.split()) for key, text in outliers.items()},
                           'target': target}), flush=True)
         prompt = f"""Rewrite ONLY these historical documentary chapters to {target} spoken English words each.
-Hard length requirement: every chapter must have {target - 5} to {target + 5} whitespace-separated words.
+Aim for {target} words. The accepted range is 60–120 whitespace-separated words per chapter.
 The application measured the previous text and found it outside this range. Count words before returning.
 Use about four concise sentences. Preserve each chapter's documented facts, event, chronology,
 uncertainty and conclusion. Remove padding and repetition; never cut a sentence in half.
