@@ -130,6 +130,44 @@ def text_batch_pause():
         time.sleep(60)
 
 
+def fit_chapter_words(parts, keys, target, ask, context):
+    """Measure each chapter and ask the same model to repair only outliers."""
+    if len(parts) != len(keys) or not all(isinstance(part, str) and part.strip() for part in parts):
+        raise ValueError('Narration batch must contain complete strings')
+    current = dict(zip(keys, parts))
+    for attempt in range(4):
+        outliers = {key: text for key, text in current.items()
+                    if not target - 5 <= len(text.split()) <= target + 5}
+        if not outliers:
+            print(json.dumps({'check': 'Chapter word counts', 'passed': True,
+                              'chapters': {key: len(text.split()) for key, text in current.items()}}), flush=True)
+            return [current[key] for key in keys]
+        if attempt == 3:
+            raise ValueError('Chapter word counts remain outside target after three bounded rewrites')
+        properties = {key: {'type': 'string'} for key in outliers}
+        inner = {'type': 'object', 'properties': properties,
+                 'required': list(properties), 'additionalProperties': False}
+        schema = {'type': 'object', 'properties': {'narrations': inner},
+                  'required': ['narrations'], 'additionalProperties': False}
+        print(json.dumps({'check': 'Chapter word-count repair', 'attempt': attempt + 1,
+                          'chapters': {key: len(text.split()) for key, text in outliers.items()},
+                          'target': target}), flush=True)
+        prompt = f"""Rewrite ONLY these historical documentary chapters to {target} spoken English words each.
+Hard length requirement: every chapter must have {target - 5} to {target + 5} whitespace-separated words.
+The application measured the previous text and found it outside this range. Count words before returning.
+Use about four concise sentences. Preserve each chapter's documented facts, event, chronology,
+uncertainty and conclusion. Remove padding and repetition; never cut a sentence in half.
+Do not add chapter headings, dialogue, unsupported claims or calls to action.
+Evidence and topic boundaries: {context}
+Chapters to revise: {json.dumps(outliers)}
+Return JSON with narrations, containing exactly the supplied chapter keys and their complete revised text."""
+        values = ask(prompt, 220 * len(outliers) + 256, schema)['narrations']
+        if set(values) != set(outliers) or not all(isinstance(v, str) and v.strip() for v in values.values()):
+            raise ValueError('Word-count repair must return exactly the requested complete chapters')
+        current.update(values)
+    raise AssertionError('Unreachable chapter length repair state')
+
+
 def make_story(day, previous):
     if os.getenv('STORY_FILE'):
         # Explicit original test story only; daily jobs must generate fresh stories.
@@ -217,6 +255,7 @@ def make_story(day, previous):
         parts = [group['narrations'][k] for k in keys]
         if len(parts) != 5 or not all(isinstance(p, str) for p in parts):
             raise ValueError('Narration batch must contain five strings')
+        parts = fit_chapter_words(parts, keys, chapter_target, ask, theme)
         for scene, narration in zip(outline['scenes'][begin:begin+5], parts):
             scene['narration'] = narration
         prior = parts[-1]
