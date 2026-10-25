@@ -11,24 +11,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Check existing Actions secret without printing it
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Test primary and fallback Groq structured generation
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_API_KEY_FALLBACK: ${{ secrets.GROQ_API_KEY_FALLBACK }}
-        shell: python
-        run: |
-          import json, os, urllib.request, urllib.error
-          key = os.getenv('GROQ_API_KEY', '')
-          if not key:
-              print(json.dumps({'groq_configured': False, 'groq_authorized': False}))
-          else:
-              request = urllib.request.Request('https://api.groq.com/openai/v1/models',
-                  headers={'Authorization': 'Bearer '+key, 'User-Agent': 'YoutubeAutomation/1.0'})
-              try:
-                  with urllib.request.urlopen(request, timeout=30) as response:
-                      ids = {m['id'] for m in json.load(response).get('data', [])}
-                  print(json.dumps({'groq_configured': True, 'groq_authorized': True,
-                      'story_model_available': 'llama-3.3-70b-versatile' in ids}))
-              except urllib.error.HTTPError as error:
-                  print(json.dumps({'groq_configured': True, 'groq_authorized': False, 'http_status': error.code}))
-                  raise SystemExit(1)
+        run: python groq_check.py
