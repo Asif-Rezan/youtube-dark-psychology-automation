@@ -69,6 +69,8 @@ jobs:
           EXPECTED_CHANNEL_ID: UCYjz7d66SsshimfpxZahlhQ
           REQUIRE_PUBLIC_PUBLISH: 'false'
         run: python oauth_check.py
+      - name: Verify real narration before generating the story
+        run: python narration_check.py
       - name: Generate fresh historical documentary and exact narration storyboard
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
