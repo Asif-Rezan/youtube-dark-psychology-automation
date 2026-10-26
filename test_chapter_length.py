@@ -51,7 +51,7 @@ class ChapterLengthTests(unittest.TestCase):
         for scene in story['scenes']:
             scene['narration'] = words(120)
         story['scenes'][-1]['narration'] += (' Which historical question should we investigate next? '
-            'Leave a comment, like this video, and subscribe for more history documentaries.')
+            'Leave a comment, like this video, and subscribe for more psychology and power documentaries.')
         w.validate_story(story)
         self.assertLess(sum(len(scene['narration'].split()) for scene in story['scenes']), 2600)
 
@@ -94,5 +94,5 @@ class ChapterLengthTests(unittest.TestCase):
         self.assertTrue(1650 <= total <= 1810, total)
         self.assertEqual(len(story['scenes']), 20)
         self.assertEqual(len(repairs), 4)
-        self.assertTrue(story['scenes'][-1]['narration'].endswith('subscribe for more history documentaries.'))
+        self.assertTrue(story['scenes'][-1]['narration'].endswith('subscribe for more psychology and power documentaries.'))
         w.validate_story(story)

@@ -14,8 +14,8 @@ ROOT = Path(os.getenv('OUTPUT_DIR', 'output/ghibli-long-test'))
 INTERVAL = 7
 SHARDS = 20
 ASSETS = ('story.json', 'plan.json', 'narration.wav', 'captions.srt', 'duration.json')
-HISTORY_STYLE = ('historically grounded archaeological documentary reconstruction, '
-                 'period-appropriate architecture, clothing and tools, realistic material texture, '
+HISTORY_STYLE = ('cinematic psychology and power documentary illustration, '
+                 'topic-appropriate settings, people and symbolic objects, realistic material texture, '
                  'natural cinematic lighting, landscape composition, no text or watermark')
 
 
@@ -77,17 +77,14 @@ def storyboard(root=ROOT, ask=None, pause=None):
         schema = {'type': 'object', 'properties': properties,
                   'required': list(properties), 'additionalProperties': False}
         context = {str(shot['chapter']): story['scenes'][shot['chapter']]['narration'] for shot in batch}
-        prompt = f"""Storyboard this historical documentary. Return one image prompt per exact shot key.
-Each shot is a measured seven-second narration window. Depict the concrete historical action,
-site, artifact or evidence being discussed in that window. Chapter text resolves context only;
-never illustrate a later or earlier event. For abstract ideas, show a relevant documented site,
-artifact or map-like physical setting. Avoid generic portraits and unrelated scenery.
-Historical scenes are artistic reconstructions, with period-appropriate architecture, clothing
-and tools. Do not insert a recurring character. For Islamic history, show people respectfully;
-avoid speculative likenesses of revered religious figures. Never add fantasy elements.
+        prompt = f"""Storyboard this psychology and power documentary. Return one image prompt per exact shot key.
+Each shot is a measured seven-second narration window. Depict the concrete interaction or symbolic action,
+interaction, object or concept being discussed in that window. Chapter text resolves context only;
+never illustrate a later or earlier event. For abstract ideas, show a relevant symbolic object or clearly illustrative social setting. Avoid generic portraits and unrelated scenery.
+Scenes are artistic illustrations, not evidence of real events. Use contemporary settings unless the narration discusses history. Do not insert a recurring character. Never add fantasy elements.
 Each prompt MUST be 12-22 English words: subject and concrete action FIRST, then relevant objects
 and location. Describe one simple drawable composition. Include people only when narrated.
-Do not put typography or narration text into the prompt. Do not invent archaeological evidence.
+Do not put typography or narration text into the prompt. Do not imply that illustrative scenes document real events.
 Topic: {story.get('category', '')}. Verified facts: {json.dumps(story.get('verified_facts', []))}.
 Chapter context: {json.dumps(context)}
 Exact shot windows: {json.dumps([{'key': f"shot_{shot['index']:03}", 'spoken': shot['narration']} for shot in batch])}

@@ -164,7 +164,7 @@ def fit_chapter_words(parts, keys, target, ask, context):
         print(json.dumps({'check': 'Chapter word-count repair', 'attempt': attempt + 1,
                           'chapters': {key: len(text.split()) for key, text in outliers.items()},
                           'target': target}), flush=True)
-        prompt = f"""Rewrite ONLY these historical documentary chapters to {target} spoken English words each.
+        prompt = f"""Rewrite ONLY these psychology and power documentary chapters to {target} spoken English words each.
 Aim for {target} words. The accepted range is 60–120 whitespace-separated words per chapter.
 The application measured the previous text and found it outside this range. Count words before returning.
 Use about four concise sentences. Preserve each chapter's documented facts, event, chronology,
@@ -211,22 +211,22 @@ def make_story(day, previous):
     recent_ids = {item.get('topic_id') for item in previous[-10:] if isinstance(item, dict)}
     available = [topic for topic in topics if topic['id'] not in recent_ids] or topics
     topic = available[dt.date.fromisoformat(day).toordinal() % len(available)]
-    theme = (f"Historical documentary about {topic['category']}: {topic['title_angle']}. "
+    theme = (f"Psychology and power documentary about {topic['category']}: {topic['title_angle']}. "
         f"Verified factual anchors: {json.dumps(topic['facts'])}. Sources: {json.dumps(topic['sources'])}. "
         "Stay within these factual anchors. Separate established evidence from interpretation and uncertainty. "
         "Do not invent dialogue, quotes, discoveries, dates, motives, or a fictional protagonist. "
-        "Treat religious figures and sites respectfully. Visual scenes are artistic reconstructions.")
-    outline = ask(f'''Plan an original English historical documentary for {day}.
+        "Attribute book ideas to their authors; they are interpretations, not experimentally established laws. Dark psychology is a popular umbrella term, not a clinical diagnosis. Write original analysis rather than copied passages. Label invented examples as illustrative; discuss attraction with consent and autonomy. Visual scenes are artistic illustrations.")
+    outline = ask(f'''Plan an original English psychology and power documentary for {day}.
     Topic and evidence: {theme}
     Avoid these recent titles and outlines: {json.dumps(previous)}.
-    Open with a concrete historical question or documented fact. Develop the setting,
-    surviving evidence, scholarly interpretation and open questions in a clear arc.
+    Open with a concrete question about human behavior or power or documented fact. Develop the setting,
+    source-backed ideas, illustrative scenarios, critical interpretation and open questions in a clear arc.
     Every chapter must add a supported detail; never pad with imagined events.
     Return JSON: title (max 100 characters), description, tags (list), thumbnail_text (2-5 words),
     thumbnail_prompt, protagonist_name (empty if none), character_description (empty if none),
     scenes (chapter_01 through chapter_20). Each chapter: summary (max 25 words), image_prompt,
-    image_prompts (four distinct visual beats). Period-appropriate historical imagery.
-    No fantasy imagery, modern objects in reconstructions, or unsupported sensational claims.
+    image_prompts (four distinct visual beats). Topic-relevant psychological symbolism and clearly illustrative human interactions.
+    Use contemporary or historical settings as appropriate to the narration. Avoid unsupported sensational claims.
     Provide ONLY the plan, no full narration yet.''', 5200, outline_schema)
     outline['scenes'] = [outline['scenes'][k] for k in chapter_keys]
     outline['format'] = 'historical-documentary'
@@ -237,7 +237,7 @@ def make_story(day, previous):
     for source in topic['sources']:
         if source not in outline['description']:
             outline['description'] += '\nSource: ' + source
-    outline['description'] += '\nVisual scenes are artistic historical reconstructions.'
+    outline['description'] += '\nVisual scenes are artistic illustrations.'
     if len(outline.get('scenes', [])) != 20:
         raise ValueError('Outline requires exactly twenty chapters')
     summaries = [scene['summary'] for scene in outline['scenes']]
@@ -251,7 +251,7 @@ def make_story(day, previous):
         keys = chapter_keys[begin:begin+5]
         group_schema = object_schema({'narrations': object_schema({
             k: narration_text_schema(max(60, chapter_target - 10), chapter_target + 20) for k in keys})})
-        group = ask(f'''Write chapters {begin+1} through {begin+5} of this historical documentary.
+        group = ask(f'''Write chapters {begin+1} through {begin+5} of this psychology and power documentary.
         Content direction: {theme}
         Title: {outline['title']}. Evidence: {json.dumps(topic['facts'])}. Sources: {json.dumps(topic['sources'])}.
         Assigned chapter events ONLY: {json.dumps([{'chapter': i+1, 'event': summaries[i]} for i in range(begin, begin+5)])}.
@@ -261,7 +261,7 @@ def make_story(day, previous):
         Across all twenty chapters, aim for 1,650–1,800 narrated words including the separately added final CTA.
         Use plain English with ASCII punctuation and single spaces between words. No quotation marks or paragraph breaks. Finish every chapter with a complete sentence.
         Natural documentary narration grounded in the listed evidence; distinguish interpretations and uncertainty.
-        Begin chapter 1 with a documented fact or historical question, no welcome or setup preamble.
+        Begin chapter 1 with a source-backed idea or question about power, no welcome or setup preamble.
         Develop evidence and context without inventing events, dialogue, dates or motives.
         End with what the evidence establishes and what remains unknown. Do not include any viewer call to action in any chapter;
         the application adds a final like, comment, and subscribe request separately.
@@ -274,8 +274,8 @@ def make_story(day, previous):
         for scene, narration in zip(outline['scenes'][begin:begin+5], parts):
             scene['narration'] = narration
         prior = parts[-1]
-    outline['scenes'][-1]['narration'] += (' Which historical question should we investigate next? '
-        'Leave a comment, like this video, and subscribe for more history documentaries.')
+    outline['scenes'][-1]['narration'] += (' Which psychology or power question should we investigate next? '
+        'Leave a comment, like this video, and subscribe for more psychology and power documentaries.')
     from video_packaging import request_package
     request_package(outline, topic, ask, pause=(lambda _: None) if os.getenv('TEXT_BACKEND') == 'qwen-local' else None)
     from long_video import validate_engagement
@@ -311,7 +311,10 @@ def revise_story_duration(story, ratio, direction, indices=None):
     from long_video import validate_engagement
     validate_engagement(story)
     ending = story['scenes'][-1]['narration']
-    marker = ' Which historical question should we investigate next? '
+    marker = ' Which psychology or power question should we investigate next? '
+    if marker not in ending:
+        # Resume saved historical runs without changing their closing narration.
+        marker = ' Which historical question should we investigate next? '
     if marker not in ending:
         raise ValueError('Closing CTA marker missing; refusing duration revision')
     cta = marker + ending.split(marker, 1)[1]
@@ -334,7 +337,7 @@ def revise_story_duration(story, ratio, direction, indices=None):
                       for key in batch}
         schema = {'type': 'object', 'properties': properties,
                   'required': batch, 'additionalProperties': False}
-        prompt = f'''Revise these chapters of a historical documentary to {direction} the
+        prompt = f'''Revise these chapters of a psychology and power documentary to {direction} the
 spoken narration. Preserve documented facts, uncertainty, chronology, source boundaries,
 chapter order and conclusion. Do not invent dialogue, dates, discoveries or motives.
 Never add a viewer call to action; the application preserves the original CTA separately.
@@ -345,7 +348,7 @@ Chapter text: {json.dumps({keys[i]: original[i] for i in selected})}
 Approximate spoken-word targets: {json.dumps(targets)}.
 Use plain ASCII punctuation and single spaces. No quotation marks or paragraph breaks; end with a complete sentence.
 Return JSON with exactly these chapter keys, each a complete revised narration string.
-Chapter 1 retains the historical hook. Chapter 20 summarizes evidence and remaining questions.'''
+Chapter 1 retains the psychology or power hook. Chapter 20 summarizes evidence and remaining questions.'''
         result = request_text('chat/completions', {'model': model,
             'messages': [{'role': 'user', 'content': prompt}],
             'response_format': {'type': 'json_schema', 'json_schema': {
@@ -369,8 +372,8 @@ Chapter 1 retains the historical hook. Chapter 20 summarizes evidence and remain
 
 
 def make_image(prompt, path):
-    prompt = ('historically grounded archaeological documentary reconstruction, realistic material texture, '
-        'period-appropriate architecture, clothing and tools, natural cinematic light, landscape composition, ' + prompt)
+    prompt = ('cinematic psychology and power documentary illustration, realistic material texture, '
+        'topic-appropriate settings, people and symbolic objects, natural cinematic light, landscape composition, ' + prompt)
     if os.getenv('IMAGE_BACKEND', 'cpu') == 'cpu':
         from image_cpu import generate
         generate(prompt + ', no text, no watermark', path)

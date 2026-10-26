@@ -1,177 +1,226 @@
 [
   {
-    "id": "giza-pyramids",
-    "category": "Ancient Egypt and pyramids",
-    "title_angle": "How the Giza pyramids shaped an ancient necropolis",
+    "id": "machiavelli-reputation",
+    "category": "Machiavelli",
+    "title_angle": "Machiavelli on reputation, appearances and power",
+    "search_phrase": "Machiavelli",
     "facts": [
-      "Giza is part of the Memphis and its Necropolis World Heritage site.",
-      "The site includes the pyramids of Khufu, Khafre and Menkaure.",
-      "Distinguish archaeological evidence from theories about construction."
+      "The Prince is a work by Niccolo Machiavelli.",
+      "This episode offers original commentary on Machiavelli on reputation, appearances and power; attribute interpretations to the author rather than presenting them as scientific laws.",
+      "Use clearly labeled illustrative scenarios, distinguish persuasion from coercion, and do not invent quotations or diagnose people."
     ],
     "sources": [
-      "https://whc.unesco.org/en/list/86/"
+      "https://www.gutenberg.org/ebooks/1232"
     ],
-    "search_phrase": "Great Pyramid of Giza",
-    "thumbnail_anchor": "limestone blocks",
-    "thumbnail_visual_story": "Extreme close-up of two colossal fitted limestone blocks at Giza on the right, their narrow joint receding into deep shadow, raking sunlight revealing tool marks, open dark space on the left",
-    "thumbnail_forbidden_terms": [
-      "pyramid"
-    ]
+    "thumbnail_anchor": "chess king",
+    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
   },
   {
-    "id": "saqqara-step-pyramid",
-    "category": "Ancient Egypt and pyramids",
-    "title_angle": "The architectural leap at Saqqara",
+    "id": "machiavelli-fear",
+    "category": "Machiavelli",
+    "title_angle": "Machiavelli on fear, loyalty and the limits of control",
+    "search_phrase": "Machiavelli",
     "facts": [
-      "The Step Pyramid of Djoser belongs to the Memphis necropolis.",
-      "The monument marks an important stage in the development of pyramid building."
+      "The Prince is a work by Niccolo Machiavelli.",
+      "This episode offers original commentary on Machiavelli on fear, loyalty and the limits of control; attribute interpretations to the author rather than presenting them as scientific laws.",
+      "Use clearly labeled illustrative scenarios, distinguish persuasion from coercion, and do not invent quotations or diagnose people."
     ],
     "sources": [
-      "https://whc.unesco.org/en/list/86/"
+      "https://www.gutenberg.org/ebooks/1232"
     ],
-    "search_phrase": "Step Pyramid of Djoser",
-    "thumbnail_anchor": "Step Pyramid",
-    "thumbnail_visual_story": "Stepped stone tiers rise from a weathered foreground block toward the Step Pyramid on the right"
+    "thumbnail_anchor": "chess king",
+    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
   },
   {
-    "id": "goreme-underground",
-    "category": "Underground cities and lost archaeology",
-    "title_angle": "Life below the rock of Cappadocia",
+    "id": "48-laws-reputation",
+    "category": "The 48 Laws of Power",
+    "title_angle": "The 48 Laws of Power: reputation and social perception",
+    "search_phrase": "48 Laws of Power",
     "facts": [
-      "The G\u00f6reme landscape contains rock-cut sanctuaries and underground settlements.",
-      "The area preserves traces of Byzantine art and history."
+      "The 48 Laws of Power is a work by Robert Greene.",
+      "This episode offers original commentary on reputation and social perception; attribute interpretations to the author rather than presenting them as scientific laws.",
+      "Use clearly labeled illustrative scenarios, distinguish persuasion from coercion, and do not invent quotations or diagnose people."
     ],
     "sources": [
-      "https://whc.unesco.org/en/list/357/"
+      "https://www.penguinrandomhouse.com/books/330912/the-48-laws-of-power-by-robert-greene/"
     ],
-    "search_phrase": "Cappadocia Underground Cities",
-    "thumbnail_anchor": "rock-cut underground settlement",
-    "thumbnail_visual_story": "A sunlit Cappadocia rock face opens into a deep shadowed rock-cut underground settlement on the right"
+    "thumbnail_anchor": "chess king",
+    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
   },
   {
-    "id": "persian-qanat",
-    "category": "Ancient structures and underground cities",
-    "title_angle": "The underground water system of Persian qanats",
+    "id": "48-laws-restraint",
+    "category": "The 48 Laws of Power",
+    "title_angle": "The 48 Laws of Power: restraint, timing and visibility",
+    "search_phrase": "48 Laws of Power",
     "facts": [
-      "Qanats use gently sloping underground channels to carry water by gravity.",
-      "The World Heritage property includes eleven qanats in Iran."
+      "The 48 Laws of Power is a work by Robert Greene.",
+      "This episode offers original commentary on restraint, timing and visibility; attribute interpretations to the author rather than presenting them as scientific laws.",
+      "Use clearly labeled illustrative scenarios, distinguish persuasion from coercion, and do not invent quotations or diagnose people."
     ],
     "sources": [
-      "https://whc.unesco.org/en/list/1506/"
+      "https://www.penguinrandomhouse.com/books/330912/the-48-laws-of-power-by-robert-greene/"
     ],
-    "search_phrase": "Persian Qanat",
-    "thumbnail_anchor": "underground water channel",
-    "thumbnail_visual_story": "An underground water channel emerges from darkness into an arid sunlit landscape on the right"
+    "thumbnail_anchor": "chess king",
+    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
   },
   {
-    "id": "petra-water",
-    "category": "Ancient structures and lost archaeology",
-    "title_angle": "How Petra endured in a desert landscape",
+    "id": "dark-powerplay-status",
+    "category": "Dark power plays",
+    "title_angle": "Dark power plays: status games and hidden competition",
+    "search_phrase": "Dark Power Plays",
     "facts": [
-      "Petra was the capital of the Nabataeans.",
-      "Its setting includes rock-cut architecture and an extensive water management system."
+      "The 48 Laws of Power is a work by Robert Greene.",
+      "This episode offers original commentary on status games and hidden competition; attribute interpretations to the author rather than presenting them as scientific laws.",
+      "Use clearly labeled illustrative scenarios, distinguish persuasion from coercion, and do not invent quotations or diagnose people."
     ],
     "sources": [
-      "https://whc.unesco.org/en/list/326/"
+      "https://www.penguinrandomhouse.com/books/330912/the-48-laws-of-power-by-robert-greene/"
     ],
-    "search_phrase": "Petra Water System",
-    "thumbnail_anchor": "rock-cut water channel",
-    "thumbnail_visual_story": "A narrow rock-cut water channel vanishes around a sandstone bend toward Petra on the right"
+    "thumbnail_anchor": "chess king",
+    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
   },
   {
-    "id": "mohenjo-daro",
-    "category": "Ancient civilizations and archaeological documentaries",
-    "title_angle": "What Mohenjo-daro's streets reveal",
+    "id": "dark-powerplay-leverage",
+    "category": "Dark power plays",
+    "title_angle": "Dark power plays: dependence, leverage and boundaries",
+    "search_phrase": "Power Dynamics",
     "facts": [
-      "Mohenjo-daro is a major archaeological site of the Indus civilization.",
-      "Its planned urban layout and drainage are important surviving evidence."
+      "The 48 Laws of Power is a work by Robert Greene.",
+      "This episode offers original commentary on dependence, leverage and boundaries; attribute interpretations to the author rather than presenting them as scientific laws.",
+      "Use clearly labeled illustrative scenarios, distinguish persuasion from coercion, and do not invent quotations or diagnose people."
     ],
     "sources": [
-      "https://whc.unesco.org/en/list/138/"
+      "https://www.penguinrandomhouse.com/books/330912/the-48-laws-of-power-by-robert-greene/"
     ],
-    "search_phrase": "Mohenjo-daro",
-    "thumbnail_anchor": "ancient street drains",
-    "thumbnail_visual_story": "Ancient brick street drains run beneath a straight Mohenjo-daro street on the right"
+    "thumbnail_anchor": "chess king",
+    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
   },
   {
-    "id": "pompeii",
-    "category": "Ancient civilizations and archaeological documentaries",
-    "title_angle": "The evidence preserved at Pompeii",
+    "id": "dark-psychology-influence",
+    "category": "Dark psychology",
+    "title_angle": "Dark psychology: recognizing manipulation and influence",
+    "search_phrase": "Dark Psychology",
     "facts": [
-      "The eruption of Vesuvius in 79 CE buried Pompeii and Herculaneum.",
-      "Their remains preserve evidence of Roman urban life."
+      "The Laws of Human Nature is a work by Robert Greene.",
+      "This episode offers original commentary on recognizing manipulation and influence; attribute interpretations to the author rather than presenting them as scientific laws.",
+      "Use clearly labeled illustrative scenarios, distinguish persuasion from coercion, and do not invent quotations or diagnose people."
     ],
     "sources": [
-      "https://whc.unesco.org/en/list/829/"
+      "https://powerseductionandwar.com/books/"
     ],
-    "search_phrase": "Pompeii",
-    "thumbnail_anchor": "buried Roman street",
-    "thumbnail_visual_story": "A buried Roman street emerges from layers of volcanic ash into sunlight on the right"
+    "thumbnail_anchor": "chess king",
+    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
   },
   {
-    "id": "historic-cairo",
-    "category": "Islamic history",
-    "title_angle": "The layered history of Islamic Cairo",
+    "id": "dark-psychology-motives",
+    "category": "Dark psychology",
+    "title_angle": "Dark psychology: reading motives without mind-reading",
+    "search_phrase": "Dark Psychology",
     "facts": [
-      "Historic Cairo was founded in the 10th century.",
-      "Its mosques, madrasas and other monuments reflect several centuries of Islamic history.",
-      "Cairo became the headquarters of the Fatimid Caliphate in 969 CE.",
-      "The city preserves mosques, madrasas, bathhouses and fountains.",
-      "Its surviving street plan and buildings also record Ayyubid, Mamluk and Ottoman periods."
+      "The Laws of Human Nature is a work by Robert Greene.",
+      "This episode offers original commentary on reading motives without mind-reading; attribute interpretations to the author rather than presenting them as scientific laws.",
+      "Use clearly labeled illustrative scenarios, distinguish persuasion from coercion, and do not invent quotations or diagnose people."
     ],
     "sources": [
-      "https://whc.unesco.org/en/list/89/"
+      "https://powerseductionandwar.com/books/"
     ],
-    "search_phrase": "Historic Cairo",
-    "thumbnail_anchor": "historic mosque gateway",
-    "thumbnail_visual_story": "A shadowed historic mosque gateway reveals layered arches and a sunlit Cairo street on the right"
+    "thumbnail_anchor": "chess king",
+    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
   },
   {
-    "id": "samarra",
-    "category": "Islamic history",
-    "title_angle": "Samarra and the Abbasid world",
+    "id": "seduction-attention",
+    "category": "The Art of Seduction",
+    "title_angle": "The Art of Seduction: attention, attraction and charisma",
+    "search_phrase": "Art of Seduction",
     "facts": [
-      "Samarra served as an Abbasid capital in the 9th century.",
-      "Its archaeological remains include monumental mosques and distinctive architecture."
+      "The Art of Seduction is a work by Robert Greene.",
+      "This episode offers original commentary on attention, attraction and charisma; attribute interpretations to the author rather than presenting them as scientific laws.",
+      "Use clearly labeled illustrative scenarios, distinguish persuasion from coercion, and do not invent quotations or diagnose people."
     ],
     "sources": [
-      "https://whc.unesco.org/en/list/276/"
+      "https://www.penguinrandomhouse.com/books/286423/the-art-of-seduction-by-robert-greene/9781101175293/"
     ],
-    "search_phrase": "Samarra",
-    "thumbnail_anchor": "spiral minaret",
-    "thumbnail_visual_story": "The spiral minaret rises beyond weathered Abbasid ruins under an immense sky on the right"
+    "thumbnail_anchor": "chess king",
+    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
   },
   {
-    "id": "ibn-battuta",
-    "category": "Famous people in Islamic history",
-    "title_angle": "Ibn Battuta's travels and what his account can tell us",
+    "id": "seduction-persona",
+    "category": "The Art of Seduction",
+    "title_angle": "The Art of Seduction: persona, fascination and boundaries",
+    "search_phrase": "Art of Seduction",
     "facts": [
-      "Ibn Battuta was born in Tangier in 1304.",
-      "He began a journey at about age 21, originally intending to make the hajj to Mecca.",
-      "His travels continued for almost 30 years and extended across North Africa, Asia and beyond.",
-      "After returning to Morocco in the early 1350s, he was commissioned to produce an account of his travels.",
-      "That account is commonly called the Rihla; distinguish its own claims from independently confirmed evidence."
+      "The Art of Seduction is a work by Robert Greene.",
+      "This episode offers original commentary on persona, fascination and boundaries; attribute interpretations to the author rather than presenting them as scientific laws.",
+      "Use clearly labeled illustrative scenarios, distinguish persuasion from coercion, and do not invent quotations or diagnose people."
     ],
     "sources": [
-      "https://www.loc.gov/item/2021666192/"
+      "https://www.penguinrandomhouse.com/books/286423/the-art-of-seduction-by-robert-greene/9781101175293/"
     ],
-    "search_phrase": "Ibn Battuta",
-    "thumbnail_anchor": "historical travel route map",
-    "thumbnail_visual_story": "An open historical travel route map and worn manuscript suggest Ibn Battuta journeys across deserts and seas on the right"
+    "thumbnail_anchor": "chess king",
+    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
   },
   {
-    "id": "ibn-sina",
-    "category": "Famous people in Islamic history",
-    "title_angle": "Ibn Sina's influence on medicine and philosophy",
+    "id": "human-nature-ego",
+    "category": "Human nature",
+    "title_angle": "The Laws of Human Nature: ego and self-awareness",
+    "search_phrase": "Human Nature",
     "facts": [
-      "Ibn Sina, also known as Avicenna, lived in the 10th and 11th centuries.",
-      "His Canon of Medicine became an influential medical work."
+      "The Laws of Human Nature is a work by Robert Greene.",
+      "This episode offers original commentary on ego and self-awareness; attribute interpretations to the author rather than presenting them as scientific laws.",
+      "Use clearly labeled illustrative scenarios, distinguish persuasion from coercion, and do not invent quotations or diagnose people."
     ],
     "sources": [
-      "https://plato.stanford.edu/entries/ibn-sina/"
+      "https://powerseductionandwar.com/books/"
     ],
-    "search_phrase": "Ibn Sina",
-    "thumbnail_anchor": "medieval medical manuscript",
-    "thumbnail_visual_story": "An open medieval medical manuscript catches one shaft of light in a shadowed study on the right"
+    "thumbnail_anchor": "chess king",
+    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+  },
+  {
+    "id": "strategy-conflict",
+    "category": "Strategy and conflict",
+    "title_angle": "The 33 Strategies of War: conflict and strategic patience",
+    "search_phrase": "Strategies of War",
+    "facts": [
+      "The 33 Strategies of War is a work by Robert Greene.",
+      "This episode offers original commentary on conflict and strategic patience; attribute interpretations to the author rather than presenting them as scientific laws.",
+      "Use clearly labeled illustrative scenarios, distinguish persuasion from coercion, and do not invent quotations or diagnose people."
+    ],
+    "sources": [
+      "https://powerseductionandwar.com/books/"
+    ],
+    "thumbnail_anchor": "chess king",
+    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+  },
+  {
+    "id": "mastery-self-control",
+    "category": "Self-mastery",
+    "title_angle": "Mastery: discipline, patience and personal power",
+    "search_phrase": "Self Mastery",
+    "facts": [
+      "Mastery is a work by Robert Greene.",
+      "This episode offers original commentary on discipline, patience and personal power; attribute interpretations to the author rather than presenting them as scientific laws.",
+      "Use clearly labeled illustrative scenarios, distinguish persuasion from coercion, and do not invent quotations or diagnose people."
+    ],
+    "sources": [
+      "https://powerseductionandwar.com/books/"
+    ],
+    "thumbnail_anchor": "chess king",
+    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+  },
+  {
+    "id": "daily-laws-judgment",
+    "category": "Strategic thinking",
+    "title_angle": "The Daily Laws: judgment and everyday power dynamics",
+    "search_phrase": "Daily Laws",
+    "facts": [
+      "The Daily Laws is a work by Robert Greene.",
+      "This episode offers original commentary on judgment and everyday power dynamics; attribute interpretations to the author rather than presenting them as scientific laws.",
+      "Use clearly labeled illustrative scenarios, distinguish persuasion from coercion, and do not invent quotations or diagnose people."
+    ],
+    "sources": [
+      "https://powerseductionandwar.com/books/"
+    ],
+    "thumbnail_anchor": "chess king",
+    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
   }
 ]

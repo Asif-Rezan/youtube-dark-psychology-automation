@@ -1,4 +1,4 @@
-"""Source-aware YouTube packaging for historical documentaries."""
+"""Source-aware YouTube packaging for psychology and power documentaries."""
 import json
 import re
 import time
@@ -36,12 +36,12 @@ def description_parts(payload, topic):
         raise ValueError('Description contains prohibited clickbait')
     if (not 80 <= len(intro) <= 400 or keyword.casefold() not in
             re.split(r'(?<=[.!?])\s', intro, maxsplit=1)[0].casefold()):
-        intro = (f'{keyword}: explore the historical evidence, surviving remains, '
+        intro = (f'{keyword}: explore ideas about human behavior, influence, '
                  'and questions examined in this documentary.')
     if not 80 <= len(details) <= 800:
         facts = [_plain(fact) for fact in topic.get('facts', []) if _plain(fact)]
         if not facts:
-            raise ValueError('Description fallback requires curated historical facts')
+            raise ValueError('Description fallback requires curated source-backed facts')
         details = ' '.join(facts) + ' The documentary distinguishes the supplied evidence from uncertain interpretation.'
     if (not 80 <= len(intro) <= 400 or not 80 <= len(details) <= 800
             or CLICKBAIT.search(intro) or CLICKBAIT.search(details)):
@@ -111,7 +111,7 @@ def choose_package(story, topic, payload):
     relevant_text = ' '.join([keyword, topic['category']] + topic.get('facts', []))
     relevant_stems = {word[:5] for word in re.findall(r'[a-z]{5,}', relevant_text.casefold())
                       if word not in {'history', 'ancient', 'historical', 'documentary', 'archaeology'}}
-    base_tags = [keyword, topic['category'], 'history documentary']
+    base_tags = [keyword, topic['category'], 'psychology and power']
     if 'archaeolog' in topic['category'].casefold() or 'ancient structure' in topic['category'].casefold():
         base_tags.append('archaeology')
     tags = []
@@ -127,7 +127,7 @@ def choose_package(story, topic, payload):
         raise ValueError('Video tags exceed YouTube metadata budget')
     description = (f'{intro}\n\n{details}\n\n'
                    'Sources and further reading:\n' + '\n'.join(topic['sources']) +
-                   '\n\nVisual scenes are artistic historical reconstructions, not archival footage.')
+                   '\n\nVisual scenes are artistic illustrations, not archival footage.')
     if len(description) > 4500:
         raise ValueError('Video description exceeds upload budget')
     story.update(best, description=description, tags=tags, search_phrase=keyword,
@@ -156,7 +156,7 @@ def request_package(story, topic, ask, pause=None):
         'required': ['option_a', 'option_b', 'option_c', 'description_intro', 'description_details', 'tags'],
         'additionalProperties': False}
     outline = [scene.get('summary', '') for scene in story['scenes']]
-    prompt = f'''Create YouTube packaging for an English historical documentary.
+    prompt = f'''Create YouTube packaging for an English psychology and power documentary.
 Search subject phrase: {topic['search_phrase']}
 Category: {topic['category']}
 Verified facts: {json.dumps(topic['facts'])}
@@ -176,14 +176,14 @@ The image must tell this source-backed visual story: {topic['thumbnail_visual_st
 Do not mention or depict these elements in thumbnail artwork: {json.dumps(topic.get('thumbnail_forbidden_terms', []))}.
 Omit forbidden words entirely, including negative phrases such as "no pyramid"; the renderer handles exclusions.
 Thumbnail prompt: 25-220 characters, include the exact visual-anchor phrase, and add
-a specific scene composition that builds on the visual story. Make the historical scale,
+a specific scene composition that builds on the visual story. Make the social tension,
 entrance, path or object relationship the source of curiosity even with no words visible.
 Place the intriguing detail on the RIGHT and leave dark space on the LEFT for the question.
 Use dramatic but plausible light and depth. No embedded letters, labels, arrows, logos,
 fictional discoveries or fantasy imagery.
 Description intro: 80-400 characters, put the exact subject phrase naturally in the FIRST sentence
 and state what the viewer will learn. Description details: 80-800 characters, unique to this episode,
-explain the key evidence and remaining uncertainty. Do not invent historical claims.
+explain the key evidence and remaining uncertainty. Do not invent claims or quotations. Attribute book interpretations to their authors.
 Tags: 4-8 concise specific search variants, including sensible spelling variants if useful;
 no unrelated trend tags, hashtags, or keyword stuffing. Return only the requested JSON.'''
     feedback = ''
@@ -201,4 +201,4 @@ no unrelated trend tags, hashtags, or keyword stuffing. Return only the requeste
             feedback = ('\nYour previous response failed validation: ' + str(error) +
                         '\nPrevious metadata: ' + json.dumps(result) +
                         '\nCorrect these issues. Return the complete requested JSON; '
-                        'keep every historical claim within the supplied evidence.')
+                        'keep every factual claim within the supplied evidence.')

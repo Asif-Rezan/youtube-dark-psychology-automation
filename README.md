@@ -1,18 +1,18 @@
-# Grow with Rezan: historical documentary automation
+# Grow with Rezan: psychology and power documentary automation
 
-This repository makes one original English historical documentary video per day for the **Grow with Rezan** channel (`UCYjz7d66SsshimfpxZahlhQ`). Videos are uploaded **privately** at 06:00 Asia/Dhaka. The 20 CPU image workers, seven-second visual timeline, Kokoro narration, captions, music, thumbnail, private upload verification and recovery checkpoints remain in place.
+This repository makes one original English psychology and power documentary video per day for the **Grow with Rezan** channel (`UCYjz7d66SsshimfpxZahlhQ`). Videos are uploaded **privately** at 06:00 Asia/Dhaka. The 20 CPU image workers, seven-second visual timeline, Kokoro narration, captions, music, thumbnail, private upload verification and recovery checkpoints remain in place.
 
-Topics rotate through Ancient Egypt and pyramids; archaeology and underground structures; ancient civilizations; Islamic history; and people in Islamic intellectual and travel history. The curated [topic and source list](history_topics.json) supplies factual anchors for each episode. The planner avoids topics from the last ten videos and rejects highly similar recent titles and outlines. Scripts must distinguish evidence from interpretation, avoid invented dialogue and unsupported claims, and include source links in descriptions. Generated scenes are labeled as artistic historical reconstructions.
+Topics rotate through Machiavelli, The 48 Laws of Power, dark power plays, dark psychology, The Art of Seduction, human nature, strategic conflict and self-mastery. The curated [topic and source list](history_topics.json) supplies episode boundaries. Scripts provide original, attributed commentary, distinguish book interpretations from scientific evidence, and label illustrative scenarios. The existing scheduler, twenty chapters, duration controls, voice, music, images, captions, thumbnails, upload privacy and recovery remain unchanged. Internal `historical-documentary` compatibility identifiers and the topic filename are retained so existing checkpoints and validation continue to work. Already-started runs retain their saved stories; newly planned videos use the new topics.
 
 ## YouTube title, description and thumbnail
 
-After the historical script is written, a separate packaging step drafts three accurate title and thumbnail pairs. It requires the topic's search phrase near the start of a concise title, rejects sensational wording, and selects a complementary 2–5 word question that creates a specific curiosity gap. The question must connect to a documented visual feature and be addressed in the episode. The unique description states the subject in its first sentence, explains the evidence, links the episode's sources and labels reconstructions. Tags are limited to a small set of relevant search variants; they are a secondary discovery signal. Uploads use YouTube's Education category.
+After the documentary script is written, a separate packaging step drafts three accurate title and thumbnail pairs. It requires the topic's search phrase near the start of a concise title, rejects sensational wording, and selects a complementary 2–5 word question that creates a specific curiosity gap. The question must connect to a documented visual feature and be addressed in the episode. The unique description states the subject in its first sentence, explains the evidence, links the episode's sources and labels reconstructions. Tags are limited to a small set of relevant search variants; they are a secondary discovery signal. Uploads use YouTube's Education category.
 
 Each topic now supplies a source-backed visual scene: a scale contrast, a passage into shadow, a path, or a physical trace. The thumbnail prompt puts that scene before style words so the image model draws the visual question. The renderer adds focused light to the artwork on the right and reserves the left side for a large question. A high-contrast 1280×720 layout is added in code, with no text bar covering the bottom of the scene. These rules improve clarity but cannot predict CTR; review private uploads and compare titles and thumbnails against actual YouTube Analytics before publication.
 
 ## Historical illustrations
 
-Images use `segmind/SSD-1B` on CPU at **1024×576**, 16 inference steps and guidance scale 9. A new image appears every **seven seconds**. Each image prompt follows the spoken historical scene, showing relevant sites, objects, architecture or people with period-appropriate details. No wizard reference image is loaded in the video or thumbnail path. The CPU image check produces a historical test image for visual review. AI reconstructions may still contain inaccuracies; inspect the private video before public release.
+Images use `segmind/SSD-1B` on CPU at **1024×576**, 16 inference steps and guidance scale 9. A new image appears every **seven seconds**. Each image prompt follows the spoken scene, showing relevant interactions, people and symbolic objects. No wizard reference image is loaded in the video or thumbnail path. The CPU image check produces a historical test image for visual review. AI reconstructions may still contain inaccuracies; inspect the private video before public release.
 
 ## Required isolated setup
 
@@ -35,7 +35,7 @@ The source repository and its secrets, Drive folder, OAuth project, YouTube toke
 
 ## Story duration recovery
 
-Fresh daily stories keep the twenty-chapter historical documentary outline and target 84
+Fresh daily stories keep the twenty-chapter documentary outline and target 84
 spoken words per chapter, plus the closing CTA. Set `STORY_CHAPTER_WORD_TARGET`
 between 75 and 88 to tune the initial request. Actual Kokoro audio duration,
 not word count, controls acceptance: 600–900 seconds is required, with 720–840
@@ -43,7 +43,7 @@ seconds preferred.
 
 Preparation measures every chapter before making images. A slight overrun uses
 at most a 4% FFmpeg tempo correction. Larger overruns use Groq to shorten
-selected chapters; underruns use Groq to add relevant documented historical details.
+selected chapters; underruns use Groq to add relevant source-backed details.
 At most three correction attempts run. Changed chapters alone are resynthesized,
 then word timestamps, captions, and every seven-second visual window are rebuilt.
 Audio and transcript caches are tied to content hashes so changed text cannot

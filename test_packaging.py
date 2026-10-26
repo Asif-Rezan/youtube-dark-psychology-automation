@@ -220,12 +220,18 @@ class VisualPromptTests(unittest.TestCase):
         self.assertIn('fully clothed', prompt)
         self.assertIn('no violence', prompt)
 
-    def test_giza_art_does_not_suggest_an_invented_chamber(self):
+    def test_new_topic_rotation_and_symbolic_artwork(self):
         import json
         topics = json.loads(Path('history_topics.json').read_text())
-        giza = next(t for t in topics if t['id'] == 'giza-pyramids')
-        visual = giza['thumbnail_visual_story'].casefold()
-        self.assertIn('limestone blocks', visual)
-        self.assertIn('joint', visual)
+        self.assertGreater(len(topics), 10)
+        self.assertEqual(len({t['id'] for t in topics}), len(topics))
+        self.assertTrue({'Machiavelli', 'The 48 Laws of Power', 'Dark power plays', 'Dark psychology', 'The Art of Seduction'} <= {t['category'] for t in topics})
+        self.assertNotIn('giza-pyramids', {t['id'] for t in topics})
+        for topic in topics:
+            self.assertTrue(topic['facts'] and topic['sources'])
+            self.assertIn(topic['thumbnail_anchor'], topic['thumbnail_visual_story'])
+        visual = topics[0]['thumbnail_visual_story'].casefold()
+        self.assertIn('chess king', visual)
+        self.assertIn('shadow', visual)
         for invented in ['hidden chamber', 'statue', 'treasure', 'wizard']:
             self.assertNotIn(invented, visual)

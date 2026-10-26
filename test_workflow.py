@@ -213,7 +213,7 @@ class Checks(unittest.TestCase):
             self.assertEqual(tomb['focus'], 'object')
             self.assertEqual(workers['focus'], 'group')
             self.assertIn('sealed tomb', tomb['prompt'])
-            self.assertIn('period-appropriate', workers['prompt'])
+            self.assertIn('topic-appropriate', workers['prompt'])
             self.assertNotIn('Recurring wizard', workers['prompt'])
 
     def test_actual_seven_second_image_change(self):
