@@ -54,8 +54,13 @@ def cleanup(store, run, state):
         store.save(key, journal)  # Durable ID manifest before any destructive operation.
     if journal['run'] != run or journal['video_id'] != state['video_id']:
         raise RuntimeError('Cleanup journal identity mismatch')
-    facebook_pending = (os.getenv('FACEBOOK_PUBLISH_ENABLED') == 'true'
-        and store.load(f'runs/{run}/facebook.json', {}).get('phase') != 'scheduled')
+    facebook_pending = os.getenv('FACEBOOK_PUBLISH_ENABLED') == 'true'
+    if facebook_pending:
+        try:
+            facebook_pending = store.load(f'runs/{run}/facebook.json', {}).get('phase') != 'scheduled'
+        except Exception:
+            # Facebook state must never turn a successful YouTube run into a failure.
+            print('::warning::Facebook checkpoint unavailable; retaining final MP4 for Facebook-only retry.')
     deferred = []
     for entry in journal['files']:
         fid = entry['id']

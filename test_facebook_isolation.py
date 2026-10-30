@@ -23,6 +23,14 @@ class FacebookIsolationTests(unittest.TestCase):
             self.assertTrue(cleanup(f.store, f.run, f.state))
         f.store.client.files().delete.assert_called_once_with(fileId='file')
 
+    def test_unreadable_facebook_checkpoint_does_not_fail_youtube_cleanup(self):
+        f = CleanupTests(); f.setUp()
+        f.store.load.side_effect = [f.store.load.return_value, RuntimeError('unavailable')]
+        from daily_publish import cleanup
+        with patch.dict(os.environ, {'FACEBOOK_PUBLISH_ENABLED': 'true'}):
+            self.assertFalse(cleanup(f.store, f.run, f.state))
+        f.store.client.files().delete.assert_not_called()
+
     def test_wrong_page_token_rejected_before_upload(self):
         api = Facebook('secret'); api.request = MagicMock(return_value={'id':'other'})
         with self.assertRaises(FacebookError): api.verify_page()
