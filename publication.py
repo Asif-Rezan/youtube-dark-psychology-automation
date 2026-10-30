@@ -59,6 +59,6 @@ def publish_verified(client, store, key, state, video, mode):
     scheduled = (mode == 'scheduled' and actual['privacyStatus'] == 'private'
         and actual.get('publishAt') and parse_time(actual['publishAt']) == parse_time(intent['publish_at']))
     if not (published or scheduled):
-        raise RuntimeError('YouTube did not confirm publication; preserve media')
+        raise RuntimeError(f'YouTube did not confirm publication; preserve media: {actual}')
     intent['confirmed'] = True
     store.save(key, state)
