@@ -1,6 +1,7 @@
 """Durable, DST-aware YouTube publication after upload verification."""
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
+import time
 
 
 def next_publish_time(now):
@@ -51,14 +52,16 @@ def publish_verified(client, store, key, state, video, mode):
         else:
             desired.pop('publishAt', None)
         client.videos().update(part='status', body={'id': state['video_id'], 'status': desired}).execute()
-    items = client.videos().list(part='status', id=state['video_id']).execute().get('items', [])
-    if not items:
-        raise RuntimeError('Publication readback unavailable; preserve media')
-    actual = items[0]['status']
-    published = actual['privacyStatus'] == 'public' and (mode == 'public' or datetime.now(timezone.utc) >= parse_time(intent['publish_at']))
-    scheduled = (mode == 'scheduled' and actual['privacyStatus'] == 'private'
-        and actual.get('publishAt') and parse_time(actual['publishAt']) == parse_time(intent['publish_at']))
-    if not (published or scheduled):
-        raise RuntimeError(f'YouTube did not confirm publication; preserve media: {actual}')
+    for attempt in range(6):
+        items = client.videos().list(part='status', id=state['video_id']).execute().get('items', [])
+        actual = items[0]['status'] if items else {}
+        published = actual.get('privacyStatus') == 'public' and (mode == 'public' or datetime.now(timezone.utc) >= parse_time(intent['publish_at']))
+        scheduled = (mode == 'scheduled' and actual.get('privacyStatus') == 'private'
+            and actual.get('publishAt') and parse_time(actual['publishAt']) == parse_time(intent['publish_at']))
+        if published or scheduled:
+            break
+        if attempt == 5:
+            raise RuntimeError(f'YouTube did not confirm publication; preserve media: {actual}')
+        time.sleep(5)  # Status reads can lag behind a successful update.
     intent['confirmed'] = True
     store.save(key, state)

@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from publication import next_publish_time, publish_verified
 
 
@@ -29,7 +29,8 @@ class PublicationTests(unittest.TestCase):
         client.videos().update.assert_called_once()
         self.assertEqual(state['publication']['publish_at'], saved)
 
-    def test_missing_schedule_readback_fails(self):
+    @patch('publication.time.sleep')
+    def test_missing_schedule_readback_fails(self, sleep):
         client, store = MagicMock(), MagicMock()
         client.videos().list().execute.return_value = {'items': [{'status': {'privacyStatus': 'private'}}]}
         state = {'video_id': 'v'}
