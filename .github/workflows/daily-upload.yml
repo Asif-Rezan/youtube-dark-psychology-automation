@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       cleanup_run:
-        description: 'Optional completed daily run ID: retry private verification and cleanup only'
+        description: 'Optional completed daily run ID: retry verification, scheduling and cleanup only'
         type: string
         default: ''
 permissions:
@@ -32,6 +32,7 @@ env:
   HF_HUB_DISABLE_XET: '1'
   OMP_NUM_THREADS: '4'
   MKL_NUM_THREADS: '4'
+  YOUTUBE_PUBLICATION_MODE: scheduled
   DAILY_ENABLED: 'true'
   GENERATE_FRESH_STORY: 'true'
   TEXT_BACKEND: qwen-local
@@ -59,13 +60,13 @@ jobs:
           pip install -r requirements-cpu.txt
       - name: Validate global timing and rendering helpers
         run: python -m unittest -v
-      - name: Verify private upload readiness before generation
+      - name: Verify publication readiness before generation
         env:
           DRIVE_TOKEN_JSON: ${{ secrets.DRIVE_TOKEN_JSON }}
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
           YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
           EXPECTED_CHANNEL_ID: UCYjz7d66SsshimfpxZahlhQ
-          REQUIRE_PUBLIC_PUBLISH: 'false'
+          REQUIRE_PUBLIC_PUBLISH: 'true'
         run: python oauth_check.py
       - name: Verify real narration before generating the story
         run: python narration_check.py
@@ -197,7 +198,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
-      - name: Verify private HD upload and metadata, then clean this run only
+      - name: Verify HD, schedule publication at 6 AM New York, then clean this run only
         env:
           DRIVE_TOKEN_JSON: ${{ secrets.DRIVE_TOKEN_JSON }}
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}

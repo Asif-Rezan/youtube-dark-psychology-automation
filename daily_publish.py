@@ -1,6 +1,7 @@
 """Verify an existing private upload; permanently clean only tagged run media."""
 import hashlib
 import json
+import os
 import re
 import time
 
@@ -117,7 +118,7 @@ def main():
         if time.monotonic() >= deadline:
             raise RuntimeError('HD processing pending; preserve all media')
         time.sleep(20)
-    if video['status']['privacyStatus'] != 'private':
+    if video['status']['privacyStatus'] != 'private' and not state.get('publication'):
         raise RuntimeError('Video must remain private; preserve all media')
     state.update(phase='verified_private', verification={'video_id': state['video_id'],
         'hd': True, 'processed': True, 'metadata': True, 'private': True})
@@ -126,8 +127,10 @@ def main():
     if not any(h.get('run') == run for h in history):
         history.append({'run': run, 'video_id': state['video_id'], 'title': state['story']['title'], 'hash': state['hash']})
     store.save('history.json', history)
+    from publication import publish_verified
+    publish_verified(client, store, key, state, video, os.getenv('YOUTUBE_PUBLICATION_MODE', state.get('publication', {}).get('mode', 'private')))
     cleanup(store, run, state)
-    print(json.dumps({'run': run, 'video_id': state['video_id'], 'privacy': 'private', 'verified': True, 'cleanup_complete': True}))
+    print(json.dumps({'run': run, 'video_id': state['video_id'], 'publication': state.get('publication', {'mode': 'private'}), 'verified': True, 'cleanup_complete': True}))
 
 
 if __name__ == '__main__':
