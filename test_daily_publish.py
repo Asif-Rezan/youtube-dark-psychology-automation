@@ -146,7 +146,7 @@ class PrivateVisibilityTests(unittest.TestCase):
              patch.dict('sys.modules', {
                  'google.oauth2.credentials': MagicMock(),
                  'googleapiclient.discovery': MagicMock(build=MagicMock(return_value=client))}), \
-             patch('daily_publish.cleanup') as clean:
+             patch('daily_publish.cleanup', return_value=True) as clean:
             if privacy == 'private':
                 daily_publish.main()
                 self.assertEqual(state['phase'], 'verified_private')

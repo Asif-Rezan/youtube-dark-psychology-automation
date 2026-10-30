@@ -122,3 +122,5 @@ storyboard schema and complete twenty-chapter script. Generation logs expose cou
 and timing, not unpublished text. Model weights are cached between runner jobs.
 
 Daily uploads are verified in HD, then scheduled for the first 06:00 America/New_York at least 72 hours after scheduling. DST is handled automatically. YouTube shows scheduled videos as private until release. The publish intent is checkpointed before the API call and read back before media cleanup. Set `YOUTUBE_PUBLICATION_MODE` to `public` for immediate publication or `private` for private-only verification. Test workflows remain private. Retry with `cleanup_run` to schedule a completed daily upload without regeneration or re-upload.
+
+Facebook Page uploads run independently after YouTube succeeds. See [Facebook setup and recovery](docs/facebook-publishing.md). A Facebook failure leaves YouTube successful and preserves the final MP4 for Facebook-only retry.

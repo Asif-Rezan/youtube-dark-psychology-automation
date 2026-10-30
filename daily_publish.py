@@ -54,9 +54,15 @@ def cleanup(store, run, state):
         store.save(key, journal)  # Durable ID manifest before any destructive operation.
     if journal['run'] != run or journal['video_id'] != state['video_id']:
         raise RuntimeError('Cleanup journal identity mismatch')
+    facebook_pending = (os.getenv('FACEBOOK_PUBLISH_ENABLED') == 'true'
+        and store.load(f'runs/{run}/facebook.json', {}).get('phase') != 'scheduled')
+    deferred = []
     for entry in journal['files']:
         fid = entry['id']
         if fid in journal['deleted']:
+            continue
+        if facebook_pending and entry['name'] == f'runs__{run}__video.mp4':
+            deferred.append(fid)
             continue
         for attempt in range(4):
             try:
@@ -86,8 +92,10 @@ def cleanup(store, run, state):
             store.save(key, journal)
             print(json.dumps({'check': 'Drive cleanup', 'deleted': len(journal['deleted']),
                               'total': len(journal['files'])}), flush=True)
-    journal['complete'] = True
+    journal['complete'] = not deferred
+    journal['deferred_for_facebook'] = deferred
     store.save(key, journal)
+    return journal['complete']
 
 
 def main():
@@ -129,8 +137,8 @@ def main():
     store.save('history.json', history)
     from publication import publish_verified
     publish_verified(client, store, key, state, video, os.getenv('YOUTUBE_PUBLICATION_MODE', state.get('publication', {}).get('mode', 'private')))
-    cleanup(store, run, state)
-    print(json.dumps({'run': run, 'video_id': state['video_id'], 'publication': state.get('publication', {'mode': 'private'}), 'verified': True, 'cleanup_complete': True}))
+    cleanup_complete = cleanup(store, run, state)
+    print(json.dumps({'run': run, 'video_id': state['video_id'], 'publication': state.get('publication', {'mode': 'private'}), 'verified': True, 'cleanup_complete': cleanup_complete}))
 
 
 if __name__ == '__main__':

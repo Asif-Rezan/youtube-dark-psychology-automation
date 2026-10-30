@@ -1,0 +1,57 @@
+name: Facebook Page upload
+on:
+  workflow_run:
+    workflows: ['Daily historical documentary publishing']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Original daily run ID, e.g. daily-40964280622 (Facebook only)'
+        type: string
+        required: true
+      existing_video_id:
+        description: 'Optional existing Facebook video ID: verify matching Page, metadata and schedule without re-upload'
+        type: string
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: facebook-dark-psychology
+  cancel-in-progress: false
+jobs:
+  facebook:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      FACEBOOK_PUBLISH_ENABLED: 'true'
+      FACEBOOK_DATA_ACCESS_EXPIRES_AT: '1801113741'
+      EXISTING_VIDEO_ID: ${{ inputs.existing_video_id }}
+      SAVED_RUN_ID: ${{ inputs.run_id || format('daily-{0}', github.event.workflow_run.id) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Upload saved video to Grow with Rezan on Facebook
+        env:
+          DRIVE_TOKEN_JSON: ${{ secrets.DRIVE_TOKEN_JSON }}
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+        run: |
+          if [ -n "$EXISTING_VIDEO_ID" ]; then
+            python -u facebook_publish.py --run-id "$SAVED_RUN_ID" --adopt-video-id "$EXISTING_VIDEO_ID"
+          else
+            python -u facebook_publish.py --run-id "$SAVED_RUN_ID"
+          fi
+      - name: Explain isolated Facebook failure
+        if: failure()
+        run: echo 'Facebook upload failed. YouTube upload and schedule are unaffected. Retry this Facebook workflow with the same daily run ID.' >> "$GITHUB_STEP_SUMMARY"
