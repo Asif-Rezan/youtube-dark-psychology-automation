@@ -1,7 +1,7 @@
 import os
 import unittest
 from unittest.mock import MagicMock, patch
-from test_daily_publish import CleanupTests
+import test_daily_publish as daily_tests
 from facebook_publish import Facebook, FacebookError, publish, verify_remote, PAGE_ID
 from pathlib import Path
 import tempfile
@@ -9,7 +9,7 @@ import tempfile
 
 class FacebookIsolationTests(unittest.TestCase):
     def test_failed_facebook_preserves_video_but_cleans_other_media(self):
-        f = CleanupTests(); f.setUp()
+        f = daily_tests.CleanupTests(); f.setUp()
         journal = f.store.load.return_value
         f.store.load.side_effect = [journal, {}]
         from daily_publish import cleanup
@@ -24,7 +24,7 @@ class FacebookIsolationTests(unittest.TestCase):
         f.store.client.files().delete.assert_called_once_with(fileId='file')
 
     def test_unreadable_facebook_checkpoint_does_not_fail_youtube_cleanup(self):
-        f = CleanupTests(); f.setUp()
+        f = daily_tests.CleanupTests(); f.setUp()
         f.store.load.side_effect = [f.store.load.return_value, RuntimeError('unavailable')]
         from daily_publish import cleanup
         with patch.dict(os.environ, {'FACEBOOK_PUBLISH_ENABLED': 'true'}):

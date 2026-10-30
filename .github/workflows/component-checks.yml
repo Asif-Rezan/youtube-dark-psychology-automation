@@ -20,6 +20,13 @@ jobs:
           pip install -r requirements.txt
           pip install 'torch==2.7.1' --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements-cpu.txt
-          python -m unittest -v
+      - name: Verify component tests with default settings
+        run: python -m unittest -v
+      - name: Verify component tests with daily production publishing settings
+        env:
+          YOUTUBE_PUBLICATION_MODE: scheduled
+          FACEBOOK_PUBLISH_ENABLED: 'true'
+          RUN_SCOPED_CLEANUP: 'true'
+        run: python -m unittest -v
       - name: Verify real CPU narration without credentials
         run: python narration_check.py

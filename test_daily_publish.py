@@ -1,9 +1,10 @@
 import hashlib
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from daily_publish import cleanup, disposable, validate_remote
 
 
+@patch.dict('os.environ', {'FACEBOOK_PUBLISH_ENABLED': 'false'})
 class CleanupTests(unittest.TestCase):
     def setUp(self):
         self.store = MagicMock()
@@ -68,6 +69,7 @@ class CleanupTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             validate_remote(video, state, 'wrong-channel')
 
+@patch.dict('os.environ', {'FACEBOOK_PUBLISH_ENABLED': 'false'})
 class RecoveryTests(unittest.TestCase):
     def test_verified_private_run_cannot_be_overwritten_or_uploaded_again(self):
         import long_video
@@ -141,7 +143,8 @@ class PrivateVisibilityTests(unittest.TestCase):
         store, client = MagicMock(), MagicMock()
         store.load.side_effect = [state, []]
         client.videos().list().execute.return_value = {'items': [video]}
-        env = {'SAVED_RUN_ID': 'daily-123', 'YOUTUBE_TOKEN_JSON': '{}', 'EXPECTED_CHANNEL_ID': 'c'}
+        env = {'SAVED_RUN_ID': 'daily-123', 'YOUTUBE_TOKEN_JSON': '{}', 'EXPECTED_CHANNEL_ID': 'c',
+               'YOUTUBE_PUBLICATION_MODE': 'private', 'FACEBOOK_PUBLISH_ENABLED': 'false'}
         with patch.dict('os.environ', env), patch('workflow.Store', return_value=store), \
              patch.dict('sys.modules', {
                  'google.oauth2.credentials': MagicMock(),
