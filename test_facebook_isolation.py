@@ -63,3 +63,27 @@ class FacebookIsolationTests(unittest.TestCase):
         with self.assertRaises(FacebookError) as error:
             Facebook('secret',session).request('GET','/v26.0/me')
         self.assertNotIn('secret',str(error.exception))
+
+class ExistingUploadRecoveryTests(unittest.TestCase):
+    def test_adopt_only_matching_existing_video_without_youtube_writes(self):
+        import facebook_publish as fb
+        youtube = {'phase':'verified_private','video_id':'youtube-video',
+            'publication':{'mode':'scheduled','confirmed':True,'publish_at':'2030-01-01T11:00:00Z'},
+            'story':{'title':'T','description':'D'},'validation':{'duration_seconds':789}}
+        remote = {'id':'123','from':{'id':PAGE_ID},'title':'T',
+            'description':'D\n\nVisual scenes and narration were created with AI assistance.',
+            'status':{'video_status':'ready'},'scheduled_publish_time':1893495600,'length':789}
+        for correct in (False, True):
+            store, api = MagicMock(), MagicMock()
+            store.load.side_effect = [youtube, {}]
+            api.status.return_value = dict(remote, title='T' if correct else 'wrong')
+            with patch('workflow.Store',return_value=store), patch('facebook_publish.Facebook',return_value=api), \
+                 patch('facebook_publish.schedule_timestamp',return_value=1893495600):
+                if correct:
+                    fb.run('daily-123',adopt_video_id='123')
+                    self.assertEqual(store.save.call_args.args[0],'runs/daily-123/facebook.json')
+                else:
+                    with self.assertRaises(FacebookError): fb.run('daily-123',adopt_video_id='123')
+                    store.save.assert_not_called()
+            store.download.assert_not_called()
+            api.request.assert_not_called()
