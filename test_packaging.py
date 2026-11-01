@@ -68,7 +68,7 @@ class PackagingTests(unittest.TestCase):
         self.assertLessEqual(len(result['tags']), 12)
         self.assertNotIn('unrelated trending topic', result['tags'])
         self.assertTrue(result['thumbnail_prompt'].startswith(self.topic['thumbnail_visual_story']))
-        self.assertLessEqual(len(result['thumbnail_prompt'].split()), 55)
+        self.assertLessEqual(len(result['thumbnail_prompt'].split()), 60)
 
     def test_rejects_unrelated_title_and_bad_opening(self):
         self.payload['option_a']['title'] = 'A Hidden Secret Nobody Wants You to Discover Today'
@@ -121,8 +121,9 @@ class PackagingTests(unittest.TestCase):
             render_thumbnail(source, 'HOW WAS IT BUILT?', target, 'Ancient Egypt and pyramids')
             with Image.open(target) as image:
                 self.assertEqual(image.size, (1280, 720))
-                self.assertLess(sum(image.getpixel((80, 590))), sum(image.getpixel((1200, 590))))
-                self.assertGreater(sum(image.getpixel((900, 360))), sum(image.getpixel((900, 20))))
+                # Model-completed artwork is exported without dark overlays or labels.
+                self.assertEqual(image.getpixel((80,590)),image.getpixel((1200,590)))
+                self.assertEqual(image.getpixel((900,360)),image.getpixel((900,20)))
             self.assertLess(target.stat().st_size, 2*1024*1024)
 
     def test_long_valid_question_wraps_and_renders(self):

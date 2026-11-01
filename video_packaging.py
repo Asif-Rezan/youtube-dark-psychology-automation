@@ -96,12 +96,11 @@ def choose_package(story, topic, payload):
         score += 2 if len(hook_words) <= 4 else 0
         score += 1 if any(word in text.casefold() for word in topic['thumbnail_anchor'].casefold().split()) else 0
         visual_story = topic['thumbnail_visual_story'].strip().rstrip('.')
-        # Put the source-backed visual story first so diffusion's token limit preserves it.
-        # One concise composition, not several competing scene descriptions.
-        # Keep the anchor and its unresolved visual relationship ahead of style.
+        # Keep source grounding, but let the thumbnail-specific generator choose
+        # composition, palette and integrated typography for each episode.
         artwork_prompt = visual_story if prompt.rstrip('.') == visual_story else f'{visual_story}. {prompt}'
         artwork_prompt = ' '.join(artwork_prompt.split()[:45])
-        artwork_prompt += '. Documentary photograph, natural side light, no text.'
+        artwork_prompt += '. Bright colorful editorial photograph, one unresolved visual relationship.'
         valid.append((score, {'title': title, 'thumbnail_text': text, 'thumbnail_prompt': artwork_prompt}))
     if not valid:
         raise ValueError('No accurate, readable YouTube title and thumbnail pair: ' + '; '.join(rejected))
@@ -178,8 +177,12 @@ Omit forbidden words entirely, including negative phrases such as "no pyramid"; 
 Thumbnail prompt: 25-220 characters, include the exact visual-anchor phrase, and add
 a specific scene composition that builds on the visual story. Make the social tension,
 entrance, path or object relationship the source of curiosity even with no words visible.
-Place the intriguing detail on the RIGHT and leave dark space on the LEFT for the question.
-Use dramatic but plausible light and depth. No embedded letters, labels, arrows, logos,
+Give the three options DIFFERENT camera angles, focal relationships and compositions:
+for example a close-up clue, an over-the-shoulder discovery, and a dramatic scale contrast.
+Use bright exposure, saturated complementary colors, clean backgrounds and a luminous subject.
+Do not reserve a fixed dark left panel or always put the subject on the right.
+The image model will render the exact thumbnail question as large integrated typography;
+describe the visual subject here without adding any other words, labels, logos,
 fictional discoveries or fantasy imagery.
 Description intro: 80-400 characters, put the exact subject phrase naturally in the FIRST sentence
 and state what the viewer will learn. Description details: 80-800 characters, unique to this episode,

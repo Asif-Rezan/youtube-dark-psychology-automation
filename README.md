@@ -103,6 +103,21 @@ code revision. Successful upload-only shard recovery does not automatically
 assemble or upload a video; inspect all shard results and existing YouTube state
 before continuing those stages.
 
+### Bright thumbnails with model-generated headlines
+
+Thumbnail generation now has its own art direction instead of the text-free video
+scene wrapper. It requests the exact headline inside the generated image, bright
+complementary colors, one unresolved source-grounded visual question, and a rotating
+camera/composition selected from the episode identity. Seeds also vary by episode.
+The export step only resizes and compresses to 1280×720 under 2 MB; it adds no text,
+dark panels or category badges. Video scene requests continue to forbid lettering.
+The prompt and seed are saved locally in `thumbnail-design.json` for review.
+
+The current SSD-1B image model remains in use. Native generated lettering is not
+guaranteed to be spelled correctly; a real output still needs visual review. Tests
+verify the prompt/routing/export behavior, not live model typography or click-through
+performance. Already running Actions jobs retain their original commit.
+
 ### Daily script generation: Qwen3-4B-Instruct-2507
 
 The daily workflow uses only `Qwen/Qwen3-4B-Instruct-2507` locally, in its native
