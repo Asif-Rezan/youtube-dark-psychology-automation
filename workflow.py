@@ -181,6 +181,19 @@ Return JSON with narrations, containing exactly the supplied chapter keys and th
     raise AssertionError('Unreachable chapter length repair state')
 
 
+def story_history_context(previous):
+    """Bound reference history; never send saved scripts, journals or credentials."""
+    entries=[]
+    for item in previous[-30:]:
+        if not isinstance(item,dict):
+            continue
+        entry={key:' '.join(item[key].split())[:maximum] for key,maximum in
+               (('title',160),('plot',400),('topic_id',80)) if isinstance(item.get(key),str)}
+        if entry:
+            entries.append(json.dumps(entry,ensure_ascii=False))
+    return entries
+
+
 def make_story(day, previous):
     if os.getenv('STORY_FILE'):
         # Explicit original test story only; daily jobs must generate fresh stories.
@@ -197,12 +210,18 @@ def make_story(day, previous):
         ('title', 'description', 'thumbnail_text', 'thumbnail_prompt', 'character_description', 'protagonist_name')},
         'tags': {'type': 'array', 'items': text_schema},
         'scenes': object_schema({k: scene_schema for k in chapter_keys})})
-    def ask(prompt, limit, schema):
-        result = request_text('chat/completions', {'model': model,
+    def ask(prompt, limit, schema, optional_context=None):
+        payload = {'model': model,
             'messages': [{'role': 'user', 'content': prompt}],
             'response_format': {'type': 'json_schema', 'json_schema': {'name': 'story_payload',
                 'strict': True, 'schema': schema}}, 'reasoning_effort': 'low',
-            'temperature': 0.8, 'max_completion_tokens': limit})
+            'temperature': 0.8, 'max_completion_tokens': limit}
+        if optional_context:
+            if os.getenv('TEXT_BACKEND') == 'qwen-local':
+                payload['optional_context']=optional_context
+            else:
+                payload['messages'][0]['content'] += '\nRecent stories to avoid: '+str(optional_context[-10:])
+        result = request_text('chat/completions', payload)
         choice = result['choices'][0]
         if choice.get('finish_reason') == 'length':
             raise RuntimeError('Story response was truncated; refusing incomplete script')
@@ -218,7 +237,7 @@ def make_story(day, previous):
         "Attribute book ideas to their authors; they are interpretations, not experimentally established laws. Dark psychology is a popular umbrella term, not a clinical diagnosis. Write original analysis rather than copied passages. Label invented examples as illustrative; discuss attraction with consent and autonomy. Visual scenes are artistic illustrations.")
     outline = ask(f'''Plan an original English psychology and power documentary for {day}.
     Topic and evidence: {theme}
-    Avoid these recent titles and outlines: {json.dumps(previous)}.
+    Avoid repeating the recent stories supplied as separate reference context.
     Open with a concrete question about human behavior or power or documented fact. Develop the setting,
     source-backed ideas, illustrative scenarios, critical interpretation and open questions in a clear arc.
     Every chapter must add a supported detail; never pad with imagined events.
@@ -227,7 +246,8 @@ def make_story(day, previous):
     scenes (chapter_01 through chapter_20). Each chapter: summary (max 25 words), image_prompt,
     image_prompts (four distinct visual beats). Topic-relevant psychological symbolism and clearly illustrative human interactions.
     Use contemporary or historical settings as appropriate to the narration. Avoid unsupported sensational claims.
-    Provide ONLY the plan, no full narration yet.''', 5200, outline_schema)
+    Provide ONLY the plan, no full narration yet.''', 5200, outline_schema,
+        optional_context=story_history_context(previous))
     outline['scenes'] = [outline['scenes'][k] for k in chapter_keys]
     outline['format'] = 'historical-documentary'
     outline['topic_id'] = topic['id']

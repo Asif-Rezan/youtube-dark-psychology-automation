@@ -69,6 +69,63 @@ class QwenTests(unittest.TestCase):
                 s.request_story('chat/completions', self.payload())
         model.create_chat_completion.assert_not_called()
 
+    def test_large_history_is_omitted_without_truncating_required_prompt_or_output(self):
+        model = self.model(create_chat_completion=Mock(return_value=self.result()))
+        model.tokenize.side_effect=lambda content,**kwargs: list(content)
+        payload=self.payload()
+        payload['optional_context']=['private old plot '*2000,'Newest short title']
+        original=json.loads(json.dumps(payload))
+        with patch.object(s,'load_model',return_value=model),patch('builtins.print') as output:
+            s.request_story('chat/completions',payload)
+        sent=model.create_chat_completion.call_args.kwargs
+        self.assertEqual(payload,original)
+        self.assertEqual(sent['max_tokens'],256)
+        self.assertEqual(sent['messages'][0],payload['messages'][0])
+        self.assertIn('Newest short title',sent['messages'][-2]['content'])
+        self.assertNotIn('private old plot',str(sent['messages']))
+        self.assertNotIn('private old plot',str(output.call_args_list))
+        total=sum(len(m['content'].encode())+16 for m in sent['messages'])+32+sent['max_tokens']
+        self.assertLessEqual(total,s.CONTEXT_TOKENS)
+
+    def test_full_context_window_can_generate_without_optional_history(self):
+        model=self.model(create_chat_completion=Mock(return_value=self.result()))
+        model.tokenize.side_effect=lambda content,**kwargs: list(content)
+        payload=self.payload()
+        # Calculate the required budget using the same conservative chat overhead.
+        schema=payload['response_format']['json_schema']['schema']
+        schema_message='Return only JSON matching this schema. Do not add commentary or markdown. JSON Schema: '+json.dumps(schema)
+        fixed=len(schema_message.encode())+16+16+32+256
+        payload['messages'][0]['content']='x'*(s.CONTEXT_TOKENS-fixed)
+        payload['optional_context']=['History that cannot fit']
+        with patch.object(s,'load_model',return_value=model):
+            s.request_story('chat/completions',payload)
+        self.assertEqual(len(model.create_chat_completion.call_args.kwargs['messages']),2)
+
+    def test_history_projection_discards_large_and_unrelated_fields(self):
+        history=[{'title':'Recent title','plot':'summary '*10000,'topic_id':'topic',
+                  'narration':'private script '*20000,'token':'private credential'},None]
+        entries=w.story_history_context(history)
+        self.assertEqual(len(entries),1)
+        entry=json.loads(entries[0])
+        self.assertEqual(set(entry),{'title','plot','topic_id'})
+        self.assertLessEqual(len(entry['plot']),400)
+        self.assertNotIn('private',entries[0])
+
+    def test_story_outline_routes_history_as_optional_context(self):
+        history=[{'title':f'Older story {i}','plot':'old summary '*1000,
+                  'narration':'full private narration '*10000} for i in range(30)]
+        class CapturedRequest(Exception):
+            pass
+        with patch('workflow.request_text',side_effect=CapturedRequest) as request:
+            with self.assertRaises(CapturedRequest):
+                w.make_story('2026-11-01',history)
+        payload=request.call_args.args[1]
+        self.assertEqual(len(payload['optional_context']),30)
+        self.assertNotIn('old summary',payload['messages'][0]['content'])
+        self.assertNotIn('full private narration',str(payload))
+        self.assertIn('Verified factual anchors',payload['messages'][0]['content'])
+        self.assertEqual(payload['max_completion_tokens'],5200)
+
     def test_model_substitution_and_non_text_endpoints_are_refused(self):
         payload = self.payload()
         payload['model'] = 'different/model'

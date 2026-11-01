@@ -81,6 +81,24 @@ def request_story(endpoint, payload):
                         for message in messages) + 32
     if prompt_tokens + limit > CONTEXT_TOKENS:
         raise StoryGenerationError('Qwen context budget exceeded; reduce recent-story context')
+    # History is optional reference material, not part of the core instructions.
+    # Reserve the full output budget and schema before admitting newest entries.
+    optional = payload.get('optional_context', [])
+    if not isinstance(optional, list) or not all(isinstance(item, str) for item in optional):
+        raise StoryGenerationError('Optional Qwen context must be a list of strings')
+    remaining = min(2048, CONTEXT_TOKENS - prompt_tokens - limit)
+    retained = 0
+    for content in reversed(optional):
+        message = {'role': 'user', 'content': 'Recent story to avoid repeating: ' + content}
+        size = len(model.tokenize(message['content'].encode(), add_bos=False)) + 16
+        if size <= remaining:
+            messages.insert(-1, message)
+            remaining -= size
+            retained += 1
+    if optional:
+        print(json.dumps({'check': 'Qwen history context budget',
+            'available_entries': len(optional), 'retained_entries': retained,
+            'omitted_entries': len(optional)-retained}), flush=True)
     for attempt in range(3):
         started = time.monotonic()
         try:

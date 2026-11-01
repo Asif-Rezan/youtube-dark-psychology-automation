@@ -111,6 +111,18 @@ Rezan-After-Dark implementation at commit d6dcde36a636946279ec7bc20c05d2c56625b9
 The runtime uses a prebuilt CPU wheel, a pinned Q4_K_M GGUF with SHA-256 verification,
 16,384 context tokens, schema-constrained output, and bounded JSON retries.
 
+Run `41240712324` failed before inference because the complete recent-history
+records were embedded in the outline prompt and exceeded that context window.
+History now supplies only bounded title, plot and topic summaries. The local
+runtime reserves the required prompt, schema and full completion allowance first,
+then admits the newest history entries within at most 2,048 remaining tokens.
+Oversized optional entries are omitted, with counts logged instead of private
+text. Required instructions are never truncated, the context limit remains
+enforced, and the full stored history remains available to originality checks.
+Regression tests cover oversized history, a full context window, privacy and
+unchanged schema/output limits. Start a new workflow on the corrected commit;
+rerunning the failed run executes its old code.
+
 Narration schemas constrain the word count during decoding, and generated chapters
 are independently measured. Historical evidence, sources, metadata checks and measured
 10–15 minute audio validation remain in this project's workflow. There is no Groq or
