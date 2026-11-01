@@ -71,8 +71,11 @@ as complete after Drive returns 404. Essential state and story files are preserv
 ### Drive timeouts and upload-only shard recovery
 
 Drive reads and uploads retry temporary failures with bounded exponential backoff
-(5 failures per operation; 2, 4, 8, 16 second delays). Media uses 8 MiB resumable
-chunks, a preallocated file ID, size/MD5 verification and an on-disk ID journal.
+(reads: 5 failures; uploads: 8 consecutive failures). Randomized exponential
+delays grow to a 60-second cap to stagger parallel workers during Drive 502/503
+outages. Only confirmed byte progress resets the upload failure budget; permission
+errors still stop immediately. Logs include HTTP status and retry delay. Media uses
+8 MiB resumable chunks, a preallocated file ID, size/MD5 verification and an on-disk ID journal.
 An ambiguous response is reconciled against that same ID. Matching files are
 skipped; duplicates, privacy failures and identity conflicts stop the operation.
 Small JSON checkpoints use the same verified, idempotent write path. YouTube

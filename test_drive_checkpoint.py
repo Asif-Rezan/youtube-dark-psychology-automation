@@ -66,7 +66,7 @@ class CheckpointTests(unittest.TestCase):
         request.next_chunk.side_effect = TimeoutError()
         with self.assertRaises(TimeoutError):
             self.store.put('key', self.media(), 3)
-        self.assertEqual(request.next_chunk.call_count, 5)
+        self.assertEqual(request.next_chunk.call_count, workflow.DRIVE_UPLOAD_MAX_FAILURES)
         self.store.verified.side_effect = [False, True]
         request.next_chunk.side_effect = [(None, {'id': 'new-id'})]
         self.store.put('key', self.media(), 3)
@@ -157,3 +157,47 @@ class CheckpointTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'checksum'):
                 self.store.download('id', target)
         self.assertFalse(target.exists())
+
+    def test_repeated_502_recovers_same_session_without_duplicate(self):
+        self.store.verified.side_effect = [False] * 7 + [True]
+        request = self.store.client.files().update.return_value
+        request.next_chunk.side_effect = [http_error(502)] * 6 + [(None, {'id': 'existing-id'})]
+        self.store.put('key', self.media(), 3)
+        self.assertEqual(request.next_chunk.call_count, 7)
+        self.assertEqual(self.store.client.files().update.call_count, 1)
+        self.store.client.files().create.assert_not_called()
+
+    def test_persistent_502_stops_at_bounded_retry_limit(self):
+        self.store.verified.return_value = False
+        request = self.store.client.files().update.return_value
+        request.next_chunk.side_effect = http_error(502)
+        with self.assertRaises(RuntimeError):
+            self.store.put('key', self.media(), 3)
+        self.assertEqual(request.next_chunk.call_count, workflow.DRIVE_UPLOAD_MAX_FAILURES)
+        self.assertEqual(workflow.time.sleep.call_count, workflow.DRIVE_UPLOAD_MAX_FAILURES - 1)
+
+    def test_confirmed_progress_resets_consecutive_failure_budget(self):
+        self.store.verified.side_effect = [False] * 13 + [True]
+        request = self.store.client.files().update.return_value
+        progress = type('Progress', (), {'resumable_progress': 1})()
+        request.next_chunk.side_effect = ([http_error(502)] * 6 + [(progress, None)]
+            + [http_error(503)] * 6 + [(None, {'id': 'existing-id'})])
+        self.store.put('key', self.media(), 3)
+        self.assertEqual(request.next_chunk.call_count, 14)
+        self.assertEqual(self.store.client.files().update.call_count, 1)
+
+    def test_retry_backoff_is_staggered_and_capped(self):
+        with patch('workflow.random.uniform', side_effect=lambda low, high: high) as jitter:
+            self.assertEqual([workflow.drive_retry_delay(i) for i in range(1, 9)],
+                [2, 4, 8, 16, 32, 60, 60, 60])
+        self.assertEqual(jitter.call_args.args, (30, 60))
+
+    def test_no_byte_progress_does_not_reset_retry_limit(self):
+        self.store.verified.return_value = False
+        request = self.store.client.files().update.return_value
+        progress = type('Progress', (), {'resumable_progress': 0})()
+        request.next_chunk.side_effect = sum(
+            ([(progress, None), http_error(502)] for _ in range(workflow.DRIVE_UPLOAD_MAX_FAILURES)), [])
+        with self.assertRaises(RuntimeError):
+            self.store.put('key', self.media(), 3)
+        self.assertEqual(request.next_chunk.call_count, 2 * workflow.DRIVE_UPLOAD_MAX_FAILURES)

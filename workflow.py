@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import random
 import shutil
 import subprocess
 import textwrap
@@ -523,6 +524,15 @@ def drive_transient(error):
         ssl.SSLError, http.client.IncompleteRead, http.client.RemoteDisconnected)) or status in (408, 429, 500, 502, 503, 504)
 
 
+DRIVE_UPLOAD_MAX_FAILURES = 8
+
+
+def drive_retry_delay(failures):
+    # Stagger twenty parallel shards rather than retrying Drive in lockstep.
+    ceiling = min(2 ** failures, 60)
+    return random.uniform(ceiling / 2, ceiling)
+
+
 def drive_retry(call):
     for attempt in range(5):
         try:
@@ -532,7 +542,7 @@ def drive_retry(call):
                 raise
             print(json.dumps({'check': 'Drive request', 'retry': attempt + 1,
                 'error_type': type(error).__name__}), flush=True)
-            time.sleep(min(2 ** (attempt + 1), 16))
+            time.sleep(drive_retry_delay(attempt + 1))
 
 
 class Store:
@@ -642,12 +652,15 @@ class Store:
                 return self.client.files().create(body=metadata, media_body=media, fields='id')
             return self.client.files().update(fileId=file_id, media_body=media, fields='id')
 
-        request, failures = new_request(), 0
+        request, failures, uploaded = new_request(), 0, 0
         while True:
             try:
                 if media.resumable():
-                    _, result = request.next_chunk(num_retries=0)
+                    progress, result = request.next_chunk(num_retries=0)
                     if result is None:
+                        current = getattr(progress, 'resumable_progress', 0)
+                        if isinstance(current, int) and current > uploaded:
+                            uploaded, failures = current, 0
                         continue
                 else:
                     request.execute(num_retries=0)
@@ -665,11 +678,13 @@ class Store:
                 if status == 409:
                     raise RuntimeError('Drive creation conflict; refusing overwrite') from error
                 failures += 1
-                if failures >= 5:
+                if failures >= DRIVE_UPLOAD_MAX_FAILURES:
                     raise
+                delay = drive_retry_delay(failures)
                 print(json.dumps({'check': 'Drive upload', 'retry': failures,
-                    'error_type': type(error).__name__}), flush=True)
-                time.sleep(min(2 ** failures, 16))
+                    'error_type': type(error).__name__, 'http_status': status,
+                    'wait_seconds': round(delay, 2)}), flush=True)
+                time.sleep(delay)
                 if status in (404, 410):
                     # Expired resumable session: reuse the reserved ID, never a new file.
                     request = new_request()
