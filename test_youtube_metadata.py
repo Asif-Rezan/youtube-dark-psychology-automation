@@ -10,7 +10,7 @@ class UploadMetadataTests(unittest.TestCase):
 
     def test_explicit_requested_settings(self):
         verify_upload_settings(self.body)
-        self.assertEqual(self.body['snippet']['categoryId'], '27')
+        self.assertEqual(self.body['snippet']['categoryId'], '24')
         self.assertEqual(self.body['snippet']['defaultAudioLanguage'], 'en')
         self.assertTrue(self.body['status']['containsSyntheticMedia'])
         self.assertIs(self.body['paidProductPlacementDetails']['hasPaidProductPlacement'], False)

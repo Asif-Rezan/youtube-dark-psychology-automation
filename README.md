@@ -6,7 +6,7 @@ Topics rotate through Machiavelli, The 48 Laws of Power, dark power plays, dark 
 
 ## YouTube title, description and thumbnail
 
-After the documentary script is written, a separate packaging step drafts three accurate title and thumbnail pairs. It requires the topic's search phrase near the start of a concise title, rejects sensational wording, and selects a complementary 2–5 word question that creates a specific curiosity gap. The question must connect to a documented visual feature and be addressed in the episode. The unique description states the subject in its first sentence, explains the evidence, links the episode's sources and labels reconstructions. Tags are limited to a small set of relevant search variants; they are a secondary discovery signal. Uploads use YouTube's Education category.
+After the documentary script is written, a separate packaging step drafts three accurate title and thumbnail pairs. It requires the topic's search phrase near the start of a concise title, rejects sensational wording, and selects a complementary 2–5 word question that creates a specific curiosity gap. The question must connect to a documented visual feature and be addressed in the episode. The unique description states the subject in its first sentence, explains the evidence, keeps source URLs out of the public description and labels illustrations. Tags are limited to a small set of relevant search variants; they are a secondary discovery signal. Uploads use YouTube's Entertainment category.
 
 Each topic now supplies a source-backed visual scene: a scale contrast, a passage into shadow, a path, or a physical trace. The thumbnail prompt puts that scene before style words so the image model draws the visual question. The renderer adds focused light to the artwork on the right and reserves the left side for a large question. A high-contrast 1280×720 layout is added in code, with no text bar covering the bottom of the scene. These rules improve clarity but cannot predict CTR; review private uploads and compare titles and thumbnails against actual YouTube Analytics before publication.
 
@@ -172,10 +172,9 @@ to adopt this style. New designs are marked `storybook-3d-v2` in `thumbnail-desi
 ### YouTube upload details and search metadata
 
 New uploads explicitly set paid promotion to No, altered/synthetic content to Yes,
-video audio and metadata language to English, and category to Education (27).
+video audio and metadata language to English, and category to Entertainment (24).
 The upload reads back those settings and stops verification if they differ.
-The public YouTube Data API has no academic-system field; it cannot explicitly
-select or verify Studio's Academic system: None. No academic-system value is sent.
+Entertainment avoids Education's Academic system selection. No academic-system value is sent.
 Existing videos are not changed by these defaults.
 
 Titles pair the main search subject with the episode's specific question or benefit.

@@ -3,7 +3,7 @@ import re
 
 UPLOAD_PARTS = 'snippet,status,paidProductPlacementDetails'
 UPLOAD_SETTINGS = {
-    'categoryId': '27', 'defaultLanguage': 'en', 'defaultAudioLanguage': 'en',
+    'categoryId': '24', 'defaultLanguage': 'en', 'defaultAudioLanguage': 'en',
     'containsSyntheticMedia': True, 'hasPaidProductPlacement': False,
 }
 
@@ -20,7 +20,7 @@ def public_description(text):
 def upload_body(story, description):
     return {
         'snippet': {'title': story['title'], 'description': description,
-                    'tags': story['tags'], 'categoryId': '27',
+                    'tags': story['tags'], 'categoryId': '24',
                     'defaultLanguage': 'en', 'defaultAudioLanguage': 'en'},
         'status': {'privacyStatus': 'private', 'selfDeclaredMadeForKids': False,
                    'containsSyntheticMedia': True},
