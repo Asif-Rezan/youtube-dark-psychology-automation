@@ -3,6 +3,7 @@ import json
 import re
 import time
 from thumbnail_design import hook_layout
+from youtube_metadata import public_description
 
 CLICKBAIT = re.compile(r'\b(?:shocking|unbelievable|exposed|proof|finally revealed|they hid|you won.t believe)\b', re.I)
 VAGUE_HOOK = re.compile(r'^(?:WHAT HAPPENED|THE HIDDEN TRUTH|WHAT IS THIS|WHAT\'S INSIDE)\?$', re.I)
@@ -29,15 +30,15 @@ def artwork_candidate(prompt, topic):
 def description_parts(payload, topic):
     """Repair mechanical description failures using only the curated topic facts."""
     keyword = topic['search_phrase']
-    intro = _plain(payload.get('description_intro', ''))
-    details = _plain(payload.get('description_details', ''))
+    intro = _plain(public_description(payload.get('description_intro', '')))
+    details = _plain(public_description(payload.get('description_details', '')))
     # Sensational claims must be rejected, even if another constraint also fails.
     if CLICKBAIT.search(intro) or CLICKBAIT.search(details):
         raise ValueError('Description contains prohibited clickbait')
     if (not 80 <= len(intro) <= 400 or keyword.casefold() not in
             re.split(r'(?<=[.!?])\s', intro, maxsplit=1)[0].casefold()):
-        intro = (f'{keyword}: explore ideas about human behavior, influence, '
-                 'and questions examined in this documentary.')
+        intro = (f"{keyword}: {topic.get('title_angle', topic['category'])}. "
+                 'Learn to recognize these patterns through practical examples and original commentary.')
     if not 80 <= len(details) <= 800:
         facts = [_plain(fact) for fact in topic.get('facts', []) if _plain(fact)]
         if not facts:
@@ -100,7 +101,7 @@ def choose_package(story, topic, payload):
         # composition, palette and integrated typography for each episode.
         artwork_prompt = visual_story if prompt.rstrip('.') == visual_story else f'{visual_story}. {prompt}'
         artwork_prompt = ' '.join(artwork_prompt.split()[:45])
-        artwork_prompt += '. Bright colorful editorial photograph, one unresolved visual relationship.'
+        artwork_prompt += '. 3D storybook illustration, one unresolved visual relationship.'
         valid.append((score, {'title': title, 'thumbnail_text': text, 'thumbnail_prompt': artwork_prompt}))
     if not valid:
         raise ValueError('No accurate, readable YouTube title and thumbnail pair: ' + '; '.join(rejected))
@@ -124,9 +125,8 @@ def choose_package(story, topic, payload):
     tags = tags[:12]
     if len(','.join(tags)) > 400:
         raise ValueError('Video tags exceed YouTube metadata budget')
-    description = (f'{intro}\n\n{details}\n\n'
-                   'Sources and further reading:\n' + '\n'.join(topic['sources']) +
-                   '\n\nVisual scenes are artistic illustrations, not archival footage.')
+    description = public_description(f'{intro}\n\n{details}')
+    description += '\n\nAI-generated narration and 3D storybook visuals illustrate original educational commentary.'
     if len(description) > 4500:
         raise ValueError('Video description exceeds upload budget')
     story.update(best, description=description, tags=tags, search_phrase=keyword,
@@ -164,6 +164,9 @@ Existing title: {story['title']}
 Return three DISTINCT title-thumbnail pairs (option_a, option_b, option_c).
 Each title: 35-75 characters, START with the exact subject phrase "{topic['search_phrase']}",
 accurately promise a specific question or evidence in this episode, use normal capitalization.
+SEO: pair the primary subject with one specific searchable intent from the episode
+(e.g. recognizing manipulation, reputation, boundaries or self-control), only when relevant.
+Prefer concrete viewer benefits over generic documentary wording; never keyword-stuff.
 Avoid generic "mystery revealed" wording, sensational certainty, unsupported claims and clickbait.
 Thumbnail text: a SPECIFIC unresolved question with a curiosity gap, 2-5 short words,
 maximum 30 characters, ending in ?. Start with HOW, WHY, WHAT, WHO or WHERE.
@@ -175,7 +178,9 @@ The image must tell this source-backed visual story: {topic['thumbnail_visual_st
 Do not mention or depict these elements in thumbnail artwork: {json.dumps(topic.get('thumbnail_forbidden_terms', []))}.
 Omit forbidden words entirely, including negative phrases such as "no pyramid"; the renderer handles exclusions.
 Thumbnail prompt: 25-220 characters, include the exact visual-anchor phrase, and add
-a specific scene composition that builds on the visual story. Make the social tension,
+a specific 3D storybook scene that builds on the visual story AND the episode outline.
+Show an expressive character making a meaningful choice or reacting to the central conflict.
+Use sculpted characters, tactile materials and miniature diorama depth; symbolic illustration, not evidence. Make the social tension,
 entrance, path or object relationship the source of curiosity even with no words visible.
 Give the three options DIFFERENT camera angles, focal relationships and compositions:
 for example a close-up clue, an over-the-shoulder discovery, and a dramatic scale contrast.
@@ -186,7 +191,11 @@ describe the visual subject here without adding any other words, labels, logos,
 fictional discoveries or fantasy imagery.
 Description intro: 80-400 characters, put the exact subject phrase naturally in the FIRST sentence
 and state what the viewer will learn. Description details: 80-800 characters, unique to this episode,
-explain the key evidence and remaining uncertainty. Do not invent claims or quotations. Attribute book interpretations to their authors.
+explain the key evidence and remaining uncertainty.
+SEO: make the first two sentences a clear search-friendly summary of this specific video.
+Naturally include the primary phrase and 2-3 relevant related terms from the outline.
+Explain what viewers will learn using concrete episode examples; no repeated keyword lists.
+Do not include URLs, source-link sections, affiliate links or website addresses. Do not invent claims or quotations. Attribute book interpretations to their authors.
 Tags: 4-8 concise specific search variants, including sensible spelling variants if useful;
 no unrelated trend tags, hashtags, or keyword stuffing. Return only the requested JSON.'''
     feedback = ''

@@ -12,6 +12,8 @@ import subprocess
 import textwrap
 import time
 from zoneinfo import ZoneInfo
+from visual_style import SCENE_STYLE, SCENE_NEGATIVE
+from youtube_metadata import UPLOAD_PARTS, UPLOAD_SETTINGS, public_description, upload_body, verify_upload_settings, ensure_upload_settings
 
 
 def required(name):
@@ -246,6 +248,11 @@ def make_story(day, previous):
     thumbnail_prompt, protagonist_name (empty if none), character_description (empty if none),
     scenes (chapter_01 through chapter_20). Each chapter: summary (max 25 words), image_prompt,
     image_prompts (four distinct visual beats). Topic-relevant psychological symbolism and clearly illustrative human interactions.
+    All image prompts use realistic cinematic documentary photography: lifelike people,
+    realistic material texture, subtle credible emotion, relaxed anatomical posture,
+    soft motivated lighting and readable shadows. Use one focal action and a simple background.
+    Vary close-ups, medium interactions and wide establishing shots. Keep character appearance,
+    clothing and setting consistent between visual beats. No embedded writing or 3D storybook styling.
     Use contemporary or historical settings as appropriate to the narration. Avoid unsupported sensational claims.
     Provide ONLY the plan, no full narration yet.''', 5200, outline_schema,
         optional_context=story_history_context(previous))
@@ -255,9 +262,7 @@ def make_story(day, previous):
     outline['category'] = topic['category']
     outline['sources'] = topic['sources']
     outline['verified_facts'] = topic['facts']
-    for source in topic['sources']:
-        if source not in outline['description']:
-            outline['description'] += '\nSource: ' + source
+    outline['description'] = public_description(outline['description'])
     outline['description'] += '\nVisual scenes are artistic illustrations.'
     if len(outline.get('scenes', [])) != 20:
         raise ValueError('Outline requires exactly twenty chapters')
@@ -393,11 +398,19 @@ Chapter 1 retains the psychology or power hook. Chapter 20 summarizes evidence a
 
 
 def make_image(prompt, path):
-    prompt = ('cinematic psychology and power documentary illustration, realistic material texture, '
-        'topic-appropriate settings, people and symbolic objects, natural cinematic light, landscape composition, ' + prompt)
+    if SCENE_STYLE not in prompt:
+        prompt = prompt.rstrip('. ') + '. ' + SCENE_STYLE
     if os.getenv('IMAGE_BACKEND', 'cpu') == 'cpu':
         from image_cpu import generate
-        generate(prompt + ', no text, no watermark', path)
+        previous_negative = os.environ.get('IMAGE_NEGATIVE_PROMPT')
+        os.environ['IMAGE_NEGATIVE_PROMPT'] = ', '.join(filter(None, (previous_negative, SCENE_NEGATIVE)))
+        try:
+            generate(prompt + ', no text, no watermark', path)
+        finally:
+            if previous_negative is None:
+                os.environ.pop('IMAGE_NEGATIVE_PROMPT', None)
+            else:
+                os.environ['IMAGE_NEGATIVE_PROMPT'] = previous_negative
         return
     if os.getenv('IMAGE_BACKEND') != 'hf':
         raise ValueError('IMAGE_BACKEND must be cpu or hf')
@@ -760,13 +773,17 @@ def upload_private(video, thumbnail, story, state, store, key, music_credit=''):
         raise RuntimeError('OAuth account is not the expected YouTube channel')
     # Persist before insert. An interrupted/ambiguous upload requires manual reconciliation.
     # Never silently retry videos.insert and risk duplicate videos.
-    state['upload_description'] = story['description'] + '\n\n' + music_credit
+    if re.search(r'(?:https?://|www\.)', music_credit, re.I):
+        raise ValueError('URL-free descriptions require music with URL-free attribution')
+    state['upload_description'] = public_description(story['description'])
+    if music_credit.strip():
+        state['upload_description'] += '\n\n' + music_credit.strip()
+    state['upload_settings'] = dict(UPLOAD_SETTINGS)
     state['thumbnail_uploaded'] = False
     state['phase'] = 'upload_started'
     store.save(key, state)
-    request = client.videos().insert(part='snippet,status', notifySubscribers=False,
-        body={'snippet': {'title': story['title'], 'description': state['upload_description'], 'tags': story['tags'], 'categoryId': '27',
-             'defaultLanguage': 'en'}, 'status': {'privacyStatus': 'private', 'selfDeclaredMadeForKids': False}},
+    request = client.videos().insert(part=UPLOAD_PARTS, notifySubscribers=False,
+        body=upload_body(story, state['upload_description']),
         media_body=MediaFileUpload(str(video), chunksize=8*1024*1024, resumable=True))
     result = None
     while result is None:
@@ -778,10 +795,13 @@ def upload_private(video, thumbnail, story, state, store, key, music_credit=''):
     store.save(key, state)
     deadline = time.monotonic() + 1200
     while True:
-        items = client.videos().list(part='status,processingDetails', id=result['id']).execute().get('items', [])
+        items = client.videos().list(part='snippet,status,paidProductPlacementDetails,processingDetails', id=result['id']).execute().get('items', [])
         if not items:
             raise RuntimeError('Uploaded video is not accessible for verification')
         remote = items[0]
+        remote = ensure_upload_settings(client, result['id'], remote, required('EXPECTED_CHANNEL_ID'))
+        state['ai_disclosure'] = remote.get('_ai_disclosure_submission', {'confirmation': 'readback confirmed', 'requested_value': True})
+        store.save(key, state)
         assert remote['status']['privacyStatus'] == 'private', 'Upload privacy validation failed'
         processing = remote.get('processingDetails', {}).get('processingStatus')
         upload_status = remote['status'].get('uploadStatus')

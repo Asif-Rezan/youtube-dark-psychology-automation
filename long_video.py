@@ -14,9 +14,9 @@ ROOT = Path(os.getenv('OUTPUT_DIR', 'output/ghibli-long-test'))
 INTERVAL = 7
 SHARDS = 20
 ASSETS = ('story.json', 'plan.json', 'narration.wav', 'captions.srt', 'duration.json')
-HISTORY_STYLE = ('cinematic psychology and power documentary illustration, '
-                 'topic-appropriate settings, people and symbolic objects, realistic material texture, '
-                 'natural cinematic lighting, landscape composition, no text or watermark')
+from visual_style import SCENE_STYLE, SCENE_FRAMING
+
+HISTORY_STYLE = SCENE_STYLE
 
 
 def run_id():
@@ -81,10 +81,15 @@ def storyboard(root=ROOT, ask=None, pause=None):
 Each shot is a measured seven-second narration window. Depict the concrete interaction or symbolic action,
 interaction, object or concept being discussed in that window. Chapter text resolves context only;
 never illustrate a later or earlier event. For abstract ideas, show a relevant symbolic object or clearly illustrative social setting. Avoid generic portraits and unrelated scenery.
-Scenes are artistic illustrations, not evidence of real events. Use contemporary settings unless the narration discusses history. Do not insert a recurring character. Never add fantasy elements.
+Scenes are artistic illustrations, not evidence of real events. Use contemporary settings unless the narration discusses history. Do not invent a recurring character. When the same narrated person reappears, reuse their
+age, hair, clothing and distinguishing features exactly; do not replace them with a different person.
+Show subtle credible emotion through gaze, posture and interpersonal distance when relevant to the words.
+Avoid staged generic portraits, exaggerated expressions and decorative objects unrelated to narration.
+Never add fantasy elements.
 Each prompt MUST be 12-22 English words: subject and concrete action FIRST, then relevant objects
 and location. Describe one simple drawable composition. Include people only when narrated.
 Do not put typography or narration text into the prompt. Do not imply that illustrative scenes document real events.
+Existing character reference (use only for that narrated person): {story.get('character_description', '')}.
 Topic: {story.get('category', '')}. Verified facts: {json.dumps(story.get('verified_facts', []))}.
 Chapter context: {json.dumps(context)}
 Exact shot windows: {json.dumps([{'key': f"shot_{shot['index']:03}", 'spoken': shot['narration']} for shot in batch])}
@@ -306,16 +311,21 @@ def refine_visual_plan(root=ROOT):
     """Keep each historical artifact, site or narrated group visually prominent."""
     import re
     plan = json.loads((root/'plan.json').read_text())
+    story = read_cache(root/'story.json')
+    character = story.get('character_description', '').strip()
+    protagonist = story.get('protagonist_name', '').strip()
     for shot in plan['shots']:
         action = shot['visual_action'].strip().rstrip('.')
-        group = bool(re.search(r'\b(?:people|crowd|workers|community|group|scholars|travelers)\b', action, re.I))
-        person = bool(re.search(r'\b(?:person|man|woman|ruler|architect|explorer|historian|scholar)\b', action, re.I))
+        group = bool(re.search(r'\b(?:people|crowd|workers|community|group|scholars|travelers|colleagues|rivals|couple|two|both)\b', action, re.I))
+        named_person = bool(protagonist and re.search(r'\b'+re.escape(protagonist)+r'\b', action, re.I))
+        person = named_person or bool(re.search(r'\b(?:person|man|woman|ruler|architect|explorer|historian|scholar|speaker|listener|employee|manager|friend|she|he)\b', action, re.I))
         focus = 'group' if group else ('person' if person else 'object')
-        framing = ('wide environmental view', 'medium view', 'low angle view',
-                   'over-the-shoulder view', 'close view of the narrated evidence')[shot['index'] % 5]
-        shot['prompt'] = f'{action}. {framing}. {HISTORY_STYLE}'
+        framing = SCENE_FRAMING[focus][shot['index'] % len(SCENE_FRAMING[focus])]
+        continuity = f' Character reference: {character}.' if named_person and character else ''
+        human_detail = ' Natural skin texture, subtle emotion, believable posture.' if focus != 'object' else ''
+        shot['prompt'] = f'{action}. {framing}.{continuity}{human_detail} {HISTORY_STYLE}'
         shot['focus'] = focus
-        shot['negative_prompt'] = 'fantasy, wizard, magic, modern buildings, modern clothing, text, watermark, repeated composition'
+        shot['negative_prompt'] = 'fantasy, wizard, magic, text, watermark, repeated composition'
         if focus == 'object':
             shot['negative_prompt'] += ', portrait, unrelated person'
         elif focus == 'group':

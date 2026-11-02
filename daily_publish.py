@@ -4,6 +4,7 @@ import json
 import os
 import re
 import time
+from youtube_metadata import verify_upload_settings, ensure_upload_settings
 
 
 def disposable(name):
@@ -17,6 +18,8 @@ def validate_remote(video, state, channel):
         raise RuntimeError('Video identity mismatch')
     snippet, status = video['snippet'], video['status']
     story = state['story']
+    if state.get('upload_settings'):
+        verify_upload_settings(video)
     if (snippet['channelId'] != channel or snippet['title'] != story['title']
         or set(snippet.get('tags', [])) != set(story['tags'])
         or snippet['description'] != state.get('upload_description', story['description'])):
@@ -121,11 +124,15 @@ def main():
         json.loads(required('YOUTUBE_TOKEN_JSON'))), cache_discovery=False)
     deadline = time.monotonic() + 1800
     while True:
-        items = client.videos().list(part='snippet,status,processingDetails,contentDetails',
+        items = client.videos().list(part='snippet,status,paidProductPlacementDetails,processingDetails,contentDetails',
             id=state['video_id']).execute().get('items', [])
         if not items:
             raise RuntimeError('Uploaded video unavailable')
         video = items[0]
+        if state.get('upload_settings'):
+            video = ensure_upload_settings(client, state['video_id'], video, required('EXPECTED_CHANNEL_ID'))
+            state['ai_disclosure'] = video.get('_ai_disclosure_submission', {'confirmation': 'readback confirmed', 'requested_value': True})
+            store.save(key, state)
         if validate_remote(video, state, required('EXPECTED_CHANNEL_ID')):
             break
         if time.monotonic() >= deadline:

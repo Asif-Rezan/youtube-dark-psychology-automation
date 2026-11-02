@@ -6,7 +6,7 @@ Topics rotate through Machiavelli, The 48 Laws of Power, dark power plays, dark 
 
 ## YouTube title, description and thumbnail
 
-After the documentary script is written, a separate packaging step drafts three accurate title and thumbnail pairs. It requires the topic's search phrase near the start of a concise title, rejects sensational wording, and selects a complementary 2–5 word question that creates a specific curiosity gap. The question must connect to a documented visual feature and be addressed in the episode. The unique description states the subject in its first sentence, explains the evidence, links the episode's sources and labels reconstructions. Tags are limited to a small set of relevant search variants; they are a secondary discovery signal. Uploads use YouTube's Education category.
+After the documentary script is written, a separate packaging step drafts three accurate title and thumbnail pairs. It requires the topic's search phrase near the start of a concise title, rejects sensational wording, and selects a complementary 2–5 word question that creates a specific curiosity gap. The question must connect to a documented visual feature and be addressed in the episode. The unique description states the subject in its first sentence, explains the evidence, keeps source URLs out of the public description and labels illustrations. Tags are limited to a small set of relevant search variants; they are a secondary discovery signal. Uploads use YouTube's Entertainment category.
 
 Each topic now supplies a source-backed visual scene: a scale contrast, a passage into shadow, a path, or a physical trace. The thumbnail prompt puts that scene before style words so the image model draws the visual question. The renderer adds focused light to the artwork on the right and reserves the left side for a large question. A high-contrast 1280×720 layout is added in code, with no text bar covering the bottom of the scene. These rules improve clarity but cannot predict CTR; review private uploads and compare titles and thumbnails against actual YouTube Analytics before publication.
 
@@ -154,3 +154,57 @@ and timing, not unpublished text. Model weights are cached between runner jobs.
 Daily uploads are verified in HD, then scheduled for the first 06:00 America/New_York at least 72 hours after scheduling. DST is handled automatically. YouTube shows scheduled videos as private until release. The publish intent is checkpointed before the API call and read back before media cleanup. Set `YOUTUBE_PUBLICATION_MODE` to `public` for immediate publication or `private` for private-only verification. Test workflows remain private. Retry with `cleanup_run` to schedule a completed daily upload without regeneration or re-upload.
 
 Facebook Page uploads run independently after YouTube succeeds. See [Facebook setup and recovery](docs/facebook-publishing.md). A Facebook failure leaves YouTube successful and preserves the final MP4 for Facebook-only retry.
+
+### Episode-specific 3D storybook thumbnails
+
+Each topic has its own symbolic scene and focal object in `history_topics.json`.
+Packaging adapts that scene to the episode outline; invalid artwork falls back to
+that topic's scene. Thumbnail generation requests sculpted, expressive characters,
+tactile materials and diorama depth, with varied compositions and bright palettes.
+Video backgrounds use realistic cinematic documentary photography; thumbnails retain
+3D storybook art direction. Both styles are defined in `visual_style.py`. CPU video
+scenes exclude 3D/CGI and text; the hosted backend receives the realistic scene style. Existing cached scene images require regeneration.
+The exact short headline stays integrated in the generated image. Inspect spelling
+and composition before publishing; prompt changes do not guarantee a CTR increase.
+Existing uploaded thumbnails and resumed runs with cached artwork need regeneration
+to adopt this style. New designs are marked `storybook-3d-v2` in `thumbnail-design.json`.
+
+### YouTube upload details and search metadata
+
+New uploads explicitly set paid promotion to No, altered/synthetic content to Yes,
+video audio and metadata language to English, and category to Entertainment (24).
+The upload reads back those settings and stops verification if they differ.
+Entertainment avoids Education's Academic system selection. No academic-system value is sent.
+Existing videos are not changed by these defaults.
+
+Titles pair the main search subject with the episode's specific question or benefit.
+Descriptions lead with the subject and viewer learning outcomes, use related terms
+naturally, and omit source URL sections. Research sources remain in internal story
+records. Older checkpoint source sections and generated web links are removed at
+upload time. Music requiring URL attribution must be replaced with a suitable track
+before upload; required license credits are never silently removed.
+
+Upload disclosure recovery: if YouTube's post-upload readback omits or disagrees
+with the AI disclosure, apply an idempotent metadata update to the saved video ID
+and poll up to six times for confirmation. Preserve visibility, schedule and other
+writable status settings. Omitted paid-promotion false is treated as No; explicit
+Yes is corrected and read back. Persistent mismatches still block verification.
+An already uploaded daily run can use the workflow's `cleanup_run` input to repair
+metadata and resume verification without regenerating or inserting another video.
+
+Some YouTube responses omit `containsSyntheticMedia` even after an accepted
+metadata update. Omission is not treated as explicit false. After bounded polling,
+the workflow records a video/channel-bound receipt only if the update response
+explicitly confirms true; this is distinct from confirmation through videos.list. A rejected update, wrong video ID, or explicit
+false still fails. The receipt is saved as `ai_disclosure` in the run state and
+logs distinguish API acceptance from a returned true value.
+
+Realistic scene direction emphasizes the narrated action before style instructions,
+subtle credible emotion, natural skin/material texture, soft motivated lighting,
+readable shadows and uncluttered framing. Person, group and object shots use
+separate camera choices. Existing narrated protagonists reuse their supplied
+appearance and clothing reference; unrelated scenes do not inherit that character.
+Contemporary clothing and buildings are allowed when appropriate to narration.
+CPU scene quality exclusions discourage waxy faces and crushed shadows without
+leaking into thumbnail generation. Character consistency is prompt-guided, not a
+face-lock guarantee. Existing renders require regeneration to adopt these changes.

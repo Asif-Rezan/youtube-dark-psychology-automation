@@ -12,8 +12,13 @@
     "sources": [
       "https://www.gutenberg.org/ebooks/1232"
     ],
-    "thumbnail_anchor": "chess king",
-    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+    "thumbnail_anchor": "golden mask",
+    "thumbnail_visual_story": "A prince lifts a golden mask from his worried face while his confident shadow faces the crowd",
+    "thumbnail_forbidden_terms": [
+      "chess",
+      "chessboard",
+      "pawn"
+    ]
   },
   {
     "id": "machiavelli-fear",
@@ -28,8 +33,13 @@
     "sources": [
       "https://www.gutenberg.org/ebooks/1232"
     ],
-    "thumbnail_anchor": "chess king",
-    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+    "thumbnail_anchor": "fraying rope",
+    "thumbnail_visual_story": "A stern ruler grips a fraying rope connecting retreating followers, one follower looks back anxiously",
+    "thumbnail_forbidden_terms": [
+      "chess",
+      "chessboard",
+      "pawn"
+    ]
   },
   {
     "id": "48-laws-reputation",
@@ -44,8 +54,13 @@
     "sources": [
       "https://www.penguinrandomhouse.com/books/330912/the-48-laws-of-power-by-robert-greene/"
     ],
-    "thumbnail_anchor": "chess king",
-    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+    "thumbnail_anchor": "glass portrait",
+    "thumbnail_visual_story": "A glass portrait of a confident speaker cracks as two onlookers exchange doubtful glances",
+    "thumbnail_forbidden_terms": [
+      "chess",
+      "chessboard",
+      "pawn"
+    ]
   },
   {
     "id": "48-laws-restraint",
@@ -60,8 +75,13 @@
     "sources": [
       "https://www.penguinrandomhouse.com/books/330912/the-48-laws-of-power-by-robert-greene/"
     ],
-    "thumbnail_anchor": "chess king",
-    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+    "thumbnail_anchor": "hourglass",
+    "thumbnail_visual_story": "A calm figure waits beside an hourglass while an impatient rival rushes into a bright spotlight",
+    "thumbnail_forbidden_terms": [
+      "chess",
+      "chessboard",
+      "pawn"
+    ]
   },
   {
     "id": "dark-powerplay-status",
@@ -76,8 +96,13 @@
     "sources": [
       "https://www.penguinrandomhouse.com/books/330912/the-48-laws-of-power-by-robert-greene/"
     ],
-    "thumbnail_anchor": "chess king",
-    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+    "thumbnail_anchor": "uneven podiums",
+    "thumbnail_visual_story": "Two smiling rivals shake hands on uneven podiums while one secretly reaches toward the higher step",
+    "thumbnail_forbidden_terms": [
+      "chess",
+      "chessboard",
+      "pawn"
+    ]
   },
   {
     "id": "dark-powerplay-leverage",
@@ -92,8 +117,13 @@
     "sources": [
       "https://www.penguinrandomhouse.com/books/330912/the-48-laws-of-power-by-robert-greene/"
     ],
-    "thumbnail_anchor": "chess king",
-    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+    "thumbnail_anchor": "locked gate",
+    "thumbnail_visual_story": "A person holding a key stands before a locked gate while another reaches toward the key across a clear boundary",
+    "thumbnail_forbidden_terms": [
+      "chess",
+      "chessboard",
+      "pawn"
+    ]
   },
   {
     "id": "dark-psychology-influence",
@@ -108,8 +138,13 @@
     "sources": [
       "https://powerseductionandwar.com/books/"
     ],
-    "thumbnail_anchor": "chess king",
-    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+    "thumbnail_anchor": "puppet strings",
+    "thumbnail_visual_story": "A startled person notices puppet strings attached to their sleeves and raises a hand to stop the smiling controller",
+    "thumbnail_forbidden_terms": [
+      "chess",
+      "chessboard",
+      "pawn"
+    ]
   },
   {
     "id": "dark-psychology-motives",
@@ -124,8 +159,13 @@
     "sources": [
       "https://powerseductionandwar.com/books/"
     ],
-    "thumbnail_anchor": "chess king",
-    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+    "thumbnail_anchor": "closed envelope",
+    "thumbnail_visual_story": "Two expressive people face each other across a closed envelope, one curious and one guarded",
+    "thumbnail_forbidden_terms": [
+      "chess",
+      "chessboard",
+      "pawn"
+    ]
   },
   {
     "id": "seduction-attention",
@@ -140,8 +180,13 @@
     "sources": [
       "https://www.penguinrandomhouse.com/books/286423/the-art-of-seduction-by-robert-greene/9781101175293/"
     ],
-    "thumbnail_anchor": "chess king",
-    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+    "thumbnail_anchor": "glowing lantern",
+    "thumbnail_visual_story": "A charismatic host holds a glowing lantern as a curious guest turns toward them in a busy gathering",
+    "thumbnail_forbidden_terms": [
+      "chess",
+      "chessboard",
+      "pawn"
+    ]
   },
   {
     "id": "seduction-persona",
@@ -156,8 +201,13 @@
     "sources": [
       "https://www.penguinrandomhouse.com/books/286423/the-art-of-seduction-by-robert-greene/9781101175293/"
     ],
-    "thumbnail_anchor": "chess king",
-    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+    "thumbnail_anchor": "theater curtain",
+    "thumbnail_visual_story": "A charming performer peeks from behind a theater curtain while a thoughtful observer keeps a respectful distance",
+    "thumbnail_forbidden_terms": [
+      "chess",
+      "chessboard",
+      "pawn"
+    ]
   },
   {
     "id": "human-nature-ego",
@@ -172,8 +222,13 @@
     "sources": [
       "https://powerseductionandwar.com/books/"
     ],
-    "thumbnail_anchor": "chess king",
-    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+    "thumbnail_anchor": "distorting mirror",
+    "thumbnail_visual_story": "A proud figure sees an oversized reflection in a distorting mirror while their smaller real self looks uncertain",
+    "thumbnail_forbidden_terms": [
+      "chess",
+      "chessboard",
+      "pawn"
+    ]
   },
   {
     "id": "strategy-conflict",
@@ -188,8 +243,13 @@
     "sources": [
       "https://powerseductionandwar.com/books/"
     ],
-    "thumbnail_anchor": "chess king",
-    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+    "thumbnail_anchor": "narrow bridge",
+    "thumbnail_visual_story": "Two rivals pause at opposite ends of a narrow bridge over a stylized ravine, one considers the next step",
+    "thumbnail_forbidden_terms": [
+      "chess",
+      "chessboard",
+      "pawn"
+    ]
   },
   {
     "id": "mastery-self-control",
@@ -204,8 +264,13 @@
     "sources": [
       "https://powerseductionandwar.com/books/"
     ],
-    "thumbnail_anchor": "chess king",
-    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+    "thumbnail_anchor": "unfinished staircase",
+    "thumbnail_visual_story": "A focused apprentice builds an unfinished staircase one block at a time toward a luminous doorway",
+    "thumbnail_forbidden_terms": [
+      "chess",
+      "chessboard",
+      "pawn"
+    ]
   },
   {
     "id": "daily-laws-judgment",
@@ -220,7 +285,12 @@
     "sources": [
       "https://powerseductionandwar.com/books/"
     ],
-    "thumbnail_anchor": "chess king",
-    "thumbnail_visual_story": "A chess king on the right casts a long shadow over smaller pieces, cinematic light, dark empty space on the left"
+    "thumbnail_anchor": "forked path",
+    "thumbnail_visual_story": "A thoughtful traveler pauses at a forked path while a hurried crowd follows the brighter but winding route",
+    "thumbnail_forbidden_terms": [
+      "chess",
+      "chessboard",
+      "pawn"
+    ]
   }
 ]
