@@ -48,7 +48,7 @@ jobs:
           (root/'episode.json').write_text(json.dumps(story, indent=2))
           target = generate_thumbnail(story, root, topic['id'])
           with Image.open(target) as image:
-              assert image.size == (1280, 720)
+              assert image.size == (1920, 1080)
               assert image.convert('L').getextrema()[1] > 0
               image.resize((320, 180)).save(root/'thumbnail-mobile.jpg')
           PYCODE

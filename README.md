@@ -167,7 +167,9 @@ scenes exclude 3D/CGI and text; the hosted backend receives the realistic scene 
 Artwork is generated without text using a concise brief with one dominant subject
 and one visual clue. The exact headline is composited afterward with high-contrast
 type on the reserved side; the subject side alternates deterministically by episode.
-Review the saved 320×180 mobile preview and full-size image before publishing;
+Thumbnail artwork generates at 1344×768, center-crops 12 pixels vertically to
+1344×756 (16:9), and exports at 1920×1080 with scaled typography. This does not
+change video scene resolution. Review the saved 320×180 mobile preview and full-size image before publishing;
 visual clarity does not guarantee a CTR increase.
 Existing uploaded thumbnails and resumed runs with cached artwork need regeneration
 to adopt this style. New designs are marked `storybook-mobile-v3` in `thumbnail-design.json`.

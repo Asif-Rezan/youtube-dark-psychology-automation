@@ -38,13 +38,14 @@ class ThumbnailTests(unittest.TestCase):
         def generate(prompt, path, **kwargs):
             self.assertFalse(kwargs.get('allow_text', False))
             self.assertEqual(kwargs['style'], 'storybook-3d')
-            Image.new('RGB', (1024,576), (100,120,140)).save(path)
+            self.assertEqual((kwargs['width'],kwargs['height']), (1344,768))
+            Image.new('RGB', (1344,768), (100,120,140)).save(path)
         with tempfile.TemporaryDirectory() as temp, patch('image_cpu.generate', side_effect=generate) as model:
             root = Path(temp)
             target = generate_thumbnail(story, root, 'episode-a')
             first = model.call_args.kwargs['seed']
             with Image.open(target) as image:
-                self.assertEqual(image.size, (1280,720))
+                self.assertEqual(image.size, (1920,1080))
                 # White/yellow glyphs must be visible over the constant artwork.
                 pixels = list(image.getdata())
                 self.assertGreater(sum(r>210 and g>190 and b<140 for r,g,b in pixels), 500)
@@ -53,6 +54,8 @@ class ThumbnailTests(unittest.TestCase):
             manifest = json.loads((root/'thumbnail-design.json').read_text())
             self.assertEqual(manifest['text'], 'WHO CONTROLS YOU?')
             self.assertEqual(manifest['text_mode'], 'composited-exact')
+            self.assertEqual(manifest['generation_size'], [1344,768])
+            self.assertEqual(manifest['export_size'], [1920,1080])
             generate_thumbnail(story, root, 'episode-b')
             self.assertNotEqual(first, model.call_args.kwargs['seed'])
 
@@ -72,9 +75,10 @@ class ThumbnailTests(unittest.TestCase):
             self.assertNotIn('text, letters',sent['negative_prompt'])
             self.assertIn('misspelled words',sent['negative_prompt'])
             self.assertEqual(sent['generator'],123)
-            image_cpu.generate('3D storybook scene',Path(temp)/'3d.png',allow_text=True,style='storybook-3d')
+            image_cpu.generate('3D storybook scene',Path(temp)/'3d.png',allow_text=True,style='storybook-3d',width=1344,height=768)
             self.assertNotIn('3D render',model.call_args.kwargs['negative_prompt'])
             self.assertNotIn('CGI',model.call_args.kwargs['negative_prompt'])
+            self.assertEqual((model.call_args.kwargs['width'],model.call_args.kwargs['height']), (1344,768))
             image_cpu.generate('Text-free video scene',Path(temp)/'scene.png')
             self.assertIn('text, letters',model.call_args.kwargs['negative_prompt'])
             self.assertIn('3D render',model.call_args.kwargs['negative_prompt'])
