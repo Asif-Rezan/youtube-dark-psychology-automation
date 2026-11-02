@@ -14,9 +14,9 @@ ROOT = Path(os.getenv('OUTPUT_DIR', 'output/ghibli-long-test'))
 INTERVAL = 7
 SHARDS = 20
 ASSETS = ('story.json', 'plan.json', 'narration.wav', 'captions.srt', 'duration.json')
-HISTORY_STYLE = ('cinematic psychology and power documentary illustration, '
-                 'topic-appropriate settings, people and symbolic objects, realistic material texture, '
-                 'natural cinematic lighting, landscape composition, no text or watermark')
+from visual_style import SCENE_STYLE
+
+HISTORY_STYLE = SCENE_STYLE
 
 
 def run_id():

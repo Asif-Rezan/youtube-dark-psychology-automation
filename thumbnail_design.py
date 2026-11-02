@@ -2,6 +2,7 @@
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from itertools import combinations
+from visual_style import STORYBOOK_STYLE
 
 
 def _font(size):
@@ -59,7 +60,7 @@ def complete_thumbnail_prompt(visual, text, identity):
     visual=re.sub(r'(?:open |empty )?dark space on the (?:left|right)', '', visual, flags=re.I)
     visual=re.sub(r'\b(?:on the |at |at the |on )?(?:right|left)(?: side| foreground)?\b', '', visual, flags=re.I)
     visual=' '.join(visual.split()).strip(' ,.')
-    return (f'3D storybook illustration, sculpted expressive characters, tactile materials, miniature diorama depth. '
+    return (f'{STORYBOOK_STYLE}. '
         f'Subject: {visual}. Exact headline "{text.upper()}" in large bold readable letters. '
         f'{LAYOUTS[digest[0]%len(LAYOUTS)]}. {PALETTES[digest[1]%len(PALETTES)]}. '
         'Perfectly spelled typography integrated into the image. '

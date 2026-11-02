@@ -12,6 +12,7 @@ import subprocess
 import textwrap
 import time
 from zoneinfo import ZoneInfo
+from visual_style import SCENE_STYLE
 
 
 def required(name):
@@ -246,6 +247,9 @@ def make_story(day, previous):
     thumbnail_prompt, protagonist_name (empty if none), character_description (empty if none),
     scenes (chapter_01 through chapter_20). Each chapter: summary (max 25 words), image_prompt,
     image_prompts (four distinct visual beats). Topic-relevant psychological symbolism and clearly illustrative human interactions.
+    All image prompts use 3D storybook graphics: sculpted expressive characters, tactile materials,
+    miniature diorama depth and cinematic volumetric lighting. Keep character appearance,
+    clothing and setting consistent between visual beats. No embedded writing.
     Use contemporary or historical settings as appropriate to the narration. Avoid unsupported sensational claims.
     Provide ONLY the plan, no full narration yet.''', 5200, outline_schema,
         optional_context=story_history_context(previous))
@@ -393,11 +397,11 @@ Chapter 1 retains the psychology or power hook. Chapter 20 summarizes evidence a
 
 
 def make_image(prompt, path):
-    prompt = ('cinematic psychology and power documentary illustration, realistic material texture, '
-        'topic-appropriate settings, people and symbolic objects, natural cinematic light, landscape composition, ' + prompt)
+    if not prompt.startswith(SCENE_STYLE):
+        prompt = SCENE_STYLE + '. ' + prompt
     if os.getenv('IMAGE_BACKEND', 'cpu') == 'cpu':
         from image_cpu import generate
-        generate(prompt + ', no text, no watermark', path)
+        generate(prompt + ', no text, no watermark', path, style='storybook-3d')
         return
     if os.getenv('IMAGE_BACKEND') != 'hf':
         raise ValueError('IMAGE_BACKEND must be cpu or hf')
