@@ -194,7 +194,7 @@ metadata and resume verification without regenerating or inserting another video
 
 Some YouTube responses omit `containsSyntheticMedia` even after an accepted
 metadata update. Omission is not treated as explicit false. After bounded polling,
-the workflow may record a video/channel-bound API submission receipt instead of
-claiming readback confirmation. A rejected update, wrong video ID, or explicit
+the workflow records a video/channel-bound receipt only if the update response
+explicitly confirms true; this is distinct from confirmation through videos.list. A rejected update, wrong video ID, or explicit
 false still fails. The receipt is saved as `ai_disclosure` in the run state and
 logs distinguish API acceptance from a returned true value.

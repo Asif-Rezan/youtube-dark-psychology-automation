@@ -46,7 +46,7 @@ class DisclosureRepairTests(unittest.TestCase):
     def setUp(self):
         from unittest.mock import Mock
         self.client = Mock()
-        self.client.videos.return_value.update.return_value.execute.return_value = {'id': 'existing-video'}
+        self.client.videos.return_value.update.return_value.execute.return_value = {'id': 'existing-video', 'status': {'containsSyntheticMedia': True}}
         self.video = upload_body({'title': 'Title', 'tags': []}, 'Description')
         self.video.update(id='existing-video')
         self.video['snippet']['channelId'] = 'expected-channel'
@@ -150,3 +150,12 @@ class DisclosureRepairTests(unittest.TestCase):
             requested_value=True, api_update_accepted=True)
         with self.assertRaisesRegex(RuntimeError, 'containsSyntheticMedia'):
             verify_upload_settings(false)
+
+
+    def test_acknowledgement_without_true_disclosure_does_not_bypass_missing_field(self):
+        omitted = copy.deepcopy(self.video)
+        omitted['status'].pop('containsSyntheticMedia')
+        self.client.videos.return_value.update.return_value.execute.return_value = {'id': 'existing-video'}
+        self.client.videos.return_value.list.return_value.execute.return_value = {'items': [omitted]}
+        with self.assertRaisesRegex(RuntimeError, 'containsSyntheticMedia'):
+            self.repair(omitted)

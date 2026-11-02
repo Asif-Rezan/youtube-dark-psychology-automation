@@ -87,10 +87,10 @@ def ensure_upload_settings(client, video_id, video, channel_id, *, pause=None):
         response = client.videos().update(part=','.join(parts), body=body).execute(num_retries=3)
         if response.get('id') != video_id:
             raise RuntimeError('YouTube metadata update did not acknowledge the expected video')
-        if 'status' in parts and response.get('status', {}).get('containsSyntheticMedia') is not False:
+        if 'status' in parts and response.get('status', {}).get('containsSyntheticMedia') is True:
             receipt = dict(video_id=video_id, channel_id=channel_id,
                            requested_value=True, api_update_accepted=True,
-                           confirmation='API update accepted; readback field unavailable')
+                           confirmation='API update response confirmed true; list readback field unavailable')
         print(json.dumps({'check': 'YouTube disclosure update', 'video_id': video_id,
                           'api_update_accepted': True,
                           'response_ai_field': response.get('status', {}).get('containsSyntheticMedia', 'omitted')}), flush=True)
