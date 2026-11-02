@@ -28,45 +28,35 @@ jobs:
         run: |
           pip install 'torch>=2.6,<3' --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements.txt -r requirements-cpu.txt
-      - name: Generate an image without API credentials
+      - name: Generate episode-specific 3D storybook thumbnail
         env:
-          IMAGE_SEED: '9931'
-          CPU_IMAGE_STEPS: '16'
+          CPU_IMAGE_STEPS: '24'
+          HF_HUB_DISABLE_XET: '1'
         run: |
           python - <<'PYCODE'
           import json
           from pathlib import Path
-          from image_cpu import generate
-          topic = json.loads(Path('history_topics.json').read_text())[0]
-          prompt = topic['thumbnail_visual_story'] + '. Documentary photograph, natural side light, no text.'
-          Path('output').mkdir(exist_ok=True)
-          Path('output/thumbnail-prompt.txt').write_text(prompt)
-          generate(prompt, Path('output/cpu-check.png'))
-          PYCODE
-          python - <<'PY'
           from PIL import Image
-          from scene_check import check_scene
-          image = Image.open('output/cpu-check.png')
-          assert image.size == (1024, 576)
-          assert image.convert('L').getextrema()[1] > 0
-          scene = check_scene('output/cpu-check.png', {'focus': 'object', 'semantic_target': 'Close-up of fitted limestone blocks with a narrow dark joint and visible stone texture'})
-          print({'actual_image_size': image.size, 'scene_match': scene})
-          from thumbnail_design import render_thumbnail
-          render_thumbnail('output/cpu-check.png', 'HOW WAS IT BUILT?', 'output/thumbnail-check.jpg', 'Ancient Egypt and pyramids')
-          assert Image.open('output/thumbnail-check.jpg').size == (1280, 720)
-          if not scene['passed']:
-              print('CLIP scene score is advisory; inspect the saved artwork before accepting it')
-          Image.open('output/thumbnail-check.jpg').resize((320,180)).save('output/thumbnail-mobile.jpg')
-          PY
-      - name: Save generated historical test image for visual review
+          from thumbnail_design import generate_thumbnail
+          topic = next(t for t in json.loads(Path('history_topics.json').read_text())
+                       if t['id'] == 'dark-psychology-influence')
+          root = Path('output/thumbnail-preview')
+          root.mkdir(parents=True, exist_ok=True)
+          story = dict(title=topic['title_angle'],
+                       thumbnail_prompt=topic['thumbnail_visual_story'],
+                       thumbnail_text='WHO CONTROLS YOU?')
+          (root/'episode.json').write_text(json.dumps(story, indent=2))
+          target = generate_thumbnail(story, root, topic['id'])
+          with Image.open(target) as image:
+              assert image.size == (1280, 720)
+              assert image.convert('L').getextrema()[1] > 0
+              image.resize((320, 180)).save(root/'thumbnail-mobile.jpg')
+          PYCODE
+      - name: Save storybook thumbnail preview
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: historical-image-check
-          path: |
-            output/cpu-check.png
-            output/thumbnail-check.jpg
-            output/thumbnail-mobile.jpg
-            output/thumbnail-prompt.txt
-          retention-days: 1
+          name: storybook-thumbnail-preview
+          path: output/thumbnail-preview/
+          retention-days: 7
           if-no-files-found: error
