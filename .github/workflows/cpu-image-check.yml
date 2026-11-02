@@ -18,7 +18,7 @@ concurrency:
 jobs:
   image:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -43,12 +43,12 @@ jobs:
           root = Path('output/thumbnail-preview')
           root.mkdir(parents=True, exist_ok=True)
           story = dict(title=topic['title_angle'],
-                       thumbnail_prompt=topic['thumbnail_visual_story'],
+                       thumbnail_prompt='An anxious adult notices taut puppet strings pulling one raised wrist, close-up face and wrist',
                        thumbnail_text='WHO CONTROLS YOU?')
           (root/'episode.json').write_text(json.dumps(story, indent=2))
           target = generate_thumbnail(story, root, topic['id'])
           with Image.open(target) as image:
-              assert image.size == (1280, 720)
+              assert image.size == (1920, 1080)
               assert image.convert('L').getextrema()[1] > 0
               image.resize((320, 180)).save(root/'thumbnail-mobile.jpg')
           PYCODE

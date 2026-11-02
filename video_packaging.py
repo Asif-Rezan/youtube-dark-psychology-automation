@@ -186,8 +186,10 @@ Give the three options DIFFERENT camera angles, focal relationships and composit
 for example a close-up clue, an over-the-shoulder discovery, and a dramatic scale contrast.
 Use bright exposure, saturated complementary colors, clean backgrounds and a luminous subject.
 Do not reserve a fixed dark left panel or always put the subject on the right.
-The image model will render the exact thumbnail question as large integrated typography;
-describe the visual subject here without adding any other words, labels, logos,
+The renderer adds the exact headline as readable typography after generating artwork.
+Describe one dominant subject, a clear emotion and one relevant visual clue. Use at most
+two people, large readable shapes, no crowds or decorative tiny props.
+Describe the visual subject without adding any other words, labels, logos,
 fictional discoveries or fantasy imagery.
 Description intro: 80-400 characters, put the exact subject phrase naturally in the FIRST sentence
 and state what the viewer will learn. Description details: 80-800 characters, unique to this episode,

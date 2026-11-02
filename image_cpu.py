@@ -45,7 +45,7 @@ def recovery_prompt(prompt):
 MODEL = 'segmind/SSD-1B'
 REVISION = '60987f37e94cd59c36b1cba832b9f97b57395a10'
 _pipeline = None
-def generate(prompt, path, *, allow_text=False, seed=None, style=None):
+def generate(prompt, path, *, allow_text=False, seed=None, style=None, width=None, height=None):
     global _pipeline
     if style not in (None, 'storybook-3d'):
         raise ValueError('Unsupported image style')
@@ -64,8 +64,8 @@ def generate(prompt, path, *, allow_text=False, seed=None, style=None):
         _pipeline.to('cpu')
         _pipeline.enable_attention_slicing()
         _pipeline.enable_vae_slicing()
-    width = int(os.getenv('CPU_IMAGE_WIDTH', '1024'))
-    height = int(os.getenv('CPU_IMAGE_HEIGHT', '576'))
+    width = int(os.getenv('CPU_IMAGE_WIDTH', '1024')) if width is None else int(width)
+    height = int(os.getenv('CPU_IMAGE_HEIGHT', '576')) if height is None else int(height)
     steps = int(os.getenv('CPU_IMAGE_STEPS', '16'))
     if width % 8 or height % 8 or not 256 <= width <= 1536 or not 256 <= height <= 1536:
         raise ValueError('CPU image dimensions must be multiples of eight in 256–1536')
@@ -84,6 +84,8 @@ def generate(prompt, path, *, allow_text=False, seed=None, style=None):
             print('Five safety rejections; switching to an environmental reconstruction.', flush=True)
         negative = ('anime, cartoon, watercolor, flat colors, line art, cel shading, blurry, low detail, poor quality, '
             'extra arms, extra legs, deformed hands, duplicate person, watermark, logo, ')
+        if style == 'storybook-3d':
+            negative += 'muppet, felt puppet, toy, childish, crowd, busy background, tiny subject, clutter, '
         if style != 'storybook-3d':
             negative += '3D render, CGI, '
         negative += ('misspelled words, illegible typography, tiny lettering, muddy colors, underexposed, '
