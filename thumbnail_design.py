@@ -2,7 +2,6 @@
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from itertools import combinations
-from visual_style import STORYBOOK_STYLE
 
 
 def _font(size):

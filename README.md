@@ -8,7 +8,11 @@ Topics rotate through Machiavelli, The 48 Laws of Power, dark power plays, dark 
 
 After the documentary script is written, a separate packaging step drafts three accurate title and thumbnail pairs. It requires the topic's search phrase near the start of a concise title, rejects sensational wording, and selects a complementary 2–5 word question that creates a specific curiosity gap. The question must connect to a documented visual feature and be addressed in the episode. The unique description states the subject in its first sentence, explains the evidence, keeps source URLs out of the public description and labels illustrations. Tags are limited to a small set of relevant search variants; they are a secondary discovery signal. Uploads use YouTube's Entertainment category.
 
-Each topic now supplies a source-backed visual scene: a scale contrast, a passage into shadow, a path, or a physical trace. The thumbnail prompt puts that scene before style words so the image model draws the visual question. The renderer adds focused light to the artwork on the right and reserves the left side for a large question. A high-contrast 1280×720 layout is added in code, with no text bar covering the bottom of the scene. These rules improve clarity but cannot predict CTR; review private uploads and compare titles and thumbnails against actual YouTube Analytics before publication.
+Each topic supplies a distinct symbolic scene tied to the episode. A compact artwork
+brief emphasizes one dominant subject, a readable emotion and one visual clue. The
+renderer places the exact headline opposite the subject with high-contrast type.
+Artwork generates at 1344×768, center-crops to 1344×756, and exports at 1920×1080.
+Review the 320×180 mobile preview and measure CTR through YouTube Analytics.
 
 ## Historical illustrations
 
@@ -106,20 +110,16 @@ code revision. Successful upload-only shard recovery does not automatically
 assemble or upload a video; inspect all shard results and existing YouTube state
 before continuing those stages.
 
-### Bright thumbnails with model-generated headlines
+### Bright thumbnails with reliable headlines
 
-Thumbnail generation now has its own art direction instead of the text-free video
-scene wrapper. It requests the exact headline inside the generated image, bright
-complementary colors, one unresolved source-grounded visual question, and a rotating
-camera/composition selected from the episode identity. Seeds also vary by episode.
-The export step only resizes and compresses to 1280×720 under 2 MB; it adds no text,
-dark panels or category badges. Video scene requests continue to forbid lettering.
-The prompt and seed are saved locally in `thumbnail-design.json` for review.
-
-The current SSD-1B image model remains in use. Native generated lettering is not
-guaranteed to be spelled correctly; a real output still needs visual review. Tests
-verify the prompt/routing/export behavior, not live model typography or click-through
-performance. Already running Actions jobs retain their original commit.
+Thumbnail artwork is generated without lettering. Exact headline typography is
+composited afterward, using a reserved side, white/yellow type and a subtle contrast
+gradient. The model receives a compact subject-first scene brief with mature 3D
+storybook styling, a dominant subject and minimal clutter. Identity selects the
+subject side, palette and seed. The export is 1920×1080 under 2 MB, with a 320×180
+mobile preview. The prompt, headline, dimensions and seed are saved in
+`thumbnail-design.json`. Real artwork still requires visual inspection; tests do
+not establish click-through performance. Running Actions retain their original commit.
 
 ### Daily script generation: Qwen3-4B-Instruct-2507
 
