@@ -13,7 +13,7 @@ import textwrap
 import time
 from zoneinfo import ZoneInfo
 from visual_style import SCENE_STYLE
-from youtube_metadata import UPLOAD_PARTS, UPLOAD_SETTINGS, public_description, upload_body, verify_upload_settings
+from youtube_metadata import UPLOAD_PARTS, UPLOAD_SETTINGS, public_description, upload_body, verify_upload_settings, ensure_upload_settings
 
 
 def required(name):
@@ -789,7 +789,7 @@ def upload_private(video, thumbnail, story, state, store, key, music_credit=''):
         if not items:
             raise RuntimeError('Uploaded video is not accessible for verification')
         remote = items[0]
-        verify_upload_settings(remote)
+        remote = ensure_upload_settings(client, result['id'], remote, required('EXPECTED_CHANNEL_ID'))
         assert remote['status']['privacyStatus'] == 'private', 'Upload privacy validation failed'
         processing = remote.get('processingDetails', {}).get('processingStatus')
         upload_status = remote['status'].get('uploadStatus')

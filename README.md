@@ -183,3 +183,11 @@ naturally, and omit source URL sections. Research sources remain in internal sto
 records. Older checkpoint source sections and generated web links are removed at
 upload time. Music requiring URL attribution must be replaced with a suitable track
 before upload; required license credits are never silently removed.
+
+Upload disclosure recovery: if YouTube's post-upload readback omits or disagrees
+with the AI disclosure, apply an idempotent metadata update to the saved video ID
+and poll up to six times for confirmation. Preserve visibility, schedule and other
+writable status settings. Omitted paid-promotion false is treated as No; explicit
+Yes is corrected and read back. Persistent mismatches still block verification.
+An already uploaded daily run can use the workflow's `cleanup_run` input to repair
+metadata and resume verification without regenerating or inserting another video.

@@ -5,7 +5,7 @@ import time
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from workflow import Store, required
-from youtube_metadata import verify_upload_settings
+from youtube_metadata import verify_upload_settings, ensure_upload_settings
 
 def main():
     store = Store()
@@ -23,7 +23,7 @@ def main():
             raise RuntimeError('Uploaded video could not be read back')
         video = items[0]
         if expected.get('upload_settings'):
-            verify_upload_settings(video)
+            video = ensure_upload_settings(client, record['video_id'], video, required('EXPECTED_CHANNEL_ID'))
         if video['snippet']['channelId'] != required('EXPECTED_CHANNEL_ID'):
             raise RuntimeError('Uploaded video is on a different channel')
         if video['status']['privacyStatus'] != 'private':

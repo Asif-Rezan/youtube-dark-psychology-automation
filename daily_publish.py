@@ -4,7 +4,7 @@ import json
 import os
 import re
 import time
-from youtube_metadata import verify_upload_settings
+from youtube_metadata import verify_upload_settings, ensure_upload_settings
 
 
 def disposable(name):
@@ -129,6 +129,8 @@ def main():
         if not items:
             raise RuntimeError('Uploaded video unavailable')
         video = items[0]
+        if state.get('upload_settings'):
+            video = ensure_upload_settings(client, state['video_id'], video, required('EXPECTED_CHANNEL_ID'))
         if validate_remote(video, state, required('EXPECTED_CHANNEL_ID')):
             break
         if time.monotonic() >= deadline:
