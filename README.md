@@ -198,3 +198,13 @@ the workflow records a video/channel-bound receipt only if the update response
 explicitly confirms true; this is distinct from confirmation through videos.list. A rejected update, wrong video ID, or explicit
 false still fails. The receipt is saved as `ai_disclosure` in the run state and
 logs distinguish API acceptance from a returned true value.
+
+Realistic scene direction emphasizes the narrated action before style instructions,
+subtle credible emotion, natural skin/material texture, soft motivated lighting,
+readable shadows and uncluttered framing. Person, group and object shots use
+separate camera choices. Existing narrated protagonists reuse their supplied
+appearance and clothing reference; unrelated scenes do not inherit that character.
+Contemporary clothing and buildings are allowed when appropriate to narration.
+CPU scene quality exclusions discourage waxy faces and crushed shadows without
+leaking into thumbnail generation. Character consistency is prompt-guided, not a
+face-lock guarantee. Existing renders require regeneration to adopt these changes.

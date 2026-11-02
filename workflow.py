@@ -12,7 +12,7 @@ import subprocess
 import textwrap
 import time
 from zoneinfo import ZoneInfo
-from visual_style import SCENE_STYLE
+from visual_style import SCENE_STYLE, SCENE_NEGATIVE
 from youtube_metadata import UPLOAD_PARTS, UPLOAD_SETTINGS, public_description, upload_body, verify_upload_settings, ensure_upload_settings
 
 
@@ -249,7 +249,9 @@ def make_story(day, previous):
     scenes (chapter_01 through chapter_20). Each chapter: summary (max 25 words), image_prompt,
     image_prompts (four distinct visual beats). Topic-relevant psychological symbolism and clearly illustrative human interactions.
     All image prompts use realistic cinematic documentary photography: lifelike people,
-    realistic material texture and natural cinematic lighting. Keep character appearance,
+    realistic material texture, subtle credible emotion, relaxed anatomical posture,
+    soft motivated lighting and readable shadows. Use one focal action and a simple background.
+    Vary close-ups, medium interactions and wide establishing shots. Keep character appearance,
     clothing and setting consistent between visual beats. No embedded writing or 3D storybook styling.
     Use contemporary or historical settings as appropriate to the narration. Avoid unsupported sensational claims.
     Provide ONLY the plan, no full narration yet.''', 5200, outline_schema,
@@ -396,11 +398,19 @@ Chapter 1 retains the psychology or power hook. Chapter 20 summarizes evidence a
 
 
 def make_image(prompt, path):
-    if not prompt.startswith(SCENE_STYLE):
-        prompt = SCENE_STYLE + '. ' + prompt
+    if SCENE_STYLE not in prompt:
+        prompt = prompt.rstrip('. ') + '. ' + SCENE_STYLE
     if os.getenv('IMAGE_BACKEND', 'cpu') == 'cpu':
         from image_cpu import generate
-        generate(prompt + ', no text, no watermark', path)
+        previous_negative = os.environ.get('IMAGE_NEGATIVE_PROMPT')
+        os.environ['IMAGE_NEGATIVE_PROMPT'] = ', '.join(filter(None, (previous_negative, SCENE_NEGATIVE)))
+        try:
+            generate(prompt + ', no text, no watermark', path)
+        finally:
+            if previous_negative is None:
+                os.environ.pop('IMAGE_NEGATIVE_PROMPT', None)
+            else:
+                os.environ['IMAGE_NEGATIVE_PROMPT'] = previous_negative
         return
     if os.getenv('IMAGE_BACKEND') != 'hf':
         raise ValueError('IMAGE_BACKEND must be cpu or hf')
