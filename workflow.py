@@ -13,6 +13,7 @@ import textwrap
 import time
 from zoneinfo import ZoneInfo
 from visual_style import SCENE_STYLE
+from youtube_metadata import UPLOAD_PARTS, UPLOAD_SETTINGS, public_description, upload_body, verify_upload_settings
 
 
 def required(name):
@@ -259,9 +260,7 @@ def make_story(day, previous):
     outline['category'] = topic['category']
     outline['sources'] = topic['sources']
     outline['verified_facts'] = topic['facts']
-    for source in topic['sources']:
-        if source not in outline['description']:
-            outline['description'] += '\nSource: ' + source
+    outline['description'] = public_description(outline['description'])
     outline['description'] += '\nVisual scenes are artistic illustrations.'
     if len(outline.get('scenes', [])) != 20:
         raise ValueError('Outline requires exactly twenty chapters')
@@ -764,13 +763,17 @@ def upload_private(video, thumbnail, story, state, store, key, music_credit=''):
         raise RuntimeError('OAuth account is not the expected YouTube channel')
     # Persist before insert. An interrupted/ambiguous upload requires manual reconciliation.
     # Never silently retry videos.insert and risk duplicate videos.
-    state['upload_description'] = story['description'] + '\n\n' + music_credit
+    if re.search(r'(?:https?://|www\.)', music_credit, re.I):
+        raise ValueError('URL-free descriptions require music with URL-free attribution')
+    state['upload_description'] = public_description(story['description'])
+    if music_credit.strip():
+        state['upload_description'] += '\n\n' + music_credit.strip()
+    state['upload_settings'] = dict(UPLOAD_SETTINGS)
     state['thumbnail_uploaded'] = False
     state['phase'] = 'upload_started'
     store.save(key, state)
-    request = client.videos().insert(part='snippet,status', notifySubscribers=False,
-        body={'snippet': {'title': story['title'], 'description': state['upload_description'], 'tags': story['tags'], 'categoryId': '27',
-             'defaultLanguage': 'en'}, 'status': {'privacyStatus': 'private', 'selfDeclaredMadeForKids': False}},
+    request = client.videos().insert(part=UPLOAD_PARTS, notifySubscribers=False,
+        body=upload_body(story, state['upload_description']),
         media_body=MediaFileUpload(str(video), chunksize=8*1024*1024, resumable=True))
     result = None
     while result is None:
@@ -782,10 +785,11 @@ def upload_private(video, thumbnail, story, state, store, key, music_credit=''):
     store.save(key, state)
     deadline = time.monotonic() + 1200
     while True:
-        items = client.videos().list(part='status,processingDetails', id=result['id']).execute().get('items', [])
+        items = client.videos().list(part='snippet,status,paidProductPlacementDetails,processingDetails', id=result['id']).execute().get('items', [])
         if not items:
             raise RuntimeError('Uploaded video is not accessible for verification')
         remote = items[0]
+        verify_upload_settings(remote)
         assert remote['status']['privacyStatus'] == 'private', 'Upload privacy validation failed'
         processing = remote.get('processingDetails', {}).get('processingStatus')
         upload_status = remote['status'].get('uploadStatus')

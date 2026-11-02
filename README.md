@@ -168,3 +168,19 @@ The exact short headline stays integrated in the generated image. Inspect spelli
 and composition before publishing; prompt changes do not guarantee a CTR increase.
 Existing uploaded thumbnails and resumed runs with cached artwork need regeneration
 to adopt this style. New designs are marked `storybook-3d-v2` in `thumbnail-design.json`.
+
+### YouTube upload details and search metadata
+
+New uploads explicitly set paid promotion to No, altered/synthetic content to Yes,
+video audio and metadata language to English, and category to Education (27).
+The upload reads back those settings and stops verification if they differ.
+The public YouTube Data API has no academic-system field; it cannot explicitly
+select or verify Studio's Academic system: None. No academic-system value is sent.
+Existing videos are not changed by these defaults.
+
+Titles pair the main search subject with the episode's specific question or benefit.
+Descriptions lead with the subject and viewer learning outcomes, use related terms
+naturally, and omit source URL sections. Research sources remain in internal story
+records. Older checkpoint source sections and generated web links are removed at
+upload time. Music requiring URL attribution must be replaced with a suitable track
+before upload; required license credits are never silently removed.

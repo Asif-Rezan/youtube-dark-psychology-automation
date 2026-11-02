@@ -5,6 +5,7 @@ import time
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from workflow import Store, required
+from youtube_metadata import verify_upload_settings
 
 def main():
     store = Store()
@@ -16,11 +17,13 @@ def main():
     expected = store.load(f"runs/{record['run']}/state.json", {})
     deadline = time.monotonic() + 600
     while True:
-        items = client.videos().list(part='snippet,status,contentDetails,processingDetails',
+        items = client.videos().list(part='snippet,status,paidProductPlacementDetails,contentDetails,processingDetails',
             id=record['video_id']).execute().get('items', [])
         if not items:
             raise RuntimeError('Uploaded video could not be read back')
         video = items[0]
+        if expected.get('upload_settings'):
+            verify_upload_settings(video)
         if video['snippet']['channelId'] != required('EXPECTED_CHANNEL_ID'):
             raise RuntimeError('Uploaded video is on a different channel')
         if video['status']['privacyStatus'] != 'private':
@@ -29,7 +32,7 @@ def main():
             raise RuntimeError('Uploaded title differs from the generated title')
         if set(video['snippet'].get('tags', [])) != set(expected['story']['tags']):
             raise RuntimeError('Uploaded tags differ from the generated tags')
-        if not video['snippet']['description'].startswith(expected['story']['description']):
+        if video['snippet']['description'] != expected.get('upload_description', expected['story']['description']):
             raise RuntimeError('Uploaded description differs from the generated description')
         if video['contentDetails'].get('definition') == 'hd' and video['processingDetails'].get('processingStatus') == 'succeeded':
             break
