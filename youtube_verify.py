@@ -24,6 +24,8 @@ def main():
         video = items[0]
         if expected.get('upload_settings'):
             video = ensure_upload_settings(client, record['video_id'], video, required('EXPECTED_CHANNEL_ID'))
+            expected['ai_disclosure'] = video.get('_ai_disclosure_submission', {'confirmation': 'readback confirmed', 'requested_value': True})
+            store.save(f"runs/{record['run']}/state.json", expected)
         if video['snippet']['channelId'] != required('EXPECTED_CHANNEL_ID'):
             raise RuntimeError('Uploaded video is on a different channel')
         if video['status']['privacyStatus'] != 'private':

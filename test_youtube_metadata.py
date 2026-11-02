@@ -46,6 +46,7 @@ class DisclosureRepairTests(unittest.TestCase):
     def setUp(self):
         from unittest.mock import Mock
         self.client = Mock()
+        self.client.videos.return_value.update.return_value.execute.return_value = {'id': 'existing-video'}
         self.video = upload_body({'title': 'Title', 'tags': []}, 'Description')
         self.video.update(id='existing-video')
         self.video['snippet']['channelId'] = 'expected-channel'
@@ -113,3 +114,39 @@ class DisclosureRepairTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 self.repair(bad)
         self.client.videos.return_value.update.assert_not_called()
+
+
+    def test_permanently_omitted_readback_retains_accepted_submission_receipt(self):
+        omitted = copy.deepcopy(self.video)
+        omitted['status'].pop('containsSyntheticMedia')
+        self.client.videos.return_value.list.return_value.execute.return_value = {'items': [omitted]}
+        result = self.repair(omitted)
+        self.assertNotIn('containsSyntheticMedia', result['status'])
+        self.assertTrue(result['_ai_disclosure_submission']['api_update_accepted'])
+        self.assertEqual(result['_ai_disclosure_submission']['video_id'], 'existing-video')
+        verify_upload_settings(result)
+        self.client.videos.return_value.insert.assert_not_called()
+
+    def test_omission_without_acknowledged_update_still_fails(self):
+        omitted = copy.deepcopy(self.video)
+        omitted['status'].pop('containsSyntheticMedia')
+        with self.assertRaisesRegex(RuntimeError, 'containsSyntheticMedia'):
+            verify_upload_settings(omitted)
+        self.client.videos.return_value.update.return_value.execute.return_value = {'id': 'wrong-video'}
+        with self.assertRaisesRegex(RuntimeError, 'acknowledge'):
+            self.repair(omitted)
+
+    def test_update_failure_is_not_accepted_as_disclosure(self):
+        omitted = copy.deepcopy(self.video)
+        omitted['status'].pop('containsSyntheticMedia')
+        self.client.videos.return_value.update.return_value.execute.side_effect = RuntimeError('denied')
+        with self.assertRaisesRegex(RuntimeError, 'denied'):
+            self.repair(omitted)
+
+    def test_explicit_false_is_never_accepted_with_a_receipt(self):
+        false = copy.deepcopy(self.video)
+        false['status']['containsSyntheticMedia'] = False
+        false['_ai_disclosure_submission'] = dict(video_id='existing-video', channel_id='expected-channel',
+            requested_value=True, api_update_accepted=True)
+        with self.assertRaisesRegex(RuntimeError, 'containsSyntheticMedia'):
+            verify_upload_settings(false)

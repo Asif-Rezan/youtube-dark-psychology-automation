@@ -790,6 +790,8 @@ def upload_private(video, thumbnail, story, state, store, key, music_credit=''):
             raise RuntimeError('Uploaded video is not accessible for verification')
         remote = items[0]
         remote = ensure_upload_settings(client, result['id'], remote, required('EXPECTED_CHANNEL_ID'))
+        state['ai_disclosure'] = remote.get('_ai_disclosure_submission', {'confirmation': 'readback confirmed', 'requested_value': True})
+        store.save(key, state)
         assert remote['status']['privacyStatus'] == 'private', 'Upload privacy validation failed'
         processing = remote.get('processingDetails', {}).get('processingStatus')
         upload_status = remote['status'].get('uploadStatus')

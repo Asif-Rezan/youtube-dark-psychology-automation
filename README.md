@@ -191,3 +191,10 @@ writable status settings. Omitted paid-promotion false is treated as No; explici
 Yes is corrected and read back. Persistent mismatches still block verification.
 An already uploaded daily run can use the workflow's `cleanup_run` input to repair
 metadata and resume verification without regenerating or inserting another video.
+
+Some YouTube responses omit `containsSyntheticMedia` even after an accepted
+metadata update. Omission is not treated as explicit false. After bounded polling,
+the workflow may record a video/channel-bound API submission receipt instead of
+claiming readback confirmation. A rejected update, wrong video ID, or explicit
+false still fails. The receipt is saved as `ai_disclosure` in the run state and
+logs distinguish API acceptance from a returned true value.

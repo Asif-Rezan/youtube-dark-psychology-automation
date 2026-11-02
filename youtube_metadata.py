@@ -1,5 +1,6 @@
 """Consistent upload settings and URL-free public descriptions."""
 import re
+import json
 
 UPLOAD_PARTS = 'snippet,status,paidProductPlacementDetails'
 UPLOAD_SETTINGS = {
@@ -38,6 +39,13 @@ def verify_upload_settings(video):
         actual = video.get(section, {})
         for field, value in expected.items():
             actual_value = actual.get(field, False) if field == 'hasPaidProductPlacement' else actual.get(field)
+            if field == 'containsSyntheticMedia' and field not in actual:
+                receipt = video.get('_ai_disclosure_submission', {})
+                if (receipt.get('video_id') == video.get('id')
+                        and receipt.get('channel_id') == video.get('snippet', {}).get('channelId')
+                        and receipt.get('requested_value') is True
+                        and receipt.get('api_update_accepted') is True):
+                    continue
             if actual_value != value:
                 raise RuntimeError(f'YouTube upload setting mismatch: {field}')
 
@@ -74,8 +82,18 @@ def ensure_upload_settings(client, video_id, video, channel_id, *, pause=None):
     if video.get('paidProductPlacementDetails', {}).get('hasPaidProductPlacement', False) is not False:
         parts.append('paidProductPlacementDetails')
         body['paidProductPlacementDetails'] = {'hasPaidProductPlacement': False}
+    receipt = None
     if parts:
-        client.videos().update(part=','.join(parts), body=body).execute(num_retries=3)
+        response = client.videos().update(part=','.join(parts), body=body).execute(num_retries=3)
+        if response.get('id') != video_id:
+            raise RuntimeError('YouTube metadata update did not acknowledge the expected video')
+        if 'status' in parts and response.get('status', {}).get('containsSyntheticMedia') is not False:
+            receipt = dict(video_id=video_id, channel_id=channel_id,
+                           requested_value=True, api_update_accepted=True,
+                           confirmation='API update accepted; readback field unavailable')
+        print(json.dumps({'check': 'YouTube disclosure update', 'video_id': video_id,
+                          'api_update_accepted': True,
+                          'response_ai_field': response.get('status', {}).get('containsSyntheticMedia', 'omitted')}), flush=True)
     for attempt in range(6):
         items = client.videos().list(
             part=UPLOAD_PARTS + ',processingDetails,contentDetails', id=video_id
@@ -84,6 +102,10 @@ def ensure_upload_settings(client, video_id, video, channel_id, *, pause=None):
             actual = items[0]
             if actual.get('id') != video_id or actual.get('snippet', {}).get('channelId') != channel_id:
                 raise RuntimeError('Metadata readback returned a different video or channel')
+            if attempt == 5 and 'containsSyntheticMedia' not in actual.get('status', {}) and receipt:
+                actual['_ai_disclosure_submission'] = receipt
+                print(json.dumps({'check': 'YouTube AI disclosure',
+                                  'confirmation': receipt['confirmation'], 'video_id': video_id}), flush=True)
             try:
                 verify_upload_settings(actual)
                 if actual['status'].get('privacyStatus') != status['privacyStatus'] or actual['status'].get('publishAt') != status.get('publishAt'):

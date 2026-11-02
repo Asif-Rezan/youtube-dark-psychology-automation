@@ -131,6 +131,8 @@ def main():
         video = items[0]
         if state.get('upload_settings'):
             video = ensure_upload_settings(client, state['video_id'], video, required('EXPECTED_CHANNEL_ID'))
+            state['ai_disclosure'] = video.get('_ai_disclosure_submission', {'confirmation': 'readback confirmed', 'requested_value': True})
+            store.save(key, state)
         if validate_remote(video, state, required('EXPECTED_CHANNEL_ID')):
             break
         if time.monotonic() >= deadline:
