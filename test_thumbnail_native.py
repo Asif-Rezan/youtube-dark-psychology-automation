@@ -21,10 +21,26 @@ class NativeThumbnailTests(unittest.TestCase):
             self.assertNotIn('dark space on the left',prompt)
             self.assertIn('no invented evidence',prompt)
 
+    def test_every_episode_has_a_distinct_storybook_subject_even_after_fallback(self):
+        from video_packaging import artwork_candidate
+        topics=json.loads(Path('history_topics.json').read_text())
+        prompts=[]
+        for topic in topics:
+            visual=artwork_candidate('Too short',topic)
+            self.assertIn(topic['thumbnail_anchor'],visual)
+            prompt=complete_thumbnail_prompt(visual,'WHY FOLLOW HIM?',topic['id'])
+            self.assertTrue(prompt.startswith('3D storybook illustration'))
+            self.assertLess(prompt.index(topic['thumbnail_anchor']),300)
+            self.assertNotIn('photography',prompt)
+            self.assertNotIn('chess',prompt.lower())
+            prompts.append(prompt)
+        self.assertEqual(len(set(prompts)),len(topics))
+
     def test_generator_gets_native_text_flag_and_episode_seed_then_export_preserves_art(self):
         story=dict(thumbnail_prompt='A chess king facing smaller pieces',thumbnail_text='WHY FOLLOW HIM?')
         def generate(prompt,path,**kwargs):
             self.assertTrue(kwargs['allow_text'])
+            self.assertEqual(kwargs['style'], 'storybook-3d')
             Image.new('RGB',(1024,576),(220,170,80)).save(path)
         with tempfile.TemporaryDirectory() as temp,patch('image_cpu.generate',side_effect=generate) as model:
             root=Path(temp)
@@ -55,5 +71,9 @@ class NativeThumbnailTests(unittest.TestCase):
             self.assertNotIn('text, letters',sent['negative_prompt'])
             self.assertIn('misspelled words',sent['negative_prompt'])
             self.assertEqual(sent['generator'],123)
+            image_cpu.generate('3D storybook scene',Path(temp)/'3d.png',allow_text=True,style='storybook-3d')
+            self.assertNotIn('3D render',model.call_args.kwargs['negative_prompt'])
+            self.assertNotIn('CGI',model.call_args.kwargs['negative_prompt'])
             image_cpu.generate('Text-free video scene',Path(temp)/'scene.png')
             self.assertIn('text, letters',model.call_args.kwargs['negative_prompt'])
+            self.assertIn('3D render',model.call_args.kwargs['negative_prompt'])

@@ -232,7 +232,10 @@ class VisualPromptTests(unittest.TestCase):
             self.assertTrue(topic['facts'] and topic['sources'])
             self.assertIn(topic['thumbnail_anchor'], topic['thumbnail_visual_story'])
         visual = topics[0]['thumbnail_visual_story'].casefold()
-        self.assertIn('chess king', visual)
-        self.assertIn('shadow', visual)
+        self.assertEqual(len({t['thumbnail_anchor'] for t in topics}), len(topics))
+        self.assertEqual(len({t['thumbnail_visual_story'] for t in topics}), len(topics))
+        for topic in topics:
+            self.assertNotIn('chess', topic['thumbnail_visual_story'].lower())
+            self.assertLessEqual(len(topic['thumbnail_visual_story']), 220)
         for invented in ['hidden chamber', 'statue', 'treasure', 'wizard']:
             self.assertNotIn(invented, visual)

@@ -154,3 +154,15 @@ and timing, not unpublished text. Model weights are cached between runner jobs.
 Daily uploads are verified in HD, then scheduled for the first 06:00 America/New_York at least 72 hours after scheduling. DST is handled automatically. YouTube shows scheduled videos as private until release. The publish intent is checkpointed before the API call and read back before media cleanup. Set `YOUTUBE_PUBLICATION_MODE` to `public` for immediate publication or `private` for private-only verification. Test workflows remain private. Retry with `cleanup_run` to schedule a completed daily upload without regeneration or re-upload.
 
 Facebook Page uploads run independently after YouTube succeeds. See [Facebook setup and recovery](docs/facebook-publishing.md). A Facebook failure leaves YouTube successful and preserves the final MP4 for Facebook-only retry.
+
+### Episode-specific 3D storybook thumbnails
+
+Each topic has its own symbolic scene and focal object in `history_topics.json`.
+Packaging adapts that scene to the episode outline; invalid artwork falls back to
+that topic's scene. Thumbnail generation requests sculpted, expressive characters,
+tactile materials and diorama depth, with varied compositions and bright palettes.
+The thumbnail-only style allows 3D rendering without changing video scene styling.
+The exact short headline stays integrated in the generated image. Inspect spelling
+and composition before publishing; prompt changes do not guarantee a CTR increase.
+Existing uploaded thumbnails and resumed runs with cached artwork need regeneration
+to adopt this style. New designs are marked `storybook-3d-v2` in `thumbnail-design.json`.

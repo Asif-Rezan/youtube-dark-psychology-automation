@@ -1,4 +1,4 @@
-"""Readable 16:9 historical documentary thumbnail layout."""
+"""Episode-specific 3D storybook thumbnails with integrated headlines."""
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from itertools import combinations
@@ -59,14 +59,14 @@ def complete_thumbnail_prompt(visual, text, identity):
     visual=re.sub(r'(?:open |empty )?dark space on the (?:left|right)', '', visual, flags=re.I)
     visual=re.sub(r'\b(?:on the |at |at the |on )?(?:right|left)(?: side| foreground)?\b', '', visual, flags=re.I)
     visual=' '.join(visual.split()).strip(' ,.')
-    return (f'Bright colorful YouTube thumbnail, {PALETTES[digest[1]%len(PALETTES)]}. '
-        f'Exact headline "{text.upper()}" in large bold readable letters. '
-        f'{LAYOUTS[digest[0]%len(LAYOUTS)]}. Subject: {visual}. '
+    return (f'3D storybook illustration, sculpted expressive characters, tactile materials, miniature diorama depth. '
+        f'Subject: {visual}. Exact headline "{text.upper()}" in large bold readable letters. '
+        f'{LAYOUTS[digest[0]%len(LAYOUTS)]}. {PALETTES[digest[1]%len(PALETTES)]}. '
         'Perfectly spelled typography integrated into the image. '
         'Create one unresolved visual question: show the meaningful clue or contrast, leave the explanation '
         'for the video. Stay faithful to the episode; no invented evidence or misleading discoveries. '
         'Bright exposure, saturated clean colors, luminous subject, strong separation, simple background, '
-        'one dominant focal point, clear at phone size, premium editorial photography. '
+        'one dominant focal point, clear at phone size, cinematic 3D storybook graphics, expressive emotion, soft volumetric lighting. Symbolic illustration, not archival evidence. '
         'Landscape 16:9, headline fully inside 8 percent safe margins, avoid bottom-right timestamp area. '
         'Only the exact headline; no other writing, logos, badges or watermark.')
 
@@ -94,9 +94,9 @@ def generate_thumbnail(story, root, identity):
     prompt=complete_thumbnail_prompt(story['thumbnail_prompt'],story['thumbnail_text'],identity)
     seed=int(hashlib.sha256((identity+prompt).encode()).hexdigest()[:8],16)
     source=root/'thumbnail-source.png'
-    generate(prompt,source,allow_text=True,seed=seed)
+    generate(prompt,source,allow_text=True,seed=seed,style='storybook-3d')
     target=render_thumbnail(source,story['thumbnail_text'],root/'thumbnail.jpg')
     (root/'thumbnail-design.json').write_text(json.dumps(dict(
-        version='native-text-v1',seed=seed,prompt=prompt,text_mode='model-generated',
+        version='storybook-3d-v2',seed=seed,prompt=prompt,text_mode='model-generated',
         typography_review='Model-generated spelling requires visual review'),indent=2))
     return target

@@ -45,8 +45,10 @@ def recovery_prompt(prompt):
 MODEL = 'segmind/SSD-1B'
 REVISION = '60987f37e94cd59c36b1cba832b9f97b57395a10'
 _pipeline = None
-def generate(prompt, path, *, allow_text=False, seed=None):
+def generate(prompt, path, *, allow_text=False, seed=None, style=None):
     global _pipeline
+    if style not in (None, 'storybook-3d'):
+        raise ValueError('Unsupported image style')
     import torch
     from diffusers import DiffusionPipeline, DPMSolverMultistepScheduler
     torch.set_num_threads(min(os.cpu_count() or 2, 4))
@@ -81,7 +83,9 @@ def generate(prompt, path, *, allow_text=False, seed=None):
         if attempt == 5:
             print('Five safety rejections; switching to an environmental reconstruction.', flush=True)
         negative = ('anime, cartoon, watercolor, flat colors, line art, cel shading, blurry, low detail, poor quality, '
-            '3D render, CGI, extra arms, extra legs, deformed hands, duplicate person, watermark, logo, ')
+            'extra arms, extra legs, deformed hands, duplicate person, watermark, logo, ')
+        if style != 'storybook-3d':
+            negative += '3D render, CGI, '
         negative += ('misspelled words, illegible typography, tiny lettering, muddy colors, underexposed, '
                      if allow_text else 'text, letters, ')
         result = pipeline(prompt=candidate, negative_prompt=negative + os.getenv('IMAGE_NEGATIVE_PROMPT', ''), width=width, height=height,
