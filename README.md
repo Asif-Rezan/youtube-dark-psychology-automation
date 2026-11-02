@@ -161,9 +161,9 @@ Each topic has its own symbolic scene and focal object in `history_topics.json`.
 Packaging adapts that scene to the episode outline; invalid artwork falls back to
 that topic's scene. Thumbnail generation requests sculpted, expressive characters,
 tactile materials and diorama depth, with varied compositions and bright palettes.
-Video backgrounds and thumbnails share the 3D storybook art direction in `visual_style.py`.
-CPU scene generation allows 3D rendering while still excluding text; the hosted image
-backend receives the same scene style. Existing cached scene images require regeneration.
+Video backgrounds use realistic cinematic documentary photography; thumbnails retain
+3D storybook art direction. Both styles are defined in `visual_style.py`. CPU video
+scenes exclude 3D/CGI and text; the hosted backend receives the realistic scene style. Existing cached scene images require regeneration.
 The exact short headline stays integrated in the generated image. Inspect spelling
 and composition before publishing; prompt changes do not guarantee a CTR increase.
 Existing uploaded thumbnails and resumed runs with cached artwork need regeneration

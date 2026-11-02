@@ -248,9 +248,9 @@ def make_story(day, previous):
     thumbnail_prompt, protagonist_name (empty if none), character_description (empty if none),
     scenes (chapter_01 through chapter_20). Each chapter: summary (max 25 words), image_prompt,
     image_prompts (four distinct visual beats). Topic-relevant psychological symbolism and clearly illustrative human interactions.
-    All image prompts use 3D storybook graphics: sculpted expressive characters, tactile materials,
-    miniature diorama depth and cinematic volumetric lighting. Keep character appearance,
-    clothing and setting consistent between visual beats. No embedded writing.
+    All image prompts use realistic cinematic documentary photography: lifelike people,
+    realistic material texture and natural cinematic lighting. Keep character appearance,
+    clothing and setting consistent between visual beats. No embedded writing or 3D storybook styling.
     Use contemporary or historical settings as appropriate to the narration. Avoid unsupported sensational claims.
     Provide ONLY the plan, no full narration yet.''', 5200, outline_schema,
         optional_context=story_history_context(previous))
@@ -400,7 +400,7 @@ def make_image(prompt, path):
         prompt = SCENE_STYLE + '. ' + prompt
     if os.getenv('IMAGE_BACKEND', 'cpu') == 'cpu':
         from image_cpu import generate
-        generate(prompt + ', no text, no watermark', path, style='storybook-3d')
+        generate(prompt + ', no text, no watermark', path)
         return
     if os.getenv('IMAGE_BACKEND') != 'hf':
         raise ValueError('IMAGE_BACKEND must be cpu or hf')

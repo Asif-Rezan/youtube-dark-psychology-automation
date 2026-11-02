@@ -3,4 +3,8 @@ STORYBOOK_STYLE = (
     '3D storybook illustration, sculpted expressive characters, tactile materials, '
     'miniature diorama depth, cinematic volumetric lighting, rich colors, topic-appropriate settings'
 )
-SCENE_STYLE = STORYBOOK_STYLE + ', landscape composition, no text or watermark'
+SCENE_STYLE = (
+    'cinematic psychology and power documentary photograph, photorealistic people, '
+    'realistic material texture, topic-appropriate settings and symbolic objects, '
+    'natural cinematic lighting, landscape composition, no text or watermark'
+)
