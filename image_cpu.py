@@ -84,6 +84,8 @@ def generate(prompt, path, *, allow_text=False, seed=None, style=None):
             print('Five safety rejections; switching to an environmental reconstruction.', flush=True)
         negative = ('anime, cartoon, watercolor, flat colors, line art, cel shading, blurry, low detail, poor quality, '
             'extra arms, extra legs, deformed hands, duplicate person, watermark, logo, ')
+        if style == 'storybook-3d':
+            negative += 'muppet, felt puppet, toy, childish, crowd, busy background, tiny subject, clutter, '
         if style != 'storybook-3d':
             negative += '3D render, CGI, '
         negative += ('misspelled words, illegible typography, tiny lettering, muddy colors, underexposed, '

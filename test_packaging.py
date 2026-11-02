@@ -122,8 +122,8 @@ class PackagingTests(unittest.TestCase):
             render_thumbnail(source, 'HOW WAS IT BUILT?', target, 'Ancient Egypt and pyramids')
             with Image.open(target) as image:
                 self.assertEqual(image.size, (1280, 720))
-                # Model-completed artwork is exported without dark overlays or labels.
-                self.assertEqual(image.getpixel((80,590)),image.getpixel((1200,590)))
+                # Gradient provides text contrast while the focal side stays intact.
+                self.assertNotEqual(image.getpixel((80,590)),image.getpixel((1200,590)))
                 self.assertEqual(image.getpixel((900,360)),image.getpixel((900,20)))
             self.assertLess(target.stat().st_size, 2*1024*1024)
 
