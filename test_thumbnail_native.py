@@ -19,6 +19,19 @@ class ThumbnailTests(unittest.TestCase):
         self.assertIn('uncluttered', prompt)
         self.assertEqual(art_direction('episode-a'), art_direction('episode-a'))
 
+    def test_each_topic_preserves_its_visual_anchor_in_the_short_artwork_brief(self):
+        from video_packaging import artwork_candidate
+        topics = json.loads(Path('history_topics.json').read_text())
+        prompts = []
+        for topic in topics:
+            visual = artwork_candidate('Too short', topic)
+            prompt = complete_thumbnail_prompt(visual, 'WHO CONTROLS YOU?', topic['id'])
+            self.assertIn(topic['thumbnail_anchor'], prompt)
+            self.assertNotIn('chess', prompt.lower())
+            self.assertLess(len(prompt.split()), 90)
+            prompts.append(prompt)
+        self.assertEqual(len(set(prompts)), len(topics))
+
     def test_export_has_exact_type_mobile_preview_and_episode_seed(self):
         story = dict(thumbnail_prompt='An anxious adult notices strings pulling one wrist',
                      thumbnail_text='WHO CONTROLS YOU?')

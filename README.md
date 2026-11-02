@@ -164,10 +164,13 @@ tactile materials and diorama depth, with varied compositions and bright palette
 Video backgrounds use realistic cinematic documentary photography; thumbnails retain
 3D storybook art direction. Both styles are defined in `visual_style.py`. CPU video
 scenes exclude 3D/CGI and text; the hosted backend receives the realistic scene style. Existing cached scene images require regeneration.
-The exact short headline stays integrated in the generated image. Inspect spelling
-and composition before publishing; prompt changes do not guarantee a CTR increase.
+Artwork is generated without text using a concise brief with one dominant subject
+and one visual clue. The exact headline is composited afterward with high-contrast
+type on the reserved side; the subject side alternates deterministically by episode.
+Review the saved 320×180 mobile preview and full-size image before publishing;
+visual clarity does not guarantee a CTR increase.
 Existing uploaded thumbnails and resumed runs with cached artwork need regeneration
-to adopt this style. New designs are marked `storybook-3d-v2` in `thumbnail-design.json`.
+to adopt this style. New designs are marked `storybook-mobile-v3` in `thumbnail-design.json`.
 
 ### YouTube upload details and search metadata
 
