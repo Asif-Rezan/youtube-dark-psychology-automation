@@ -68,7 +68,7 @@ YouTube tag edits do not block cleanup.
 Automatic daily generation uses `AUTOMATION_ENABLED=true`; uploading uses
 `PUBLISH_ENABLED=true`. The old pipeline enabled daily publishing in workflow code;
 those switches are configured in this repository when migration is applied.
-New generation begins at 21:00 UTC (03:00 Asia/Dhaka), with the same 72-hour /
+New generation begins at 18:00 UTC (00:00 Asia/Dhaka), with the same 72-hour /
 6 AM New York publication policy. Manual dispatch requires a new run ID. No full
 video generation or upload is performed merely by this migration commit.
 
@@ -93,7 +93,7 @@ Copied from [Heart-and-Mind](https://github.com/Asif-Rezan/Heart-and-Mind) at `0
 
 Run **Dudi Dam TV kids rhyme generation** from GitHub Actions with a new `run_id`. The lyrics job checks and reserves lyric originality in private Drive history; connected Drive credentials are required for the production workflow. Local generation without history can run without Google credentials. Download `kids-video-RUN_NUMBER` for the MP4, thumbnail and song/storyboard JSON. Generation is computationally expensive and has not yet been verified end to end on Actions. Existing model revisions and CPU dependencies come from the reference; 120-second sections reload the model for bounded worker isolation. Model memory/time limits may require a larger runner.
 
-Automatic scheduling is off unless repository variable `AUTOMATION_ENABLED=true`. Publishing requires `PUBLISH_ENABLED=true`. The scheduled time inherited from the reference is 03:00 Asia/Dhaka. The workflow defaults to 600 seconds; adjust `VIDEO_DURATION_SECONDS` in its workflow-level env for other durations.
+Automatic scheduling is off unless repository variable `AUTOMATION_ENABLED=true`. Publishing requires `PUBLISH_ENABLED=true`. The scheduled time inherited from the reference is 00:00 Asia/Dhaka. The workflow defaults to 600 seconds; adjust `VIDEO_DURATION_SECONDS` in its workflow-level env for other durations.
 
 For local AI lyric writing (downloads the pinned Qwen GGUF model):
 
@@ -131,7 +131,7 @@ Scheduled media is retained on Drive. After its release, rerun the same publishi
 
 ## Daily 6 AM New York releases
 
-Daily generation starts at 21:00 UTC (03:00 Asia/Dhaka). Once each video finishes uploading, it is scheduled for the first **06:00 America/New_York** slot at least **72 elapsed hours after upload completion**. New York daylight saving changes are handled by the IANA timezone database. The actual wait is 72 hours up to the next qualifying 6 AM slot (normally less than 96 hours). There is an initial three-plus-day buffer before the first release; generation failures/delays can leave gaps.
+Daily generation starts at 18:00 UTC (00:00 Asia/Dhaka). Once each video finishes uploading, it is scheduled for the first **06:00 America/New_York** slot at least **72 elapsed hours after upload completion**. New York daylight saving changes are handled by the IANA timezone database. The actual wait is 72 hours up to the next qualifying 6 AM slot (normally less than 96 hours). There is an initial three-plus-day buffer before the first release; generation failures/delays can leave gaps.
 
 The default upload is private without a publication timestamp. After YouTube returns its video ID, the pipeline records upload completion, computes and saves the target, then updates YouTube `status.publishAt`. Retry attempts reuse the saved target rather than delaying it again. This step needs `youtube.force-ssl` authorization in addition to the existing upload/read scopes. Default workflow mode is `scheduled` and `publish_at` is empty, so both daily and manual runs follow this policy unless explicitly overridden. `AUTOMATION_ENABLED=true` enables daily generation and `PUBLISH_ENABLED=true` enables uploading.
 

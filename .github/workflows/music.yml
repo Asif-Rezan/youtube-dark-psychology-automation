@@ -39,7 +39,7 @@ on:
         required: false
         type: string
   schedule:
-    - cron: '0 21 * * *' # 03:00 Asia/Dhaka (next local day)
+    - cron: '0 18 * * *' # 00:00 Asia/Dhaka (next local day)
 env:
   VIDEO_DURATION_SECONDS: '600'
   REFERENCE_AUDIO_PATH: assets/reference/style-reference.mp3
