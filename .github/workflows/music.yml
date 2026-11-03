@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        style: [dance, singalong]
+        style: [cover-balanced, cover-close]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
@@ -72,6 +72,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: hindi-kids-v2-${{ matrix.style }}
+          name: hindi-reference-${{ matrix.style }}
           path: output/preview/
           retention-days: 7

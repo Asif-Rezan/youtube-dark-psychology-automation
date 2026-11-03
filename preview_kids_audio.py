@@ -9,34 +9,32 @@ REFRAIN = 'दूदी दूदी दम दम'
 
 
 def preview_song(style):
-    if style not in ('dance', 'singalong'):
-        raise ValueError('Unknown kids preview style')
-    bpm = 116 if style == 'dance' else 108
-    arrangement = ('Bouncy toy piano and marimba, ukulele offbeats, light handclaps, playful bells, a simple dancing beat.'
-                   if style == 'dance' else
-                   'Gentle acoustic ukulele, bright glockenspiel, soft handclaps, a simple swaying beat.')
+    if style not in ('cover-balanced', 'cover-close'):
+        raise ValueError('Unknown cover preview style')
     return dict(_segment=True, vocal_language='hi', vocal_gender='female', duration=30,
-        bpm=bpm, generation_seed=20261104 if style == 'dance' else 20261105,
-        prompt=f'Hindi preschool sing-along nursery rhyme, {bpm} BPM, C major, cheerful major-key melody. '
-            'One bright, warm, sweet female lead singer with a smiling playful delivery, clear natural Hindi pronunciation, '
-            'short easy phrases, clean sustained vowels and gentle expressive pitch movement. '
-            'Catchy repeated four-note chorus that toddlers can copy. Lead vocal close and clearly above a light backing. '
-            +arrangement+' Start singing immediately, steady music, happy little ending.',
-        lyrics='\n'.join(['[Chorus]', REFRAIN, 'आओ नाचें छम छम',
-            '[Verse]', 'ताली बजाओ, ताली बजाओ', 'हँसते गाते, घूमो घूमो',
-            '[Chorus]', REFRAIN, 'आओ नाचें छम छम', REFRAIN]))
+        bpm=123, generation_seed=20261107, reference_cover=True,
+        cover_strength=0.75 if style == 'cover-balanced' else 1.0,
+        prompt='Hindi nursery rhyme cover of the source audio. Preserve the source song melody, '
+            'recognizable hook melody, drum groove, bass rhythm, instruments, arrangement and 123 BPM tempo, D major. '
+            'A single sweet clear female singer performs the new Hindi lyrics naturally to the source melody. '
+            'Playful smiling expression, clear Hindi syllables, one coherent clean vocal and backing arrangement.',
+        lyrics='\n'.join(['[Chorus]', 'दूदी दूदी दम दम दूदी दूदी दम',
+            'आओ मिलकर नाचें हम, आओ नाचें हम',
+            '[Verse]', 'नन्हे मुन्ने ताली बजाएं', 'प्यारे पंछी गीत सुनाएं',
+            '[Chorus]', 'दूदी दूदी दम दम दूदी दूदी दम',
+            'हँसते गाते झूमें हम, झूमें सारे हम']))
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--style', choices=['dance', 'singalong'], required=True)
+    parser.add_argument('--style', choices=['cover-balanced', 'cover-close'], required=True)
     args = parser.parse_args()
     from music_cpu import synthesize
     root = Path('output/preview')
     root.mkdir(parents=True, exist_ok=True)
     song = preview_song(args.style)
     (root/'song.json').write_text(json.dumps(song, ensure_ascii=False, indent=2))
-    wav = root/f'hindi-kids-v2-{args.style}.wav'
+    wav = root/f'hindi-reference-{args.style}.wav'
     synthesize(song, wav, Path(os.environ['ACESTEP_SOURCE_DIR']), Path(os.environ['ACESTEP_CHECKPOINTS_DIR']))
     subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', str(wav),
         '-af', 'loudnorm=I=-16:TP=-1.5:LRA=9', '-codec:a', 'libmp3lame', '-b:a', '192k',

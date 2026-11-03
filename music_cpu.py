@@ -110,10 +110,15 @@ def synthesize(song, target, source, model_root):
         prefer_source='huggingface', use_mlx_dit=False)
     if not ready or handler.device != 'cpu':
         raise RuntimeError('ACE-Step CPU initialization failed')
+    cover_options = {}
+    if song.get('reference_cover'):
+        cover_options = dict(task_type='cover', src_audio=reference,
+            audio_cover_strength=float(song.get('cover_strength', 1.0)),
+            cover_noise_strength=0.2)
     params = Params(caption=song['prompt'], lyrics=song['lyrics'],
         duration=song['duration'], bpm=song.get('bpm'), reference_audio=reference, vocal_language=song.get('vocal_language','en'), instrumental=False,
         inference_steps=8, thinking=False, use_cot_metas=False,
-        use_cot_caption=False, use_cot_language=False)
+        use_cot_caption=False, use_cot_language=False, **cover_options)
     seed = song.get('generation_seed')
     seed_options = dict(use_random_seed=False, seeds=[int(seed)]) if seed is not None else {}
     config = Config(batch_size=1, audio_format='wav', allow_lm_batch=False, **seed_options)
