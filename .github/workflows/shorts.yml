@@ -42,6 +42,8 @@ on:
         type: string
         default: scheduled
     secrets:
+      FACEBOOK_PAGE_ACCESS_TOKEN:
+        required: false
       YOUTUBE_TOKEN_JSON:
         required: true
       EXPECTED_CHANNEL_ID:
@@ -283,3 +285,15 @@ jobs:
           name: short-publication-${{ github.run_id }}
           path: output/shorts/**/*.json
           retention-days: 7
+
+  facebook:
+    name: Schedule Facebook Reel
+    needs: short
+    if: ${{ always() && !cancelled() && needs.short.result == 'success' && vars.FACEBOOK_PUBLISH_ENABLED == 'true' && vars.PUBLISH_ENABLED == 'true' }}
+    uses: ./.github/workflows/facebook.yml
+    with:
+      source_run: ${{ format('{0}', github.run_id) }}
+      run_id: ${{ inputs.run_id }}
+      kind: short
+      non_blocking: true
+    secrets: inherit

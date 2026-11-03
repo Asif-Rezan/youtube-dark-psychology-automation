@@ -49,7 +49,7 @@ The existing destination channel stays `UCYjz7d66SsshimfpxZahlhQ`; no source-rep
 credentials or channel identity are copied. Dudi rhyme words and fixed video
 metadata match the requested source pipeline; the YouTube channel itself is not renamed.
 
-The old documentary workflows have been removed from active main so they cannot
+The old documentary generation workflows have been removed from active main so they cannot
 produce psychology videos alongside the new kids workflow. Their full source is
 preserved by the rollback tag above and the archived README. Existing uploads
 and documentary Drive media are unchanged.
@@ -255,3 +255,23 @@ those root files, saves a report, and verifies that no direct files remain.
 Subfolders, including the new kids folder, are never traversed or deleted. This
 operation does not edit/delete existing YouTube or Facebook publications. Deleted
 media and old Drive checkpoints cannot be recovered from the code rollback tag.
+
+
+## Facebook publishing retained
+
+Facebook publishing is restored for this repository's original Grow with Rezan
+Page (`301624356367343`), using its existing `FACEBOOK_PAGE_ACCESS_TOKEN` secret.
+`FACEBOOK_PUBLISH_ENABLED=true` and `PUBLISH_ENABLED=true` enable both landscape
+videos and vertical Reels. Each Facebook job runs after its YouTube publication
+checkpoint is verified and schedules the same original MP4 at the saved YouTube
+publication timestamp. It does not regenerate media or change YouTube uploads.
+
+The upload/session/video ID and frozen schedule are checkpointed separately in
+the private kids Drive folder. Repeating an upload reuses its existing ID; a lost
+initial response requires reconciliation rather than creating a duplicate.
+Failures remain visible in the Facebook job and its checkpoint artifacts while
+YouTube publication continues independently. Manual Facebook-only recovery is
+available through `facebook.yml` with the original GitHub source run and song ID.
+Default scheduling is the existing 72-hour / 6 AM New York YouTube policy. A
+public-mode YouTube run without a saved schedule is refused by Facebook rather
+than being posted immediately. This addition applies to new workflow runs.
