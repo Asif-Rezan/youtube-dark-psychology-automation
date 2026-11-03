@@ -28,52 +28,75 @@ def safer_prompt(prompt):
     for pattern, replacement in replacements:
         prompt = re.sub(pattern, replacement, prompt, flags=re.I)
     # Preserve the scene's visual anchor before the encoders' token limit.
-    return (prompt + ' Safe non-graphic historical reconstruction; fully clothed people, '
-            'no violence or exposed bodies.')
+    return prompt + ' Gentle child-friendly storybook scene, no violence.'
 
 def recovery_prompt(prompt):
-    """Reframe the same setting and props as an unoccupied evidence scene."""
-    scene = re.sub(r'\b(?:people|person|man|woman|men|women|crowd|workers|soldiers|ruler|child|children)\b',
-                   'historical setting', prompt, flags=re.I)
-    return safer_prompt('Unoccupied historical site and artifacts, environmental documentary view. '
-                        + scene + ' Focus on architecture, tools and landscape; no people depicted.')
+    """Keep the musical mood with a restrained fully clothed composition."""
+    return safer_prompt(prompt + ' Keep the same complete cast together, fully clothed, gentle expressions, separate full bodies.')
 
 
-# Previous image model, retained for easy restoration:
-# MODEL = 'Lykon/dreamshaper-8'
-# REVISION = 'a7e52b98680b1ba8ff7bce97c7f9f2e2e5337917'
+# Pinned to the same public model as the Rezan After Dark reference project.
 MODEL = 'segmind/SSD-1B'
 REVISION = '60987f37e94cd59c36b1cba832b9f97b57395a10'
+GUIDANCE_SCALE = 7.0
+
+
+def negative_prompt():
+    return ('text, letters, typography, captions, Hindi writing, title, signature, watermark, logo, '
+            'poster, magazine, red brushwork, elderly, old man, gray hair, deep wrinkles, '
+            'orange skin, underexposed faces, silhouette, crowd, fused faces, '
+            'duplicated face, cropped head, extreme close-up, deformed hands, extra limbs, extra ears, extra tails, '
+            'plastic skin, blur, low quality, photorealistic, horror, frightening, collage, split screen, '
+            'black panel, border, plain studio background, seamless white background, empty backdrop, ' + os.getenv('IMAGE_NEGATIVE_PROMPT', ''))
+
+
+
 _pipeline = None
-def generate(prompt, path, *, allow_text=False, seed=None, style=None, width=None, height=None):
+
+def generate(prompt, path, seed, allow_text=False, width=None, height=None, steps=None, reference_image=None, strength=None):
+    if allow_text:
+        raise ValueError('Dudi Dam TV artwork must be text-free')
+    if reference_image is None and strength is not None:
+        raise ValueError('Image-to-image strength requires a reference image')
+    if reference_image is not None:
+        if strength is None or not 0 < float(strength) <= 1:
+            raise ValueError('Reference image strength must be greater than zero and at most one')
+        from PIL import Image, ImageOps
+        with Image.open(reference_image) as source:
+            initial_image=ImageOps.exif_transpose(source).convert('RGB')
     global _pipeline
-    if style not in (None, 'storybook-3d'):
-        raise ValueError('Unsupported image style')
     import torch
     from diffusers import DiffusionPipeline, DPMSolverMultistepScheduler
     torch.set_num_threads(min(os.cpu_count() or 2, 4))
-    model = os.getenv('CPU_IMAGE_MODEL') or MODEL
-    revision = os.getenv('CPU_MODEL_REVISION') or (REVISION if model == MODEL else 'main')
+    width = width if width is not None else int(os.getenv('CPU_IMAGE_WIDTH', '1024'))
+    height = height if height is not None else int(os.getenv('CPU_IMAGE_HEIGHT', '576'))
+    steps = steps if steps is not None else int(os.getenv('CPU_IMAGE_STEPS', '16'))
+    if width % 8 or height % 8 or not 256 <= width <= 1536 or not 256 <= height <= 1536:
+        raise ValueError('CPU image dimensions must be multiples of eight in 256–1536')
+    if not 1 <= steps <= 50:
+        raise ValueError('CPU generation requires 1–50 steps')
+    if reference_image is not None and int(steps*float(strength)) < 1:
+        raise ValueError('Reference strength and steps must produce at least one denoising step')
+    model, revision = MODEL, REVISION
     if _pipeline is None:
         print('Loading public image-model weights on CPU', flush=True)
         # Pinned public SSD-1B safetensors on CPU. Keep the model's safety checker.
         _pipeline = DiffusionPipeline.from_pretrained(model, revision=revision,
-            torch_dtype=torch.float32, use_safetensors=True, trust_remote_code=False)
+            torch_dtype=torch.float32, use_safetensors=True, trust_remote_code=False, token=False)
         _pipeline.scheduler = DPMSolverMultistepScheduler.from_config(
             _pipeline.scheduler.config, algorithm_type='dpmsolver++', use_karras_sigmas=True)
         _pipeline.to('cpu')
         _pipeline.enable_attention_slicing()
         _pipeline.enable_vae_slicing()
-    width = int(os.getenv('CPU_IMAGE_WIDTH', '1024')) if width is None else int(width)
-    height = int(os.getenv('CPU_IMAGE_HEIGHT', '576')) if height is None else int(height)
-    steps = int(os.getenv('CPU_IMAGE_STEPS', '16'))
-    if width % 8 or height % 8 or not 256 <= width <= 1536 or not 256 <= height <= 1536:
-        raise ValueError('CPU image dimensions must be multiples of eight in 256–1536')
-    if not 1 <= steps <= 50:
-        raise ValueError('CPU generation requires 1–50 steps')
     pipeline = _pipeline
+    reference_options={}
+    if reference_image is not None:
+        from diffusers import AutoPipelineForImage2Image
+        # Share existing SSD-1B components; do not load a second copy of weights.
+        pipeline=AutoPipelineForImage2Image.from_pipe(_pipeline)
+        initial_image=ImageOps.fit(initial_image,(width,height),method=Image.Resampling.LANCZOS)
+        reference_options=dict(image=initial_image,strength=float(strength))
     start = time.monotonic()
-    seed = int(os.getenv('IMAGE_SEED', '42')) if seed is None else seed
     image = None
     initial_prompt = safer_prompt(prompt)
     rewritten = recovery_prompt(prompt)
@@ -81,18 +104,10 @@ def generate(prompt, path, *, allow_text=False, seed=None, style=None, width=Non
         # Five seeds per composition; keep input sanitization and output checks.
         candidate = initial_prompt if attempt < 5 else rewritten
         if attempt == 5:
-            print('Five safety rejections; switching to an environmental reconstruction.', flush=True)
-        negative = ('anime, cartoon, watercolor, flat colors, line art, cel shading, blurry, low detail, poor quality, '
-            'extra arms, extra legs, deformed hands, duplicate person, watermark, logo, ')
-        if style == 'storybook-3d':
-            negative += 'muppet, felt puppet, toy, childish, crowd, busy background, tiny subject, clutter, '
-        if style != 'storybook-3d':
-            negative += '3D render, CGI, '
-        negative += ('misspelled words, illegible typography, tiny lettering, muddy colors, underexposed, '
-                     if allow_text else 'text, letters, ')
-        result = pipeline(prompt=candidate, negative_prompt=negative + os.getenv('IMAGE_NEGATIVE_PROMPT', ''), width=width, height=height,
-            num_inference_steps=steps, guidance_scale=9.0,
-            generator=torch.Generator(device='cpu').manual_seed(seed + attempt * 10007))
+            print('Five safety rejections; retrying a restrained music portrait.', flush=True)
+        result = pipeline(prompt=candidate, negative_prompt=negative_prompt(), width=width, height=height,
+            num_inference_steps=steps, guidance_scale=GUIDANCE_SCALE,
+            generator=torch.Generator(device='cpu').manual_seed(seed + attempt * 10007),**reference_options)
         if any(getattr(result, 'nsfw_content_detected', None) or []):
             print(f'Image safety check rejected attempt {attempt+1}/10.', flush=True)
             continue
@@ -110,4 +125,4 @@ if __name__ == '__main__':
     parser.add_argument('--prompt', required=True)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
-    generate(args.prompt, args.output)
+    generate(args.prompt, args.output, seed=42)

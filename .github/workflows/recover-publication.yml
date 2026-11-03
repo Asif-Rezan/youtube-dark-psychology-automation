@@ -1,0 +1,93 @@
+name: Recover finished video publication
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: GitHub run containing the finished video and source artifacts
+        required: true
+        type: string
+      run_id:
+        description: Original song run ID (must match the saved video)
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: dudi-dam-tv-publish
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      SONG_RUN_ID: ${{ inputs.run_id }}
+      SOURCE_RUN: ${{ inputs.source_run }}
+      UPLOAD_MODE: scheduled
+      YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+      EXPECTED_CHANNEL_ID: ${{ secrets.EXPECTED_CHANNEL_ID || vars.EXPECTED_CHANNEL_ID || 'UCYjz7d66SsshimfpxZahlhQ' }}
+      DRIVE_TOKEN_JSON: ${{ secrets.DRIVE_TOKEN_JSON }}
+      DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Validate recovery identity
+        shell: bash
+        run: |
+          [[ "$SONG_RUN_ID" =~ ^[a-zA-Z0-9_-]{1,80}$ ]] || exit 1
+          [[ "$SOURCE_RUN" =~ ^[0-9]+$ ]] || exit 1
+      - name: Install video tools
+        timeout-minutes: 10
+        run: |
+          bash scripts/install-runner-packages.sh ffmpeg
+          pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: generated-music-${{ inputs.source_run }}
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: output/
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: generated-artwork-${{ inputs.source_run }}-*
+          merge-multiple: true
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: output/
+      - uses: actions/download-artifact@v4
+        with:
+          name: kids-video-${{ inputs.source_run }}
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: output/
+      - uses: actions/download-artifact@v4
+        with:
+          name: music-output-${{ inputs.source_run }}
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: output/
+      - name: Require intact finished render before publication
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from motion_video import render_is_current
+          root=Path('output')/os.environ['SONG_RUN_ID']
+          if not render_is_current(root):
+              raise SystemExit('Recovery artifacts do not match the finished render; refusing regeneration')
+          print('Finished video and original sources verified')
+          PY
+      - name: Resume backup and publication
+        if: vars.PUBLISH_ENABLED == 'true'
+        run: python -u pipeline.py --run-id "$SONG_RUN_ID" --defer-drive-cleanup
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: recovered-publication-${{ github.run_id }}
+          path: output/*/*.json
+          retention-days: 7

@@ -1,0 +1,5 @@
+# Same SSD-1B diffusion stack as the Rezan After Dark reference project.
+diffusers>=0.35,<0.37
+transformers>=4.44,<5
+accelerate>=1.0,<2
+safetensors>=0.4,<1

@@ -1,0 +1,15 @@
+{
+  "mode": "scheduled",
+  "publish_at": null,
+  "language": "en",
+  "audio_language": "en",
+  "category_id": "10",
+  "made_for_kids": true,
+  "contains_synthetic_media": true,
+  "license": "youtube",
+  "embeddable": true,
+  "public_stats_viewable": true,
+  "notify_subscribers": true,
+  "paid_product_placement": false,
+  "schedule_policy": "new_york_6am_after_72h"
+}

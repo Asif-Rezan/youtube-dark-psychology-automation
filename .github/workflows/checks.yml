@@ -1,0 +1,31 @@
+name: Component checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install audio tools for regression tests
+        timeout-minutes: 10
+        run: bash scripts/install-runner-packages.sh ffmpeg
+      - run: pip install -r requirements.txt
+      - run: python -m unittest -v
+      - name: Verify bounded CPU worker on real Linux cgroups
+        run: python check_worker_limits.py
+  workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+      - name: Validate active GitHub Actions workflows
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          "$(go env GOPATH)/bin/actionlint" -shellcheck= -pyflakes=

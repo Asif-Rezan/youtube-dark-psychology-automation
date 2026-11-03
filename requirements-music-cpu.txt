@@ -1,0 +1,12 @@
+# Install torch/torchaudio CPU wheels separately from PyTorch's official CPU index.
+transformers>=4.51,<4.58
+diffusers==0.36.0
+accelerate>=1.12,<2
+safetensors==0.7.0
+soundfile>=0.13.1,<0.14
+scipy>=1.10,<2
+loguru>=0.7.3,<0.8
+einops>=0.8.1,<0.9
+vector-quantize-pytorch>=1.27.15,<2
+numba>=0.63.1,<1
+peft>=0.18,<0.19
