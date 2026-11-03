@@ -2,15 +2,16 @@
 import hashlib
 import json
 import re
+import unicodedata
 from pathlib import Path
-from lyrics_cpu import MODEL_ID, request_story, StoryGenerationError, LYRIC_WORD_PATTERN
+from lyrics_cpu import MODEL_ID, request_story, StoryGenerationError, HINDI_LYRIC_PATTERN
 
-VERSION='qwen-kids-original-v5-babies-and-animals'
+VERSION='qwen-kids-hindi-v6-babies-and-animals'
 REFRAIN='dudi dudi dam dam dudi dudi dam'
 
 
 def normalized(text):
-    return ' '.join(re.findall(r'[a-z]+',text.lower()))
+    return ' '.join(re.findall(r'[a-z\u0900-\u0963\u0971-\u097f]+', unicodedata.normalize('NFC',text).casefold()))
 
 
 def verse_lines(song):
@@ -40,7 +41,7 @@ def request_json(schema, prompt, seed, budget=2600):
     payload={'model':MODEL_ID,'temperature':.85,
         'max_completion_tokens':budget,
         'bounded_metadata_fields':['description','title','characters','visual_world'],
-        'messages':[{'role':'system','content':'You write original, gentle, joyful English nursery rhymes for ages 2-6. Return the requested JSON only. Never reuse a stock verse or a known song.'},
+        'messages':[{'role':'system','content':'You write original, gentle, joyful Hindi nursery rhymes for ages 2-6. Write sung lyric fields only in Hindi Devanagari. Keep planning metadata and visual image descriptions in English. Return the requested JSON only. Never reuse a stock verse or a known song.'},
                     {'role':'user','content':prompt}],
         'response_format':{'type':'json_schema','json_schema':{'name':'kids_rhyme','schema':schema}}}
     for attempt in range(3):
@@ -102,7 +103,7 @@ def write_rhyme(day, identity, seconds, history, draft_path=None):
             schema={'type':'object','additionalProperties':False,'required':['verses'],'properties':{
                 'verses':{'type':'array','minItems':count,'maxItems':count,'items':{
                     'type':'object','additionalProperties':False,'required':['lyric','visual'],
-                    'properties':{'lyric':{'type':'string','minLength':10,'maxLength':100,'pattern':LYRIC_WORD_PATTERN},
+                    'properties':{'lyric':{'type':'string','minLength':10,'maxLength':100,'pattern':HINDI_LYRIC_PATTERN},
                                   'visual':{'type':'string','minLength':15,'maxLength':180}}}}}}
             # Keep useful model output; only ask again for rejected/missing lines.
             pending=state.get('pending',{})
@@ -117,14 +118,14 @@ def write_rhyme(day, identity, seconds, history, draft_path=None):
                 schema['properties']['verses']['minItems']=remaining
                 schema['properties']['verses']['maxItems']=remaining
                 block=request_json(schema,
-                    f'Write exactly {remaining} NEW short English sung lines for chapter {chapter+1}/{chapters} of this original episode: '
+                    f'Write exactly {remaining} NEW short Hindi sung lines in Devanagari script for chapter {chapter+1}/{chapters} of this original episode: '
                     +json.dumps(outline)+'. Current chapter: '+outline['chapters'][chapter]+'. '
-                    'Each line occupies five seconds: aim for 4-8 simple singable words, NEVER more than 12. Use single spaces and plain English words without apostrophes or hyphens. Count words before returning JSON. '
+                    'Each line occupies five seconds: aim for 4-8 simple singable words, NEVER more than 12. Use single spaces and simple Hindi words in Devanagari script, not English or Romanized Hindi. No digits or hyphens. Count words before returning JSON. '
                     f'Between every two original lines the singer will sing "{REFRAIN}" for five seconds. '
                     'Do not put that refrain in your output; the arranger inserts it. '
                     'Every verse line must be different. Develop this chapter rather than repeating earlier verses. '
                     'For each line, visual describes the same action and setting, featuring the episode characters with their exact appearance from the outline. Describe BOTH human toddlers and cute baby animals at the beginning of every visual. Keep both babies and animals equally prominent with separate full bodies, hands and feet visible, playing or dancing together. Never describe a solo animal composition. Alternate playful dancing, waving and little steps with concrete animal-led discoveries; do not make every scene jump. Name the visible subjects, action, relevant props and setting explicitly. Describe one small event: noticing something, reacting, approaching it and sharing a happy response. Avoid static posing. Use varied dance poses and playful actions rather than repeating one pose. Match the lyric literally where possible, and vary locations as the chapter develops. '
-                    'It is a text-free cartoon picture prompt, with no camera instructions or lettering. '
+                    'Write visual in English so the image model understands the Hindi lyric action. It is a text-free cartoon picture prompt, with no camera instructions or lettering. '
                     'Previous lines to avoid repeating: '+json.dumps(prior+[row['lyric'] for row in rows])+
                     '. Fix these rejected-line constraints: '+json.dumps(feedback)+
                     '. Rewrite only these rejected candidates when supplied, preserving their action and visual meaning: '+json.dumps(rejected)+
@@ -138,6 +139,7 @@ def write_rhyme(day, identity, seconds, history, draft_path=None):
                     words=len(line.split())
                     reason=('word_count' if not 4<=words<=12 else
                             'reserved_refrain' if line==REFRAIN else
+                            'hindi_required' if not re.fullmatch(HINDI_LYRIC_PATTERN,row['lyric']) else
                             'duplicate_line' if line in seen else None)
                     if reason:
                         rejected.append({'lyric':row['lyric'],'visual':row['visual']})

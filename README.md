@@ -82,7 +82,7 @@ Copied from [Heart-and-Mind](https://github.com/Asif-Rezan/Heart-and-Mind) at `0
 ## Current behavior
 
 - Default: 600 seconds. Set `VIDEO_DURATION_SECONDS` to 480–720 in five-second steps.
-- Sweet adult female singing voice requested, original AI-written English verses alternating with **dudi dudi dam dam dudi dudi dam**. This phrase is a sung refrain, not musical chord notation.
+- Sweet adult female singing voice requested, original AI-written Hindi verses in Devanagari alternating with **dudi dudi dam dam dudi dudi dam**. This phrase is a sung refrain, not musical chord notation.
 - The first lyrics job runs the pinned local Qwen3-4B CPU model to write a fresh adventure outline, new English verses, and matching visual descriptions. Only the Dudi refrain is fixed. There is no template fallback. Each run ID uses a different generation seed.
 - A new SSD-1B cartoon illustration for every five seconds (96–144 images), plus a thumbnail. Sixteen image workers split generation and checkpoint each completed image.
 - ACE-Step generates separate sections up to 120 seconds, then FFmpeg joins them. Music is not looped or padded. Short or incorrectly sized sections fail. Section joins and voice/character consistency need listening/viewing review.
@@ -275,3 +275,20 @@ available through `facebook.yml` with the original GitHub source run and song ID
 Default scheduling is the existing 72-hour / 6 AM New York YouTube policy. A
 public-mode YouTube run without a saved schedule is refused by Facebook rather
 than being posted immediately. This addition applies to new workflow runs.
+
+
+## Hindi sung verses
+
+New generation IDs use original Hindi verses in Devanagari, alternating with the
+exact unchanged refrain `dudi dudi dam dam dudi dudi dam`. Hindi lines have 4–12
+words, with script/length and Unicode-aware novelty checks. Rejected English or
+Romanized Hindi lines receive bounded targeted rewrites; there is no translation
+or template fallback. Planning metadata and visual prompts remain in English so
+the existing cartoon generation keeps its current behavior.
+
+Both long music and independently generated Shorts inherit `vocal_language=hi`.
+YouTube audio language defaults to Hindi; fixed public title/description remain
+unchanged. Existing saved episodes are not translated or regenerated. Use a new
+run ID for this Hindi writer version. Female voice, reference music, tempo,
+mastering, thumbnails, animation, midnight Asia/Dhaka generation and YouTube /
+Facebook scheduling remain as configured.

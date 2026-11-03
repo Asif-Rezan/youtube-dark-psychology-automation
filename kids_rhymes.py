@@ -52,11 +52,11 @@ def make_song(day, history, draft_path=None, generation_id=None, vocal_gender_ov
     scenes=scenes[:seconds//5]
     outline=written['outline']
     song = dict(title=outline['title'], lyrics='\n'.join(scene['lyric'] for scene in scenes),duration=seconds,
-        prompt='Joyful nursery rhyme, cute sweet adult female singing voice, clear English diction, playful dudi dudi dam dam refrain, C major, 120 BPM, bouncy ukulele, bright xylophone, steady handclaps and gentle bass. Continuous lively instrumental backing under every vocal line, no silent breaks, no stop-start pauses, no shouting.',
+        prompt='Joyful nursery rhyme, cute sweet adult female singing voice, clear Hindi diction, Hindi verses in Devanagari with the unchanged Latin dudi refrain, playful dudi dudi dam dam refrain, C major, 120 BPM, bouncy ukulele, bright xylophone, steady handclaps and gentle bass. Continuous lively instrumental backing under every vocal line, no silent breaks, no stop-start pauses, no shouting.',
         description=outline['description'],story_summary=outline['story_summary'],
         visual_identity=dict(characters=outline.get('characters',''), world=outline.get('visual_world','')),
         lyric_writer=dict(backend='local-qwen-cpu',version=written['writer_version'],novelty_checked=True),
-        vocal_gender='female',song_date=day,scenes=scenes,bpm=120,
+        vocal_gender='female',vocal_language='hi',song_date=day,scenes=scenes,bpm=120,
         audio_mastering='continuous-kids-mix-v2',
         tags=['Dudi Dam TV','kids rhymes','nursery rhymes','Dudi Dudi Dam Dam','kids dance'])
     validate_storyboard(song)
@@ -74,6 +74,12 @@ def validate_storyboard(song):
             raise ValueError('Non-contiguous storyboard')
         if not scene.get('lyric') or not scene.get('prompt'):
             raise ValueError('Scene lyric and prompt required')
+        if song.get('vocal_language') == 'hi':
+            from lyrics_cpu import HINDI_LYRIC_PATTERN
+            if i % 2 and scene['lyric'] != REFRAIN:
+                raise ValueError('Keep the original Dudi refrain unchanged')
+            if not i % 2 and not re.fullmatch(HINDI_LYRIC_PATTERN, scene['lyric']):
+                raise ValueError('Hindi verse must contain 4–12 Devanagari words')
     if song['lyrics'] != '\n'.join(scene['lyric'] for scene in scenes):
         raise ValueError('Storyboard lyrics must match sung lyrics')
 

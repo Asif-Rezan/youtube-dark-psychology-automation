@@ -20,8 +20,8 @@ def fake_model(schema,prompt,seed,budget=2600):
             'chapters':[f'Chapter {i}: find a friendly surprise in the garden' for i in range(count)]}
     count=schema['properties']['verses']['minItems']
     # Distinct fixture words, varying with the model request seed.
-    signature=''.join(chr(97+int(c,16)) for c in format(seed,'x'))
-    return {'verses':[{'lyric':f'{WORDS[i]} friendly {signature} ducklings explore meadow',
+    signature=''.join(chr(0x915+int(c,16)) for c in format(seed,'x'))
+    return {'verses':[{'lyric':f'{chr(0x915+i)} नन्हे {signature} बत्तख बगीचे में खेलें',
                        'visual':f'Duckling and bunny wave beside a {WORDS[i]} flower bed'} for i in range(count)]}
 
 class WriterTests(unittest.TestCase):
@@ -67,7 +67,7 @@ class WriterTests(unittest.TestCase):
         def repeated(schema,prompt,seed,budget=2600):
             result=fake_model(schema,prompt,seed)
             if 'verses' in result:
-                for row in result['verses']: row['lyric']='Happy little bunny waves hello'
+                for row in result['verses']: row['lyric']='नन्हा खरगोश हँसकर सबको प्यार दिखाए'
             return result
         with patch('rhyme_writer.request_json',side_effect=repeated), self.assertRaises(StoryGenerationError):
             write_rhyme('2026-10-28','repeat',480,[])
@@ -97,7 +97,7 @@ class WriterTests(unittest.TestCase):
                 result=fake_model(schema,prompt,seed)
                 if 'verses' in result:
                     for row in result['verses']:
-                        row['lyric']='Happy little bunny waves hello'
+                        row['lyric']='नन्हा खरगोश हँसकर सबको प्यार दिखाए'
                 return result
             with patch('rhyme_writer.request_json',side_effect=model), self.assertRaises(StoryGenerationError) as caught:
                 write_rhyme('2026-10-28','partial',120,[],path)
@@ -155,7 +155,7 @@ class WriterTests(unittest.TestCase):
         self.assertNotEqual(first['sections'],second['sections'])
 
     def test_rejected_long_line_is_sent_for_targeted_rewrite(self):
-        from lyrics_cpu import LYRIC_WORD_PATTERN
+        from lyrics_cpu import HINDI_LYRIC_PATTERN
         from jsonschema import Draft202012Validator
         calls=[]
         long_line='One two three four five six seven eight nine ten eleven twelve thirteen'
@@ -172,9 +172,9 @@ class WriterTests(unittest.TestCase):
         self.assertEqual(len(calls),2)
         self.assertIn(long_line,calls[1][1])
         lyric_schema=calls[0][0]['properties']['verses']['items']['properties']['lyric']
-        self.assertEqual(lyric_schema['pattern'],LYRIC_WORD_PATTERN)
+        self.assertEqual(lyric_schema['pattern'],HINDI_LYRIC_PATTERN)
         validator=Draft202012Validator(lyric_schema)
-        self.assertTrue(validator.is_valid('Tiny bunny hops beside flowers'))
+        self.assertTrue(validator.is_valid('नन्हा खरगोश फूलों के पास नाचे'))
         self.assertFalse(validator.is_valid(long_line))
         for line in ('One two three',"Tiny bunny's ears dance and sway",'one two three four-five'):
             self.assertFalse(validator.is_valid(line))

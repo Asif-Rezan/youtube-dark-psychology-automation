@@ -29,7 +29,7 @@ on:
       audio_language:
         description: Sung audio language (BCP-47)
         type: string
-        default: en
+        default: hi
       category_id:
         description: YouTube category ID (10 Music, 27 Education)
         type: string
@@ -398,7 +398,7 @@ jobs:
       UPLOAD_MODE: ${{ inputs.upload_mode || 'scheduled' }}
       PUBLISH_AT: ${{ inputs.publish_at }}
       VIDEO_LANGUAGE: ${{ inputs.video_language || 'en' }}
-      AUDIO_LANGUAGE: ${{ inputs.audio_language || 'en' }}
+      AUDIO_LANGUAGE: ${{ inputs.audio_language || 'hi' }}
       VIDEO_CATEGORY_ID: ${{ inputs.category_id || '10' }}
       SONG_RUN_ID: ${{ needs.lyrics.outputs.run_id }}
       YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
