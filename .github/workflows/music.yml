@@ -10,6 +10,10 @@ permissions:
   contents: read
 jobs:
   preview:
+    strategy:
+      fail-fast: false
+      matrix:
+        style: [dance, singalong]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
@@ -61,30 +65,13 @@ jobs:
           assert not torch.cuda.is_available()
           print('Pinned ACE-Step CPU runtime imported successfully')
           PY
-      - name: Generate 30-second Hindi vocal preview only
-        run: |
-          mkdir -p output/preview
-          python -u - <<'PYCODE'
-          import json, os
-          from pathlib import Path
-          from music_cpu import synthesize
-          from kids_rhymes import REFRAIN
-          lyrics = '\n'.join([
-              'नन्हे बच्चे बगीचे में नाचें', REFRAIN,
-              'प्यारी चिड़िया मीठे गीत सुनाए', REFRAIN,
-              'छोटे खरगोश खुशी से ताली बजाएं', REFRAIN,
-          ])
-          song = dict(_segment=True, vocal_language='hi', vocal_gender='female',
-              duration=30, bpm=120, lyrics=lyrics,
-              prompt='Joyful nursery rhyme, cute sweet adult female singing voice, clear Hindi diction, playful dudi dudi dam dam refrain, C major, 120 BPM, bouncy ukulele, bright xylophone, steady handclaps and gentle bass. Continuous lively instrumental backing under every vocal line, no silent breaks, no stop-start pauses, no shouting.')
-          root = Path('output/preview')
-          (root/'song.json').write_text(json.dumps(song,ensure_ascii=False,indent=2))
-          synthesize(song, root/'hindi-preview.wav', Path(os.environ['ACESTEP_SOURCE_DIR']), Path(os.environ['ACESTEP_CHECKPOINTS_DIR']))
-          PYCODE
-          ffmpeg -y -v error -i output/preview/hindi-preview.wav -af loudnorm=I=-16:TP=-1.5:LRA=11 -codec:a libmp3lame -b:a 192k output/preview/hindi-preview.mp3
+      - name: Generate improved Hindi kids vocal preview
+        env:
+          PREVIEW_STYLE: ${{ matrix.style }}
+        run: python -u preview_kids_audio.py --style "$PREVIEW_STYLE"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: hindi-vocal-preview
+          name: hindi-kids-v2-${{ matrix.style }}
           path: output/preview/
           retention-days: 7

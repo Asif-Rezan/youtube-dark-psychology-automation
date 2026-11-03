@@ -114,7 +114,9 @@ def synthesize(song, target, source, model_root):
         duration=song['duration'], bpm=song.get('bpm'), reference_audio=reference, vocal_language=song.get('vocal_language','en'), instrumental=False,
         inference_steps=8, thinking=False, use_cot_metas=False,
         use_cot_caption=False, use_cot_language=False)
-    config = Config(batch_size=1, audio_format='wav', allow_lm_batch=False)
+    seed = song.get('generation_seed')
+    seed_options = dict(use_random_seed=False, seeds=[int(seed)]) if seed is not None else {}
+    config = Config(batch_size=1, audio_format='wav', allow_lm_batch=False, **seed_options)
     print(json.dumps({'phase':'synthesizing music', 'device':'cpu',
         'duration':song['duration'], 'steps':8}), flush=True)
     with torch.inference_mode(), generation_progress():
