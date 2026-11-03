@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         style: [cover-balanced, cover-close]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 120
     env:
       ACESTEP_SOURCE_DIR: ${{ github.workspace }}/.vendor/ace-step
