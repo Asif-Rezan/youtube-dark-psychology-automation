@@ -1,3 +1,45 @@
+# Version and rollback log
+
+## Dark psychology baseline — preserved 2026-11-03
+
+- Repository: `Asif-Rezan/youtube-dark-psychology-automation`
+- Exact baseline commit: `1573e3741197b0c6ddc3b560119487f3c1d7abfe`
+- Commit title: Merge pull request #11 from Asif-Rezan/fix/thumbnail-mobile-clarity
+- Rollback tag: `dark-psychology-before-kids-2026-11-03`
+- Original documentation: [Archived dark psychology README](docs/archive/dark-psychology-1573e37-README.md)
+- Previous production workflow: `.github/workflows/daily-upload.yml`
+- Previous behavior: psychology/power documentaries, Qwen scripts, Kokoro narration,
+  SSD-1B seven-second illustrations, 1344×768 thumbnail source / 1920×1080 export,
+  private uploads followed by 72-hour / 6 AM New York scheduling, optional Facebook.
+- Original destination: Grow with Rezan (`UCYjz7d66SsshimfpxZahlhQ`).
+- Existing repository secrets stay in this repository. The tag contains code, not secrets.
+
+To inspect or run the previous version in an isolated checkout:
+
+```sh
+git fetch origin --tags
+git worktree add ../dark-psychology-restored dark-psychology-before-kids-2026-11-03
+```
+
+To make the old code the active main version again, first review and back up any
+newer work, then create a restoration commit (no force push or history rewriting):
+
+```sh
+git switch main
+git pull --ff-only
+git restore --source=dark-psychology-before-kids-2026-11-03 --staged --worktree -- .
+git commit -m "Restore dark psychology baseline 1573e37"
+git push origin main
+```
+
+Check workflow schedules, repository variables, OAuth access and saved upload
+identities before restarting restored automation. Git tags do not restore cloud
+settings, credentials or deleted media. Kids media/history uses an isolated Drive
+child folder, so old documentary checkpoints remain available. Restoring main
+reinstates the old workflows; already-running Actions retain their original code.
+
+---
+
 # Grow with Rezan: psychology and power documentary automation
 
 This repository makes one original English psychology and power documentary video per day for the **Grow with Rezan** channel (`UCYjz7d66SsshimfpxZahlhQ`). Videos are uploaded privately for verification, then scheduled for 06:00 New York time at least 72 hours later. The 20 CPU image workers, seven-second visual timeline, Kokoro narration, captions, music, thumbnail, private upload verification and recovery checkpoints remain in place.

@@ -1,0 +1,215 @@
+# Grow with Rezan: psychology and power documentary automation
+
+This repository makes one original English psychology and power documentary video per day for the **Grow with Rezan** channel (`UCYjz7d66SsshimfpxZahlhQ`). Videos are uploaded privately for verification, then scheduled for 06:00 New York time at least 72 hours later. The 20 CPU image workers, seven-second visual timeline, Kokoro narration, captions, music, thumbnail, private upload verification and recovery checkpoints remain in place.
+
+Topics rotate through Machiavelli, The 48 Laws of Power, dark power plays, dark psychology, The Art of Seduction, human nature, strategic conflict and self-mastery. The curated [topic and source list](history_topics.json) supplies episode boundaries. Scripts provide original, attributed commentary, distinguish book interpretations from scientific evidence, and label illustrative scenarios. The existing scheduler, twenty chapters, duration controls, voice, music, images, captions, thumbnails, upload verification and recovery remain in place. Internal `historical-documentary` compatibility identifiers and the topic filename are retained so existing checkpoints and validation continue to work. Already-started runs retain their saved stories; newly planned videos use the new topics.
+
+## YouTube title, description and thumbnail
+
+After the documentary script is written, a separate packaging step drafts three accurate title and thumbnail pairs. It requires the topic's search phrase near the start of a concise title, rejects sensational wording, and selects a complementary 2–5 word question that creates a specific curiosity gap. The question must connect to a documented visual feature and be addressed in the episode. The unique description states the subject in its first sentence, explains the evidence, keeps source URLs out of the public description and labels illustrations. Tags are limited to a small set of relevant search variants; they are a secondary discovery signal. Uploads use YouTube's Entertainment category.
+
+Each topic supplies a distinct symbolic scene tied to the episode. A compact artwork
+brief emphasizes one dominant subject, a readable emotion and one visual clue. The
+renderer places the exact headline opposite the subject with high-contrast type.
+Artwork generates at 1344×768, center-crops to 1344×756, and exports at 1920×1080.
+Review the 320×180 mobile preview and measure CTR through YouTube Analytics.
+
+## Historical illustrations
+
+Images use `segmind/SSD-1B` on CPU at **1024×576**, 16 inference steps and guidance scale 9. A new image appears every **seven seconds**. Each image prompt follows the spoken scene, showing relevant interactions, people and symbolic objects. No wizard reference image is loaded in the video or thumbnail path. The CPU image check produces a historical test image for visual review. AI reconstructions may still contain inaccuracies; inspect the private video before public release.
+
+## Required isolated setup
+
+Use a **dedicated, previously unused Google Cloud project and Desktop OAuth client** for this repository. The selected project is `project-2d338b69-9ff5-49c5-87f` (My First Project). Enable YouTube Data API v3 and Google Drive API. Complete Google consent for the Grow with Rezan brand channel and a separate, owner-only Drive folder. Set these GitHub Actions secrets in **this repository only**:
+
+- `GROQ_API_KEY`: the new project's key. Never commit it.
+- `YOUTUBE_TOKEN_JSON`: OAuth authorized-user JSON for the Grow with Rezan channel. Required scopes: `youtube.upload` and `youtube.force-ssl`.
+- `DRIVE_TOKEN_JSON`: OAuth authorized-user JSON with Drive file access for the new app.
+- `DRIVE_FOLDER_ID`: ID of the dedicated Grow with Rezan folder created by `setup_drive_folder.py` with the new Drive OAuth token. This is mandatory. The folder carries a channel-specific marker; the code rejects the source project's folder.
+
+The expected channel ID is fixed in the workflows and upload checks. If the token belongs to a different channel, readiness and upload stop. Keep all credentials out of the repository and Actions logs.
+
+The daily workflow is `.github/workflows/daily-upload.yml`. Run **Google OAuth check** first, then manually dispatch one daily workflow to verify a private HD upload before relying on the schedule. `cleanup_run` retries verification and cleanup of an already completed run without uploading again. A failed or ambiguous upload retains its Drive assets for reconciliation.
+
+The source repository and its secrets, Drive folder, OAuth project, YouTube token, and schedule are independent of this repository. This repository's setup must be completed before its daily workflow can run successfully.
+
+## Local checks
+
+`python -m unittest -v` runs component and safety checks. Full video generation and upload require the cloud credentials and a live private test.
+
+## Story duration recovery
+
+Fresh daily stories keep the twenty-chapter documentary outline and target 84
+spoken words per chapter, plus the closing CTA. Set `STORY_CHAPTER_WORD_TARGET`
+between 75 and 88 to tune the initial request. Actual Kokoro audio duration,
+not word count, controls acceptance: 600–900 seconds is required, with 720–840
+seconds preferred.
+
+Preparation measures every chapter before making images. A slight overrun uses
+at most a 4% FFmpeg tempo correction. Larger overruns use Groq to shorten
+selected chapters; underruns use Groq to add relevant source-backed details.
+At most three correction attempts run. Changed chapters alone are resynthesized,
+then word timestamps, captions, and every seven-second visual window are rebuilt.
+Audio and transcript caches are tied to content hashes so changed text cannot
+reuse stale timing. The corrected story, narration, captions, storyboard source
+hash, and validated duration are checkpointed together before the twenty image
+workers start. Recovery failure stops before rendering or upload. The prepare job
+has a 90-minute limit to accommodate bounded Groq and CPU narration retries.
+
+## Recovering a Drive cleanup timeout
+
+Open **Resume verified private video cleanup** in GitHub Actions and enter the original
+`daily-<run ID>`, such as `daily-38644830219`. This workflow runs only
+`daily_publish.py`: it rechecks the existing video's channel, exact metadata,
+private visibility, successful HD processing, and confirmed thumbnail before
+deleting any run media. It never generates or uploads a video.
+
+Small JSON checkpoints use bounded backoff for timeouts, connection errors, rate
+limits, and temporary server errors. Retries keep one Drive file ID. A new file
+uses a preallocated ID, so a timed-out create cannot create duplicate checkpoints;
+an ambiguous result is accepted only if its saved JSON matches. Cleanup saves an
+ID manifest before deletion and checkpoints each ten deletions and at completion.
+If interrupted, it resumes from the manifest and treats previously deleted IDs
+as complete after Drive returns 404. Essential state and story files are preserved.
+
+### Drive timeouts and upload-only shard recovery
+
+Drive reads and uploads retry temporary failures with bounded exponential backoff
+(reads: 5 failures; uploads: 8 consecutive failures). Randomized exponential
+delays grow to a 60-second cap to stagger parallel workers during Drive 502/503
+outages. Only confirmed byte progress resets the upload failure budget; permission
+errors still stop immediately. Logs include HTTP status and retry delay. Media uses
+8 MiB resumable chunks, a preallocated file ID, size/MD5 verification and an on-disk ID journal.
+An ambiguous response is reconciled against that same ID. Matching files are
+skipped; duplicates, privacy failures and identity conflicts stop the operation.
+Small JSON checkpoints use the same verified, idempotent write path. YouTube
+insertion is deliberately outside these retries and keeps its existing guards.
+
+Daily image jobs retry upload-only once on the same runner if saving fails. If
+that fails, completed/partial work and reserved IDs are encrypted with AES-GCM
+before a GitHub artifact is saved for 14 days. The encryption key is derived from
+the existing Drive refresh token; keep that token available until recovery is
+finished. Replacing it makes old backups unreadable. No plain media, credentials,
+or resumable session URLs are placed in the artifact. A hard runner termination
+or backup service failure can still prevent preservation.
+
+Use **Recover original shard uploads only** with the original numeric GitHub run
+ID and shard number. If available, supply the original artifact name
+`private-shard-<shard>-<attempt>`. It checks the original prepared state and exact
+story/plan/duration, then reports missing assets before writing anything. With a
+complete local/Drive bundle it uploads only missing/different assets and writes
+a verified per-shard manifest. It never generates images, narration or videos,
+never calls YouTube, and never deletes media. A request can also be triggered by
+committing `.github/recovery-request.json` on main, e.g.
+`{"run_id":"38730964321","shard":9,"backup_artifact":""}`.
+
+If the original runner is gone and Drive or encrypted backups do not contain all
+required assets, recovery stops. Do not use **Re-run failed jobs** to retry only
+an upload: the old workflow reruns generation on a fresh runner and uses its old
+code revision. Successful upload-only shard recovery does not automatically
+assemble or upload a video; inspect all shard results and existing YouTube state
+before continuing those stages.
+
+### Bright thumbnails with reliable headlines
+
+Thumbnail artwork is generated without lettering. Exact headline typography is
+composited afterward, using a reserved side, white/yellow type and a subtle contrast
+gradient. The model receives a compact subject-first scene brief with mature 3D
+storybook styling, a dominant subject and minimal clutter. Identity selects the
+subject side, palette and seed. The export is 1920×1080 under 2 MB, with a 320×180
+mobile preview. The prompt, headline, dimensions and seed are saved in
+`thumbnail-design.json`. Real artwork still requires visual inspection; tests do
+not establish click-through performance. Running Actions retain their original commit.
+
+### Daily script generation: Qwen3-4B-Instruct-2507
+
+The daily workflow uses only `Qwen/Qwen3-4B-Instruct-2507` locally, in its native
+non-thinking mode. `story_cpu.py` and `requirements-story.txt` follow the working
+Rezan-After-Dark implementation at commit d6dcde36a636946279ec7bc20c05d2c56625b958.
+The runtime uses a prebuilt CPU wheel, a pinned Q4_K_M GGUF with SHA-256 verification,
+16,384 context tokens, schema-constrained output, and bounded JSON retries.
+
+Run `41240712324` failed before inference because the complete recent-history
+records were embedded in the outline prompt and exceeded that context window.
+History now supplies only bounded title, plot and topic summaries. The local
+runtime reserves the required prompt, schema and full completion allowance first,
+then admits the newest history entries within at most 2,048 remaining tokens.
+Oversized optional entries are omitted, with counts logged instead of private
+text. Required instructions are never truncated, the context limit remains
+enforced, and the full stored history remains available to originality checks.
+Regression tests cover oversized history, a full context window, privacy and
+unchanged schema/output limits. Start a new workflow on the corrected commit;
+rerunning the failed run executes its old code.
+
+Narration schemas constrain the word count during decoding, and generated chapters
+are independently measured. Historical evidence, sources, metadata checks and measured
+10–15 minute audio validation remain in this project's workflow. There is no Groq or
+Gemini fallback. Google credentials remain necessary for Drive and YouTube.
+
+Install `requirements.txt` and `requirements-story.txt`, then run
+`TEXT_BACKEND=qwen-local STORY_MODEL=Qwen/Qwen3-4B-Instruct-2507 python -u qwen_check.py --full-story` to exercise the real
+storyboard schema and complete twenty-chapter script. Generation logs expose counts
+and timing, not unpublished text. Model weights are cached between runner jobs.
+
+Daily uploads are verified in HD, then scheduled for the first 06:00 America/New_York at least 72 hours after scheduling. DST is handled automatically. YouTube shows scheduled videos as private until release. The publish intent is checkpointed before the API call and read back before media cleanup. Set `YOUTUBE_PUBLICATION_MODE` to `public` for immediate publication or `private` for private-only verification. Test workflows remain private. Retry with `cleanup_run` to schedule a completed daily upload without regeneration or re-upload.
+
+Facebook Page uploads run independently after YouTube succeeds. See [Facebook setup and recovery](docs/facebook-publishing.md). A Facebook failure leaves YouTube successful and preserves the final MP4 for Facebook-only retry.
+
+### Episode-specific 3D storybook thumbnails
+
+Each topic has its own symbolic scene and focal object in `history_topics.json`.
+Packaging adapts that scene to the episode outline; invalid artwork falls back to
+that topic's scene. Thumbnail generation requests sculpted, expressive characters,
+tactile materials and diorama depth, with varied compositions and bright palettes.
+Video backgrounds use realistic cinematic documentary photography; thumbnails retain
+3D storybook art direction. Both styles are defined in `visual_style.py`. CPU video
+scenes exclude 3D/CGI and text; the hosted backend receives the realistic scene style. Existing cached scene images require regeneration.
+Artwork is generated without text using a concise brief with one dominant subject
+and one visual clue. The exact headline is composited afterward with high-contrast
+type on the reserved side; the subject side alternates deterministically by episode.
+Thumbnail artwork generates at 1344×768, center-crops 12 pixels vertically to
+1344×756 (16:9), and exports at 1920×1080 with scaled typography. This does not
+change video scene resolution. Review the saved 320×180 mobile preview and full-size image before publishing;
+visual clarity does not guarantee a CTR increase.
+Existing uploaded thumbnails and resumed runs with cached artwork need regeneration
+to adopt this style. New designs are marked `storybook-mobile-v3` in `thumbnail-design.json`.
+
+### YouTube upload details and search metadata
+
+New uploads explicitly set paid promotion to No, altered/synthetic content to Yes,
+video audio and metadata language to English, and category to Entertainment (24).
+The upload reads back those settings and stops verification if they differ.
+Entertainment avoids Education's Academic system selection. No academic-system value is sent.
+Existing videos are not changed by these defaults.
+
+Titles pair the main search subject with the episode's specific question or benefit.
+Descriptions lead with the subject and viewer learning outcomes, use related terms
+naturally, and omit source URL sections. Research sources remain in internal story
+records. Older checkpoint source sections and generated web links are removed at
+upload time. Music requiring URL attribution must be replaced with a suitable track
+before upload; required license credits are never silently removed.
+
+Upload disclosure recovery: if YouTube's post-upload readback omits or disagrees
+with the AI disclosure, apply an idempotent metadata update to the saved video ID
+and poll up to six times for confirmation. Preserve visibility, schedule and other
+writable status settings. Omitted paid-promotion false is treated as No; explicit
+Yes is corrected and read back. Persistent mismatches still block verification.
+An already uploaded daily run can use the workflow's `cleanup_run` input to repair
+metadata and resume verification without regenerating or inserting another video.
+
+Some YouTube responses omit `containsSyntheticMedia` even after an accepted
+metadata update. Omission is not treated as explicit false. After bounded polling,
+the workflow records a video/channel-bound receipt only if the update response
+explicitly confirms true; this is distinct from confirmation through videos.list. A rejected update, wrong video ID, or explicit
+false still fails. The receipt is saved as `ai_disclosure` in the run state and
+logs distinguish API acceptance from a returned true value.
+
+Realistic scene direction emphasizes the narrated action before style instructions,
+subtle credible emotion, natural skin/material texture, soft motivated lighting,
+readable shadows and uncluttered framing. Person, group and object shots use
+separate camera choices. Existing narrated protagonists reuse their supplied
+appearance and clothing reference; unrelated scenes do not inherit that character.
+Contemporary clothing and buildings are allowed when appropriate to narration.
+CPU scene quality exclusions discourage waxy faces and crushed shadows without
+leaking into thumbnail generation. Character consistency is prompt-guided, not a
+face-lock guarantee. Existing renders require regeneration to adopt these changes.
