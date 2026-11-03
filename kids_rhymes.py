@@ -52,7 +52,7 @@ def make_song(day, history, draft_path=None, generation_id=None, vocal_gender_ov
     scenes=scenes[:seconds//5]
     outline=written['outline']
     song = dict(title=outline['title'], lyrics='\n'.join(scene['lyric'] for scene in scenes),duration=seconds,
-        prompt='Joyful nursery rhyme, cute sweet adult female singing voice, clear Hindi diction, Hindi verses in Devanagari with the unchanged Latin dudi refrain, playful dudi dudi dam dam refrain, C major, 120 BPM, bouncy ukulele, bright xylophone, steady handclaps and gentle bass. Continuous lively instrumental backing under every vocal line, no silent breaks, no stop-start pauses, no shouting.',
+        prompt='Joyful nursery rhyme, cute sweet adult female singing voice, clear Hindi diction, playful dudi dudi dam dam refrain, C major, 120 BPM, bouncy ukulele, bright xylophone, steady handclaps and gentle bass. Continuous lively instrumental backing under every vocal line, no silent breaks, no stop-start pauses, no shouting.',
         description=outline['description'],story_summary=outline['story_summary'],
         visual_identity=dict(characters=outline.get('characters',''), world=outline.get('visual_world','')),
         lyric_writer=dict(backend='local-qwen-cpu',version=written['writer_version'],novelty_checked=True),

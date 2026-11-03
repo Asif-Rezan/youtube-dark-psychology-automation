@@ -19,6 +19,7 @@ MODEL = 'acestep-v15-turbo'
 COMPONENTS = (MODEL, 'vae', 'Qwen3-Embedding-0.6B')
 CPU_GENERATION_TIMEOUT = 18000
 WORKER_TIMEOUT = CPU_GENERATION_TIMEOUT + 900
+DEFAULT_REFERENCE_AUDIO = Path(__file__).resolve().parent/'assets/reference/style-reference.mp3'
 
 
 def checkpoints(root):
@@ -92,6 +93,7 @@ def synthesize(song, target, source, model_root):
     # Segment requests are derived from a validated full-song manifest.
     if not song.get('_segment'):
         validate_song(song)
+    reference = reference_audio()
     checkpoints(model_root)
     os.environ['ACESTEP_CHECKPOINTS_DIR'] = str(model_root.resolve())
     os.environ['ACESTEP_INIT_LLM'] = 'false'
@@ -109,7 +111,7 @@ def synthesize(song, target, source, model_root):
     if not ready or handler.device != 'cpu':
         raise RuntimeError('ACE-Step CPU initialization failed')
     params = Params(caption=song['prompt'], lyrics=song['lyrics'],
-        duration=song['duration'], bpm=song.get('bpm'), reference_audio=reference_audio(), vocal_language=song.get('vocal_language','en'), instrumental=False,
+        duration=song['duration'], bpm=song.get('bpm'), reference_audio=reference, vocal_language=song.get('vocal_language','en'), instrumental=False,
         inference_steps=8, thinking=False, use_cot_metas=False,
         use_cot_caption=False, use_cot_language=False)
     config = Config(batch_size=1, audio_format='wav', allow_lm_batch=False)
@@ -129,10 +131,15 @@ def synthesize(song, target, source, model_root):
 
 
 def reference_audio():
-    value = os.getenv('REFERENCE_AUDIO_PATH')
-    if value and not Path(value).is_file():
-        raise ValueError('REFERENCE_AUDIO_PATH does not exist')
-    return str(Path(value).resolve()) if value else None
+    # Match the motivation project's bundled style even outside Actions.
+    # Resolve repository-relative overrides independently of the worker's cwd.
+    value = os.getenv('REFERENCE_AUDIO_PATH', '').strip()
+    path = Path(value).expanduser() if value else DEFAULT_REFERENCE_AUDIO
+    if not path.is_absolute():
+        path = Path(__file__).resolve().parent/path
+    if not path.is_file() or path.stat().st_size == 0:
+        raise ValueError('Reference audio is missing or empty: ' + str(path))
+    return str(path.resolve())
 
 
 def generate(song, target, state, save):

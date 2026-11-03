@@ -82,9 +82,10 @@ class HindiLyricsTests(unittest.TestCase):
             handler=Mock(device='cpu');handler.initialize_service.return_value=(None,True)
             params=Mock();config=Mock();infer=Mock(return_value=types.SimpleNamespace(success=True,audios=[{'path':str(raw)}]))
             song=dict(_segment=True,prompt='Hindi nursery rhyme',lyrics='नन्हे बच्चे बगीचे में नाचें\ndudi dudi dam dam dudi dudi dam',duration=40,vocal_language='hi')
-            with patch.dict('os.environ',{}),patch('music_cpu.checkpoints'),patch('music_cpu.reference_audio',return_value=None), \
+            with patch.dict('os.environ',{}),patch('music_cpu.checkpoints'),patch('music_cpu.reference_audio',return_value='reference.mp3'), \
                  patch('music_cpu.runtime',return_value=(torch,Mock(return_value=handler),params,config,infer)), \
                  patch('music_cpu.generation_progress',return_value=contextlib.nullcontext()),patch('pipeline.duration',return_value=40):
                 music_cpu.synthesize(song,root/'result.wav',root,root)
+            self.assertEqual(params.call_args.kwargs['reference_audio'],'reference.mp3')
             self.assertEqual(params.call_args.kwargs['vocal_language'],'hi')
             self.assertEqual(params.call_args.kwargs['lyrics'],song['lyrics'])
