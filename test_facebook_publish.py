@@ -101,7 +101,7 @@ class FacebookEpisodeRoutingTests(unittest.TestCase):
                     self.assertEqual(stamp,int(target.timestamp()))
                     self.assertEqual(path.name,'video.mp4')
                     state['video_id']='123';save()
-                with patch('storage.Store',return_value=store), patch('facebook_publish.publish',side_effect=uploaded) as publish:
+                with patch.dict('os.environ', FACEBOOK_PAGE_ACCESS_TOKEN='test-only'), patch('storage.Store',return_value=store), patch('facebook_publish.publish',side_effect=uploaded) as publish:
                     facebook_publish.run('kids-test',kind)
                 self.assertEqual(store.load.call_args_list[0].args[0],key)
                 self.assertEqual(store.save.call_args.args[0],f'facebook/kids-test/{kind}/state.json')
