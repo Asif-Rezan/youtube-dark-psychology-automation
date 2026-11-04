@@ -20,7 +20,7 @@ class ContinuousSongTests(unittest.TestCase):
             request=synthesize.call_args.args[0]
             self.assertEqual(request['duration'],60)
             self.assertTrue(request['reference_cover'])
-            self.assertEqual(request['cover_noise_strength'],.95)
+            self.assertEqual(request['cover_noise_strength'],.85)
             self.assertFalse(request.get('reference_repaint'))
             self.assertNotIn('edit_source',request)
             for verse in verses:

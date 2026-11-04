@@ -13,11 +13,14 @@ def continuous_request(verses, identity):
         raise ValueError('Two distinct new verse blocks required')
     return dict(
         _segment=True, duration=60, vocal_language='hi',
-        reference_cover=True, cover_strength=1.0, cover_noise_strength=0.95,
+        reference_cover=True, cover_strength=1.0, cover_noise_strength=0.85,
         generation_seed=int(hashlib.sha256((identity+'\n'.join(verses)).encode()).hexdigest()[:8],16),
         lyrics='\n'.join(['[Intro]', '[Verse]', verses[0], '[Chorus]', REFRAIN, REFRAIN,
                           '[Verse]', verses[1], '[Chorus]', REFRAIN, REFRAIN, '[Outro]']),
-        prompt='Cover the supplied source song with the new Hindi lyrics. Preserve its '
+        prompt='Replace the source verse words with the supplied Hindi lyrics; do not '
+               'sing the original verse words. Keep only the opening hook and Dudi refrain '
+               'from the source. Fit every supplied verse line to the existing musical phrases. '
+               'Cover the supplied source song with the new Hindi lyrics. Preserve its '
                'rhythm, chord progression, melody, bass line, drums, instrumentation, '
                'singer timbre, vocal register, phrasing and mix. '
                'One continuous Hindi nursery performance. '
