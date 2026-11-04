@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        style: [coherent-60]
+        style: [continuous-60]
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     env:

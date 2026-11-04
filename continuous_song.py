@@ -1,0 +1,44 @@
+"""Generate a complete reference-guided song in one inference, without audio splicing."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+
+from chorus_arrangement import REFRAIN
+
+
+def continuous_request(verses, identity):
+    if len(verses) != 2 or len(set(verses)) != 2 or any(not v.strip() or REFRAIN in v for v in verses):
+        raise ValueError('Two distinct new verse blocks required')
+    return dict(
+        _segment=True, duration=60, vocal_language='hi',
+        generation_seed=int(hashlib.sha256((identity+'\n'.join(verses)).encode()).hexdigest()[:8],16),
+        lyrics='\n'.join(['[Intro]', '[Verse]', verses[0], '[Chorus]', REFRAIN, REFRAIN,
+                          '[Verse]', verses[1], '[Chorus]', REFRAIN, REFRAIN, '[Outro]']),
+        prompt='One continuous Hindi nursery song inspired by the reference audio. '
+               'Use the reference singer character, playful instrumentation, groove and tonal mood. '
+               'An opening musical hook appears only once at the beginning, approximately the first '
+               '19 seconds; then sing the supplied new verses with the Dudi refrain between verses '
+               'and near the ending. Keep one consistent singer, accompaniment, tempo, key and mix '
+               'throughout. Fit the Hindi syllables naturally into coherent musical phrases. '
+               'Smooth musical transitions, no restarts or repeated opening hook. '
+               'Compose and perform the entire 60-second song as one uninterrupted performance.')
+
+
+def render_continuous(verses, identity, root):
+    from music_cpu import synthesize
+    from pipeline import duration
+    root=Path(root);root.mkdir(parents=True,exist_ok=True)
+    song=continuous_request(verses,identity)
+    (root/'song.json').write_text(json.dumps(song,ensure_ascii=False,indent=2))
+    target=root/'dudi-continuous-60s.wav'
+    synthesize(song,target,Path(os.environ['ACESTEP_SOURCE_DIR']),Path(os.environ['ACESTEP_CHECKPOINTS_DIR']))
+    # Encode the entire generated performance. Never insert reference samples or join sections.
+    subprocess.run(['ffmpeg','-y','-v','error','-i',str(target),'-codec:a','libmp3lame',
+                    '-b:a','192k',str(target.with_suffix('.mp3'))],check=True)
+    (root/'arrangement-report.json').write_text(json.dumps(dict(
+        seconds=duration(target),method='single full-song reference-guided generation',
+        generation_calls=1,audio_splicing=False,
+        quality='Hook timing, refrain similarity and musical continuity require listening review'),indent=2))
+    return target
