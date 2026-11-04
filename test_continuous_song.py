@@ -11,16 +11,17 @@ class ContinuousSongTests(unittest.TestCase):
     def test_one_full_song_inference_then_whole_file_encoding(self):
         verses=['पहली नई पंक्ति','दूसरी नई पंक्ति']
         with tempfile.TemporaryDirectory() as tmp, \
-             patch.dict('os.environ', {'ACESTEP_SOURCE_DIR':'source','ACESTEP_CHECKPOINTS_DIR':'models'}), \
+             patch.dict('os.environ', {'ACESTEP_SOURCE_DIR':'source','ACESTEP_CHECKPOINTS_DIR':'models','ACE_SOURCE_TRANSCRIPT':str(Path(tmp)/'source.json')}), \
              patch('music_cpu.synthesize') as synthesize, \
              patch('pipeline.duration',return_value=60), \
              patch('continuous_song.subprocess.run') as encode:
+            (Path(tmp)/'source.json').write_text(json.dumps(dict(text='दूदी दूदी दम दम',segments=[])))
             target=render_continuous(verses,'test',Path(tmp))
             synthesize.assert_called_once()
             request=synthesize.call_args.args[0]
             self.assertEqual(request['duration'],60)
             self.assertTrue(request['reference_cover'])
-            self.assertEqual(request['cover_noise_strength'],.85)
+            self.assertEqual(request['cover_noise_strength'],0.0)
             self.assertFalse(request.get('reference_repaint'))
             self.assertNotIn('edit_source',request)
             for verse in verses:
@@ -34,12 +35,34 @@ class ContinuousSongTests(unittest.TestCase):
 
     def test_short_source_rejected_before_inference(self):
         with tempfile.TemporaryDirectory() as tmp, \
+             patch.dict('os.environ', {'ACE_SOURCE_TRANSCRIPT':str(Path(tmp)/'source.json')}), \
              patch('pipeline.duration', return_value=30), \
              patch('music_cpu.synthesize') as synthesize:
+            (Path(tmp)/'source.json').write_text(json.dumps(dict(text='original',segments=[])))
             with self.assertRaisesRegex(ValueError, 'requires a source'):
                 render_continuous(['एक','दो'], 'test', Path(tmp))
             synthesize.assert_not_called()
 
     def test_reject_duplicate_verse_blocks(self):
         with self.assertRaises(ValueError):
-            continuous_request(['same','same'],'test')
+            continuous_request(['same','same'],'test','original')
+
+
+class FlowLyricTests(unittest.TestCase):
+    def test_source_and_target_conditioning_are_separate(self):
+        from music_cpu import flow_edit_options
+        song=continuous_request(['तितली आई','कागज़ की नाव'],'test','दूदी दूदी दम दम')
+        opts=flow_edit_options(song)
+        self.assertTrue(opts['flow_edit_morph'])
+        self.assertEqual(opts['flow_edit_source_lyrics'],'दूदी दूदी दम दम')
+        self.assertNotEqual(opts['flow_edit_source_lyrics'],song['lyrics'])
+        self.assertEqual(opts['flow_edit_source_caption'],song['prompt'])
+        with self.assertRaises(ValueError):
+            flow_edit_options(dict(song,source_lyrics=''))
+
+    def test_audio_check_rejects_unchanged_source_and_checks_both_verses(self):
+        from scripts.verify_ace_lyrics import assess
+        original='दूदी दूदी दम दम'
+        self.assertFalse(assess(original,original)['replacement_verses_detected'])
+        self.assertFalse(assess(original,'तितली आई')['replacement_verses_detected'])
+        self.assertTrue(assess(original,'तितली आई कागज़ की नाव')['replacement_verses_detected'])

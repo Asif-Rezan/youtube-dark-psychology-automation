@@ -101,6 +101,20 @@ def reference_cover_options(song, reference):
                 audio_cover_strength=strength, cover_noise_strength=noise)
 
 
+def flow_edit_options(song):
+    """Pinned ACE flow-edit uses separate original and replacement lyric embeddings."""
+    if not song.get('flow_edit_morph'):
+        return {}
+    source_lyrics = song.get('source_lyrics', '').strip()
+    if not song.get('reference_cover') or not source_lyrics:
+        raise ValueError('Flow lyric edit requires cover source and original lyrics')
+    if source_lyrics == song.get('lyrics', '').strip():
+        raise ValueError('Source and replacement lyrics must differ')
+    return dict(flow_edit_morph=True, flow_edit_source_caption=song['prompt'],
+                flow_edit_source_lyrics=source_lyrics,
+                flow_edit_n_min=.5, flow_edit_n_max=1., flow_edit_n_avg=1)
+
+
 def prepare_cover_source(reference, seconds, directory):
     """Cover inference follows source length: trim long references, never loop short ones."""
     import hashlib
@@ -179,10 +193,13 @@ def synthesize(song, target, source, model_root):
         prefer_source='huggingface', use_mlx_dit=False)
     if not ready or handler.device != 'cpu':
         raise RuntimeError('ACE-Step CPU initialization failed')
+    if song.get('flow_edit_morph') and not callable(getattr(handler.model, 'flowedit_generate_audio', None)):
+        raise RuntimeError('Loaded ACE model lacks flow-edit; refusing silent cover fallback')
     params = Params(caption=song['prompt'], lyrics=song['lyrics'],
         duration=song['duration'], bpm=song.get('bpm'), reference_audio=reference, vocal_language=song.get('vocal_language','en'), instrumental=False,
         inference_steps=8, shift=3.0, thinking=False, use_cot_metas=False,
-        use_cot_caption=False, use_cot_language=False, **cover_options)
+        use_cot_caption=False, use_cot_language=False,
+        **cover_options, **flow_edit_options(song))
     seed = song.get('generation_seed')
     seed_options = dict(use_random_seed=False, seeds=[int(seed)]) if seed is not None else {}
     config = Config(batch_size=1, audio_format='wav', allow_lm_batch=False, **seed_options)

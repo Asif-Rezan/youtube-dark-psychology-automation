@@ -24,6 +24,7 @@ jobs:
       ACESTEP_CHECKPOINTS_DIR: .models/acestep
       ACESTEP_INIT_LLM: 'false'
       ACESTEP_GENERATION_TIMEOUT: '18000'
+      ACE_SOURCE_TRANSCRIPT: output/preview/source-transcript.json
       REFERENCE_AUDIO_PATH: assets/reference/auk-source-60s.mp3
       CUDA_VISIBLE_DEVICES: ''
       OMP_NUM_THREADS: '3'
@@ -79,11 +80,27 @@ jobs:
           assert not torch.cuda.is_available()
           print('Pinned ACE-Step CPU runtime imported successfully')
           PY
+      - name: Transcribe original lyrics for paired flow editing
+        run: |
+          pip install --no-cache-dir openai-whisper==20250625
+          python - <<'PYASR'
+          import whisper, json, os
+          from pathlib import Path
+          result = whisper.load_model('base', device='cpu').transcribe(os.environ['REFERENCE_AUDIO_PATH'], language='hi', fp16=False)
+          if not result['text'].strip():
+              raise SystemExit('No source lyrics detected; refusing blind flow edit')
+          target = Path(os.environ['ACE_SOURCE_TRANSCRIPT'])
+          target.parent.mkdir(parents=True, exist_ok=True)
+          target.write_text(json.dumps(result, ensure_ascii=False, indent=2))
+          print('Source transcript retained for review')
+          PYASR
       - name: Generate improved Hindi kids vocal preview
         env:
           PREVIEW_STYLE: ${{ matrix.style }}
           PREVIEW_RUN_ID: ${{ inputs.run_id }}
         run: python -u preview_kids_audio.py --style "$PREVIEW_STYLE"
+      - name: Verify replacement words in generated audio
+        run: python scripts/verify_ace_lyrics.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
