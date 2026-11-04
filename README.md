@@ -282,3 +282,10 @@ existing tokens and destination-channel fallback. The manual **Verify Google
 connections** workflow now additionally checks the existing Facebook Page token
 when Facebook publishing is enabled. That step performs only an identity GET;
 it never creates an upload or publishes a post.
+
+Live connection validation succeeded:
+[run 41887612814](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/41887612814)
+verified Grow with Rezan channel `UCYjz7d66SsshimfpxZahlhQ`, the private kids
+Drive folder, both Google refresh tokens, and Facebook Page `301624356367343`
+using the existing secret. No media was uploaded. Actual Facebook transfer and
+schedule acceptance remain dependent on a future episode publication.
