@@ -91,7 +91,7 @@ jobs:
           PREVIEW_STYLE: ${{ matrix.style }}
           PREVIEW_RUN_ID: ${{ inputs.run_id }}
         run: python -u preview_kids_audio.py --style "$PREVIEW_STYLE"
-      - name: Verify replacement words in generated audio
+      - name: Lyrics quality gate (audio generated; words must be verified)
         run: python scripts/verify_ace_lyrics.py
       - uses: actions/upload-artifact@v4
         if: always()

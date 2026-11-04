@@ -115,3 +115,35 @@ class OfficialFlowTextRoutingTests(unittest.TestCase):
         self.assertEqual(edit['flow_edit_n_min'],0)
         self.assertNotEqual(edit['flow_edit_source_lyrics'],request['lyrics'])
         self.assertNotIn('cover_noise_strength',routing)
+
+
+class VerificationFailureReportingTests(unittest.TestCase):
+    def test_real_quality_failure_path_keeps_audio_and_reports_exit_two(self):
+        import types
+        from scripts.verify_ace_lyrics import main
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            (root/'source-transcript.json').write_text(json.dumps(dict(text='दूदी दम')))
+            audio=root/'dudi-continuous-60s.mp3';audio.write_bytes(b'preserve audio')
+            transcriber=types.SimpleNamespace(transcribe=lambda *a,**kw:dict(text='दूदी दम'))
+            fake=types.SimpleNamespace(load_model=lambda *a,**kw:transcriber)
+            with patch.dict('sys.modules',whisper=fake), patch.dict('os.environ',GITHUB_STEP_SUMMARY=str(root/'summary.md')):
+                with self.assertRaises(SystemExit) as raised:
+                    main(root)
+            self.assertEqual(raised.exception.code,2)
+            self.assertEqual(json.loads((root/'lyrics-verification.json').read_text())['status'],'needs_review')
+            self.assertEqual(audio.read_bytes(),b'preserve audio')
+            self.assertIn('not a generation crash',(root/'summary.md').read_text())
+
+    def test_verifier_runtime_error_is_separate_and_propagates(self):
+        import types
+        from scripts.verify_ace_lyrics import main
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            (root/'source-transcript.json').write_text(json.dumps(dict(text='दूदी दम')))
+            (root/'dudi-continuous-60s.mp3').write_bytes(b'audio')
+            def fail(*args,**kwargs):raise RuntimeError('model load failed')
+            with patch.dict('sys.modules',whisper=types.SimpleNamespace(load_model=fail)):
+                with self.assertRaisesRegex(RuntimeError,'model load failed'):
+                    main(root)
+            self.assertEqual(json.loads((root/'lyrics-verification.json').read_text())['status'],'runtime_error')
