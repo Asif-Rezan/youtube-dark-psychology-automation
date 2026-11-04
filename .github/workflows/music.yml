@@ -83,6 +83,14 @@ jobs:
       - name: Install audio tools for regression tests
         timeout-minutes: 10
         run: bash scripts/install-runner-packages.sh ffmpeg
+      - name: Validate publication settings before generation
+        env:
+          UPLOAD_MODE: ${{ inputs.upload_mode || 'scheduled' }}
+          PUBLISH_AT: ${{ inputs.publish_at }}
+          VIDEO_LANGUAGE: ${{ inputs.video_language || 'en' }}
+          AUDIO_LANGUAGE: ${{ inputs.audio_language || 'hi' }}
+          VIDEO_CATEGORY_ID: ${{ inputs.category_id || '10' }}
+        run: python -c 'from upload_settings import load_settings; load_settings()'
       - run: python -m unittest -v
       - name: Find available recovery checkpoints
         id: recovery
@@ -208,6 +216,7 @@ jobs:
             output/*/song.wav
             output/*/part-*.wav
             output/*/generation-state.json
+            output/*/failure.json
             output/*/worker-resources.txt
             output/*/*lyrics*.json
           retention-days: 7
@@ -341,6 +350,7 @@ jobs:
             output/*/scene-*-source.png
             output/*/thumbnail-source.png
             output/*/image-manifest-*.json
+            output/*/failure.json
             output/*/characters/**
             output/*/motion/**
           retention-days: 7
@@ -401,6 +411,7 @@ jobs:
           path: |
             output/*/portrait/*.png
             output/*/portrait/image-manifest-*.json
+            output/*/failure.json
             output/*/portrait/characters/**
             output/*/portrait/motion/**
           retention-days: 7

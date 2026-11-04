@@ -141,6 +141,9 @@ def publish(api, path, kind, metadata, publish_at, state, save, *, attempts=60, 
                 if result.get('success') is not True:
                     raise FacebookError('Facebook transfer was not confirmed')
         else:
+            size = path.stat().st_size
+            if not 0 <= state['start'] <= state['end'] <= size:
+                raise FacebookError('Invalid Facebook chunk offsets')
             while state['start'] != state['end']:
                 start,end = state['start'],state['end']
                 if not 0 <= start < end <= path.stat().st_size:
@@ -152,10 +155,14 @@ def publish(api, path, kind, metadata, publish_at, state, save, *, attempts=60, 
                     data={'upload_phase':'transfer','upload_session_id':state['session_id'],'start_offset':str(start)},
                     files={'video_file_chunk':('chunk.mp4',chunk,'application/octet-stream')})
                 next_start,next_end = int(result['start_offset']),int(result['end_offset'])
-                if next_start <= start:
-                    raise FacebookError('Facebook upload did not advance')
+                if not start < next_start <= next_end <= size:
+                    raise FacebookError('Invalid Facebook transfer progress')
+                if next_start == next_end and next_start != size:
+                    raise FacebookError('Facebook transfer ended before the complete file')
                 state.update(start=next_start,end=next_end)
                 save()
+            if state['start'] != size:
+                raise FacebookError('Facebook transfer ended before the complete file')
         state['transferred'] = True
         save()
     if not state.get('finish_started'):
