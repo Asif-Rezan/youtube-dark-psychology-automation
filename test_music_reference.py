@@ -33,3 +33,26 @@ class ReferenceAudioTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, 'missing or empty'):
                         music_cpu.synthesize({'_segment': True}, Path(tmp)/'song.wav', Path(tmp), Path(tmp))
                     checkpoints.assert_not_called()
+
+
+class ChorusReferenceTests(unittest.TestCase):
+    def test_both_chorus_previews_repeat_exact_hook_and_use_stronger_source_anchoring(self):
+        from preview_kids_audio import preview_song, REFRAIN
+        for style, noise in (('chorus-close', .85), ('chorus-strict', .95)):
+            song = preview_song(style)
+            self.assertEqual(song['lyrics'].count(REFRAIN+'\n'+REFRAIN), 2)
+            options = music_cpu.reference_cover_options(song, 'reference.mp3')
+            self.assertEqual(options['cover_noise_strength'], noise)
+            self.assertEqual(options['audio_cover_strength'], 1.0)
+            self.assertEqual(options['task_type'], 'cover')
+            self.assertEqual(options['src_audio'], 'reference.mp3')
+            self.assertIn('instrumental intro', song['prompt'])
+            self.assertEqual(song['duration'], 30)
+
+    def test_invalid_cover_settings_fail_before_model_loading(self):
+        for value in (-.1, 1.1, float('nan'), float('inf')):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    music_cpu.reference_cover_options({'reference_cover': True,
+                        'cover_noise_strength': value}, 'reference.mp3')
+        self.assertEqual(music_cpu.reference_cover_options({}, 'reference.mp3'), {})

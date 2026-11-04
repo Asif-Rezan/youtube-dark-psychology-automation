@@ -8,12 +8,15 @@ on:
         type: string
 permissions:
   contents: read
+concurrency:
+  group: hindi-vocal-preview
+  cancel-in-progress: true
 jobs:
   preview:
     strategy:
       fail-fast: false
       matrix:
-        style: [cover-balanced, cover-close]
+        style: [chorus-close, chorus-strict]
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     env:

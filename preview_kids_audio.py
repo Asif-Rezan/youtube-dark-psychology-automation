@@ -5,15 +5,18 @@ import os
 from pathlib import Path
 import subprocess
 
-REFRAIN = 'दूदी दूदी दम दम'
+REFRAIN = 'दूदी दूदी दम दम दूदी दूदी दम'
+STYLES = ('cover-balanced', 'cover-close', 'chorus-close', 'chorus-strict')
 
 
 def preview_song(style):
-    if style not in ('cover-balanced', 'cover-close'):
+    if style not in STYLES:
         raise ValueError('Unknown cover preview style')
-    return dict(_segment=True, vocal_language='hi', vocal_gender='female', duration=30,
+    chorus_match = style.startswith('chorus-')
+    song = dict(_segment=True, vocal_language='hi', vocal_gender='female', duration=30,
         bpm=123, generation_seed=20261107, reference_cover=True,
         cover_strength=0.75 if style == 'cover-balanced' else 1.0,
+        cover_noise_strength={'chorus-close': 0.85, 'chorus-strict': 0.95}.get(style, 0.2),
         prompt='Hindi nursery rhyme cover of the source audio. Preserve the source song melody, '
             'recognizable hook melody, drum groove, bass rhythm, instruments, arrangement and 123 BPM tempo, D major. '
             'A single sweet clear female singer performs the new Hindi lyrics naturally to the source melody. '
@@ -23,11 +26,25 @@ def preview_song(style):
             '[Verse]', 'नन्हे मुन्ने ताली बजाएं', 'प्यारे पंछी गीत सुनाएं',
             '[Chorus]', 'दूदी दूदी दम दम दूदी दूदी दम',
             'हँसते गाते झूमें हम, झूमें सारे हम']))
+    if chorus_match:
+        song['prompt'] = (
+            'Preserve the source instrumental intro, melody, groove, arrangement and tempo. '
+            'The Dudi chorus follows the source hook pitch contour, rhythm, note lengths, '
+            'syllable stress and phrase endings, repeated identically twice. '
+            'Do not compose a different chorus melody. Single clear sweet female vocal, '
+            'Hindi pronunciation, continuous playful nursery backing, 123 BPM, D major.'
+        )
+        song['lyrics'] = '\n'.join([
+            '[Intro]', '[Chorus]', REFRAIN, REFRAIN,
+            '[Verse]', 'नन्हे मुन्ने ताली बजाएं', 'प्यारे पंछी गीत सुनाएं',
+            '[Chorus]', REFRAIN, REFRAIN])
+    return song
+
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--style', choices=['cover-balanced', 'cover-close'], required=True)
+    parser.add_argument('--style', choices=STYLES, required=True)
     args = parser.parse_args()
     from music_cpu import synthesize
     root = Path('output/preview')

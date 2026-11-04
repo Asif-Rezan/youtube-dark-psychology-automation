@@ -92,5 +92,8 @@ class HindiLyricsTests(unittest.TestCase):
             self.assertEqual(config.call_args.kwargs['seeds'],[20261104])
             self.assertFalse(config.call_args.kwargs['use_random_seed'])
             self.assertEqual(params.call_args.kwargs['reference_audio'],'reference.mp3')
+            self.assertEqual(params.call_args.kwargs['task_type'],'cover')
+            self.assertEqual(params.call_args.kwargs['src_audio'],'reference.mp3')
+            self.assertEqual(params.call_args.kwargs['cover_noise_strength'],.95)
             self.assertEqual(params.call_args.kwargs['vocal_language'],'hi')
             self.assertEqual(params.call_args.kwargs['lyrics'],song['lyrics'])

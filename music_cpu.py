@@ -88,12 +88,26 @@ def runtime(source):
     return torch, CpuHandler, GenerationParams, GenerationConfig, generate_music
 
 
+def reference_cover_options(song, reference):
+    """Pinned ACE-Step: higher cover_noise_strength is closer to source audio."""
+    import math
+    if not song.get('reference_cover'):
+        return {}
+    strength = float(song.get('cover_strength', 1.0))
+    noise = float(song.get('cover_noise_strength', 0.2))
+    if not all(math.isfinite(v) and 0 <= v <= 1 for v in (strength, noise)):
+        raise ValueError('Reference cover strengths must be finite values in 0..1')
+    return dict(task_type='cover', src_audio=reference,
+                audio_cover_strength=strength, cover_noise_strength=noise)
+
+
 def synthesize(song, target, source, model_root):
     from pipeline import validate_song, validate_duration, duration
     # Segment requests are derived from a validated full-song manifest.
     if not song.get('_segment'):
         validate_song(song)
     reference = reference_audio()
+    cover_options = reference_cover_options(song, reference)
     checkpoints(model_root)
     os.environ['ACESTEP_CHECKPOINTS_DIR'] = str(model_root.resolve())
     os.environ['ACESTEP_INIT_LLM'] = 'false'
@@ -110,11 +124,6 @@ def synthesize(song, target, source, model_root):
         prefer_source='huggingface', use_mlx_dit=False)
     if not ready or handler.device != 'cpu':
         raise RuntimeError('ACE-Step CPU initialization failed')
-    cover_options = {}
-    if song.get('reference_cover'):
-        cover_options = dict(task_type='cover', src_audio=reference,
-            audio_cover_strength=float(song.get('cover_strength', 1.0)),
-            cover_noise_strength=0.2)
     params = Params(caption=song['prompt'], lyrics=song['lyrics'],
         duration=song['duration'], bpm=song.get('bpm'), reference_audio=reference, vocal_language=song.get('vocal_language','en'), instrumental=False,
         inference_steps=8, thinking=False, use_cot_metas=False,
