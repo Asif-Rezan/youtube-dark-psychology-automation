@@ -6,11 +6,11 @@ from pathlib import Path
 import subprocess
 
 REFRAIN = 'दूदी दूदी दम दम दूदी दूदी दम'
-STYLES = ('cover-balanced', 'cover-close', 'chorus-close', 'chorus-strict')
+STYLES = ('cover-balanced', 'cover-close', 'chorus-close', 'chorus-strict', 'selective-60')
 
 
 def preview_song(style):
-    if style not in STYLES:
+    if style not in STYLES or style == 'selective-60':
         raise ValueError('Unknown cover preview style')
     chorus_match = style.startswith('chorus-')
     song = dict(_segment=True, vocal_language='hi', vocal_gender='female', duration=30,
@@ -46,6 +46,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--style', choices=STYLES, required=True)
     args = parser.parse_args()
+    if args.style == 'selective-60':
+        from chorus_arrangement import selective_plan, render
+        verses = [
+            'रंग बिरंगी तितली आई\nनन्ही चिड़िया गीत सुनाए\nफूलों संग हम हँसते जाएं\nबाग में मिलकर नाचें गाएं',
+            'नीले बादल पानी लाएं\nछोटे मेंढक कूद दिखाएं\nकागज़ की हम नाव चलाएं\nमिलकर सारे खुश हो जाएं',
+        ]
+        plan = selective_plan(verses, os.environ.get('PREVIEW_RUN_ID', 'garden-rain-preview'))
+        render(plan, Path('output/preview'))
+        return
     from music_cpu import synthesize
     root = Path('output/preview')
     root.mkdir(parents=True, exist_ok=True)

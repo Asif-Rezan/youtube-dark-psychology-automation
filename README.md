@@ -304,3 +304,16 @@ These are model controls, not measured similarity percentages. Strong source
 anchoring can reduce freedom to change verse vocals; listen to the previews
 before adopting a setting for full episodes. Normal generation defaults are
 unchanged, and the preview workflow does not publish video or audio.
+
+
+### Fixed chorus with fresh verses: one-minute preview
+
+The current audio-only preview uses `selective-60`: one strongly reference-conditioned
+chorus is synthesized once and reused at the beginning and end; two original Hindi
+verse blocks use independent text-to-music requests with voice-style reference only.
+The verse requests explicitly disable source-melody cover mode and use content/run-specific
+seeds. Four 15.1875-second sections with three 0.25-second crossfades produce 60 seconds.
+Short generated blocks fail instead of being padded. A reusable `DUDI_APPROVED_CHORUS`
+file can replace chorus synthesis in future arrangements, keeping that chorus audio
+fixed while new verse lyrics and melodies change. Word-level timing and phrase joins
+still require listening review. This preview does not change the live full-video pipeline.
