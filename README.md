@@ -1,77 +1,31 @@
-# Version and rollback log
+# English pipeline migration log — 2026-11-04
 
-## Dark psychology baseline — preserved 2026-11-03
+- Hindi baseline: `43cdb83`; documented snapshot: `1ddcc6b`.
+- Rollback tag: `hindi-before-english-2026-11-04`.
+- [Full Hindi version log and README](docs/archive/hindi-before-english-2026-11-04-README.md).
+- Earlier uncommitted documentary work: `archive/documentary-local-2026-11-04`,
+  commit `1610b05`; preserved separately because it predates the Hindi pipeline.
+- Replaced the tracked implementation with a direct clone of
+  `Asif-Rezan/dudi_dam_tv` at `01c2249`. English lyrics, English audio, models,
+  bundled reference assets, metadata, scheduling, Shorts, recovery and cleanup
+  follow that exact reference. Reference schedule: 03:00 Asia/Dhaka.
+- Destination repository, existing YouTube identity and private Grow with Rezan
+  kids Drive folder remain unchanged. GitHub secrets/variables are not replaced.
+  Only `storage.py` initialization, `setup_accounts.py`, `verify_connections.py`,
+  destination `.env.example` and their integration tests differ for this purpose.
+  Existing OAuth privacy/site documents are retained to keep their URLs available.
+- Hindi-only ACE experiments, lyric verifier and Facebook workflows are archived
+  in the rollback tag and are not active in the English reference implementation.
+- Use a fresh run ID for English generation; saved Hindi runs are not translated.
 
-- Repository: `Asif-Rezan/youtube-dark-psychology-automation`
-- Exact baseline commit: `1573e3741197b0c6ddc3b560119487f3c1d7abfe`
-- Commit title: Merge pull request #11 from Asif-Rezan/fix/thumbnail-mobile-clarity
-- Rollback tag: `dark-psychology-before-kids-2026-11-03`
-- Original documentation: [Archived dark psychology README](docs/archive/dark-psychology-1573e37-README.md)
-- Previous production workflow: `.github/workflows/daily-upload.yml`
-- Previous behavior: psychology/power documentaries, Qwen scripts, Kokoro narration,
-  SSD-1B seven-second illustrations, 1344×768 thumbnail source / 1920×1080 export,
-  private uploads followed by 72-hour / 6 AM New York scheduling, optional Facebook.
-- Original destination: Grow with Rezan (`UCYjz7d66SsshimfpxZahlhQ`).
-- Existing repository secrets stay in this repository. The tag contains code, not secrets.
+Restore code by creating a restoration commit from the rollback tag; do not
+rewrite history. Tags do not restore cloud settings, deleted media or credentials.
 
-To inspect or run the previous version in an isolated checkout:
-
-```sh
-git fetch origin --tags
-git worktree add ../dark-psychology-restored dark-psychology-before-kids-2026-11-03
-```
-
-To make the old code the active main version again, first review and back up any
-newer work, then create a restoration commit (no force push or history rewriting):
-
-```sh
-git switch main
-git pull --ff-only
-git restore --source=dark-psychology-before-kids-2026-11-03 --staged --worktree -- .
-git commit -m "Restore dark psychology baseline 1573e37"
-git push origin main
-```
-
-Check workflow schedules, repository variables, OAuth access and saved upload
-identities before restarting restored automation. Git tags do not restore cloud
-settings, credentials or deleted media. Kids media/history uses an isolated Drive
-child folder, so old documentary checkpoints remain available. Restoring main
-reinstates the old workflows; already-running Actions retain their original code.
-
-
----
-
-# Kids rhyme automation — Grow with Rezan repository
-
-This repository now uses the Dudi Dam TV video generation system from
-`Asif-Rezan/dudi_dam_tv` at `3d6526c78a9faed1e341db0d428bd5d71f254de1`.
-The existing destination channel stays `UCYjz7d66SsshimfpxZahlhQ`; no source-repository
-credentials or channel identity are copied. Dudi rhyme words and fixed video
-metadata match the requested source pipeline; the YouTube channel itself is not renamed.
-
-The old documentary generation workflows have been removed from active main so they cannot
-produce psychology videos alongside the new kids workflow. Their full source is
-preserved by the rollback tag above and the archived README. Existing uploads
-and documentary Drive media are unchanged.
-
-`storage.py` verifies ownership/privacy and the original `grow_with_rezan_root=v1`
-folder, then creates/reuses an owner-only child marked `grow_with_rezan_kids_root=v1`.
-Only that child is used for new kids history, backups and cleanup. Do not point
-this repository at another channel's Drive folder.
-
-New main workflow: `.github/workflows/music.yml` (600-second videos + 40-second Shorts).
-Thumbnail references, 0.50 strength, 1080p export, 120 BPM mastered music, two human
-toddlers with animals and random image animation match the source. Hourly cleanup
-retains scheduled/private files and removes only verified public HD kids media;
-YouTube tag edits do not block cleanup.
-
-Automatic daily generation uses `AUTOMATION_ENABLED=true`; uploading uses
-`PUBLISH_ENABLED=true`. The old pipeline enabled daily publishing in workflow code;
-those switches are configured in this repository when migration is applied.
-New generation begins at 18:00 UTC (00:00 Asia/Dhaka), with the same 72-hour /
-6 AM New York publication policy. Manual dispatch requires a new run ID. No full
-video generation or upload is performed merely by this migration commit.
-
+Validation before migration commit: `python -m unittest -v` passed all 159
+tests, including actual FFmpeg render/audio checks and destination Drive guards.
+CLI startup checks passed for generation, publication and Shorts. Reference
+tracked-file comparison confirms only the documented integration changes.
+Cloud inference/publication are separate from these component checks.
 
 ---
 
@@ -82,18 +36,18 @@ Copied from [Heart-and-Mind](https://github.com/Asif-Rezan/Heart-and-Mind) at `0
 ## Current behavior
 
 - Default: 600 seconds. Set `VIDEO_DURATION_SECONDS` to 480–720 in five-second steps.
-- Sweet adult female singing voice requested, original AI-written Hindi verses in Devanagari alternating with **dudi dudi dam dam dudi dudi dam**. This phrase is a sung refrain, not musical chord notation.
+- Sweet adult female singing voice requested, original AI-written English verses alternating with **dudi dudi dam dam dudi dudi dam**. This phrase is a sung refrain, not musical chord notation.
 - The first lyrics job runs the pinned local Qwen3-4B CPU model to write a fresh adventure outline, new English verses, and matching visual descriptions. Only the Dudi refrain is fixed. There is no template fallback. Each run ID uses a different generation seed.
 - A new SSD-1B cartoon illustration for every five seconds (96–144 images), plus a thumbnail. Sixteen image workers split generation and checkpoint each completed image.
 - ACE-Step generates separate sections up to 120 seconds, then FFmpeg joins them. Music is not looped or padded. Short or incorrectly sized sections fail. Section joins and voice/character consistency need listening/viewing review.
-- A 30-second excerpt of the user-supplied MP3 is included at `assets/reference/style-reference.mp3`; the full original is not committed. The pinned API exposes `reference_audio`. Inference receives the excerpt for style conditioning; actual influence and singing quality require a model run. The bundled clip is byte-identical to the motivation project reference. It is used by default, including outside Actions. Set `REFERENCE_AUDIO_PATH` to a different local file to override it; relative paths resolve from the repository root. Missing or empty references stop generation before model loading. Hindi vocals use `vocal_language=hi` with the same model and female nursery singing prompt as the English project. This is style conditioning, not guaranteed speaker cloning. Use a new run ID to avoid reusing already generated audio. Use reference material you have permission to use.
+- A 30-second excerpt of the user-supplied MP3 is included at `assets/reference/style-reference.mp3`; the full original is not committed. The pinned API exposes `reference_audio`. Inference receives the excerpt for style conditioning; actual influence and singing quality require a model run. Set `REFERENCE_AUDIO_PATH` to a different local file or leave unset to generate without conditioning. Use reference material you have permission to use.
 - Storyboard lyrics drive image actions and the pictures change exactly every five seconds. Singing is generative: this is planned timing, **not forced alignment or transcription**. Precise word-level synchronization is not yet implemented.
 
 ## Generate before connecting Google
 
 Run **Dudi Dam TV kids rhyme generation** from GitHub Actions with a new `run_id`. The lyrics job checks and reserves lyric originality in private Drive history; connected Drive credentials are required for the production workflow. Local generation without history can run without Google credentials. Download `kids-video-RUN_NUMBER` for the MP4, thumbnail and song/storyboard JSON. Generation is computationally expensive and has not yet been verified end to end on Actions. Existing model revisions and CPU dependencies come from the reference; 120-second sections reload the model for bounded worker isolation. Model memory/time limits may require a larger runner.
 
-Automatic scheduling is off unless repository variable `AUTOMATION_ENABLED=true`. Publishing requires `PUBLISH_ENABLED=true`. The scheduled time inherited from the reference is 00:00 Asia/Dhaka. The workflow defaults to 600 seconds; adjust `VIDEO_DURATION_SECONDS` in its workflow-level env for other durations.
+Automatic scheduling is off unless repository variable `AUTOMATION_ENABLED=true`. Publishing requires `PUBLISH_ENABLED=true`. The scheduled time inherited from the reference is 03:00 Asia/Dhaka. The workflow defaults to 600 seconds; adjust `VIDEO_DURATION_SECONDS` in its workflow-level env for other durations.
 
 For local AI lyric writing (downloads the pinned Qwen GGUF model):
 
@@ -110,8 +64,8 @@ Image preparation also requires CPU PyTorch and `requirements-images-cpu.txt`. M
 ## Connect later
 
 1. Configure a Google Cloud OAuth client with YouTube Data API v3 and Google Drive API enabled.
-2. Use `python setup_accounts.py --help` for the inherited account setup commands targeting `Asif-Rezan/youtube-dark-psychology-automation`. Drive verifies that the configured project folder belongs to the authenticated account and is owner-only.
-3. Add secrets `YOUTUBE_TOKEN_JSON`, `EXPECTED_CHANNEL_ID`, `DRIVE_TOKEN_JSON`, `DRIVE_FOLDER_ID`. Keep this repository’s existing `grow_with_rezan_root=v1` Drive folder. The new kids pipeline uses its isolated `grow_with_rezan_kids_root=v1` child folder. Never use the source channel’s folder.
+2. Use `python setup_accounts.py --help` for the inherited account setup commands targeting `Asif-Rezan/dudi_dam_tv`. Drive remains restricted to the account in `storage.py`; update it deliberately if using another owner.
+3. Add secrets `YOUTUBE_TOKEN_JSON`, `EXPECTED_CHANNEL_ID`, `DRIVE_TOKEN_JSON`, `DRIVE_FOLDER_ID`. Create a new Dudi Dam TV Drive folder with the `dudi_dam_tv_root=v1` application property via setup; do not reuse the reference channel folder.
 4. After reviewing a downloaded preview, set `PUBLISH_ENABLED=true`. Uploads declare `selfDeclaredMadeForKids=true`; the configured channel ID must match. Drive stores the scene sources/manifests as `storyboard.tar.gz`, and cleanup removes media only after verified public HD publication.
 
 Google OAuth and the dedicated Drive folder can be checked with the **Verify Google connections** workflow. This only verifies identity, folder privacy and refresh tokens; it does not upload videos. No finished music/video is claimed until inference succeeds and the result is reviewed.
@@ -131,7 +85,7 @@ Scheduled media is retained on Drive. After its release, rerun the same publishi
 
 ## Daily 6 AM New York releases
 
-Daily generation starts at 18:00 UTC (00:00 Asia/Dhaka). Once each video finishes uploading, it is scheduled for the first **06:00 America/New_York** slot at least **72 elapsed hours after upload completion**. New York daylight saving changes are handled by the IANA timezone database. The actual wait is 72 hours up to the next qualifying 6 AM slot (normally less than 96 hours). There is an initial three-plus-day buffer before the first release; generation failures/delays can leave gaps.
+Daily generation starts at 21:00 UTC (03:00 Asia/Dhaka). Once each video finishes uploading, it is scheduled for the first **06:00 America/New_York** slot at least **72 elapsed hours after upload completion**. New York daylight saving changes are handled by the IANA timezone database. The actual wait is 72 hours up to the next qualifying 6 AM slot (normally less than 96 hours). There is an initial three-plus-day buffer before the first release; generation failures/delays can leave gaps.
 
 The default upload is private without a publication timestamp. After YouTube returns its video ID, the pipeline records upload completion, computes and saves the target, then updates YouTube `status.publishAt`. Retry attempts reuse the saved target rather than delaying it again. This step needs `youtube.force-ssl` authorization in addition to the existing upload/read scopes. Default workflow mode is `scheduled` and `publish_at` is empty, so both daily and manual runs follow this policy unless explicitly overridden. `AUTOMATION_ENABLED=true` enables daily generation and `PUBLISH_ENABLED=true` enables uploading.
 
@@ -245,82 +199,21 @@ not part of component checks; a newly generated video still needs visual and
 listening review.
 
 
-## One-time documentary Drive cleanup
+## Bounded internal-silence recovery
 
-The owner explicitly requested deletion of the old project folder files during
-migration. `legacy-drive-cleanup.yml` inventories direct files in the verified
-owner-only `grow_with_rezan_root=v1` root. Audit mode never deletes. Delete mode
-rechecks each exact file identity and content metadata, permanently deletes only
-those root files, saves a report, and verifies that no direct files remain.
-Subfolders, including the new kids folder, are never traversed or deleted. This
-operation does not edit/delete existing YouTube or Facebook publications. Deleted
-media and old Drive checkpoints cannot be recovered from the code rollback tag.
+Music quality checks now distinguish repairable short silence from excessive
+missing audio. Internal gaps up to 3.5 seconds are removed only when their total
+is at most 5% of that part and combined edge/internal trimming stays within 10%.
+Five-millisecond fades soften each edit; pitch-preserving tempo compensation
+restores the planned duration, without looping or silent padding. The finished
+mix must pass strict silence and duration checks. Larger gaps still regenerate
+only the affected part, with at most three quality attempts.
 
-
-## Facebook publishing retained
-
-Facebook publishing is restored for this repository's original Grow with Rezan
-Page (`301624356367343`), using its existing `FACEBOOK_PAGE_ACCESS_TOKEN` secret.
-`FACEBOOK_PUBLISH_ENABLED=true` and `PUBLISH_ENABLED=true` enable both landscape
-videos and vertical Reels. Each Facebook job runs after its YouTube publication
-checkpoint is verified and schedules the same original MP4 at the saved YouTube
-publication timestamp. It does not regenerate media or change YouTube uploads.
-
-The upload/session/video ID and frozen schedule are checkpointed separately in
-the private kids Drive folder. Repeating an upload reuses its existing ID; a lost
-initial response requires reconciliation rather than creating a duplicate.
-Failures remain visible in the Facebook job and its checkpoint artifacts while
-YouTube publication continues independently. Manual Facebook-only recovery is
-available through `facebook.yml` with the original GitHub source run and song ID.
-Default scheduling is the existing 72-hour / 6 AM New York YouTube policy. A
-public-mode YouTube run without a saved schedule is refused by Facebook rather
-than being posted immediately. This addition applies to new workflow runs.
-
-
-## Hindi sung verses
-
-New generation IDs use original Hindi verses in Devanagari, alternating with the
-exact unchanged refrain `dudi dudi dam dam dudi dudi dam`. Hindi lines have 4–12
-words, with script/length and Unicode-aware novelty checks. Rejected English or
-Romanized Hindi lines receive bounded targeted rewrites; there is no translation
-or template fallback. Planning metadata and visual prompts remain in English so
-the existing cartoon generation keeps its current behavior.
-
-Both long music and independently generated Shorts inherit `vocal_language=hi`.
-YouTube audio language defaults to Hindi; fixed public title/description remain
-unchanged. Existing saved episodes are not translated or regenerated. Use a new
-run ID for this Hindi writer version. Female voice, reference music, tempo,
-mastering, thumbnails, animation, midnight Asia/Dhaka generation and YouTube /
-Facebook scheduling remain as configured.
-
-
-### ACE reference and lyric verification
-
-The full video workflow uses `assets/reference/style-reference-long.mp3`, a continuous
-12-minute excerpt from the supplied reference. Each one-minute ACE request uses its
-corresponding source window and a bounded 30-second style reference. The full video
-and Short use their newly generated storyboard lyrics; refrain text is normalized to
-Hindi for the singer. The experimental paired flow edit retains the supplied Dudi
-refrain as **partial** source lyric conditioning, not an ASR-verified full transcript.
-
-Each generated audio part is transcribed in a separate bounded CPU worker. The
-verification report compares words from that part's own verses and records audio and
-lyric hashes. A `needs_review` report retains the audio but blocks publication;
-`runtime_error` means verification itself failed. ASR is an estimate, and passing it
-does not establish melody, voice or complete lyric accuracy. This integration has
-not yet demonstrated reliable reference-matched lyric replacement in real audio.
-
-`ace-preview.yml` and `auk-preview.yml` are separate listening experiments. They do
-not replace the full video workflow or run on its daily schedule.
-
-
-## Hindi version archived — 2026-11-04
-
-The complete Hindi pipeline at `43cdb83` is preserved before replacing it with
-the directly cloned English `Asif-Rezan/dudi_dam_tv` pipeline. This includes
-Hindi lyrics/vocals, full-reference ACE experiments and lyric verification,
-landscape/Shorts generation, recovery diagnostics, Facebook publishing,
-existing channel/Drive integration and the earlier rollback documentation.
-The snapshot including this log is tagged `hindi-before-english-2026-11-04`.
-Repository secrets remain in the destination repository and are not copied
-from the reference. Existing publications are not edited by the code migration.
+Previously rejected candidates from the same run/part are checked before starting
+another CPU synthesis. Valid earlier parts are retained. Checkpoints record the
+repair windows, candidate recovery and final mastering settings; each failed
+attempt keeps a separate audio candidate. Failure artifacts include `failure.json`
+and an explicit `audio_internal_gap` diagnostic instead of a generic error.
+The 120-second part failure at 91.61–94.57 seconds is covered by a real FFmpeg
+regression including pitch and output-duration checks. Generative audio quality
+is still not guaranteed; excessive missing audio remains a visible failure.

@@ -41,8 +41,6 @@ def prepare(run_id, stage='all', check_history=False, vocal_gender='female'):
     if (root/'song.json').exists():
         song = validate_song(json.loads((root/'song.json').read_text()))
     else:
-        if stage not in ('lyrics', 'all'):
-            raise RuntimeError('Lyrics checkpoint missing; restore song.json before resuming this stage')
         song = make_song(dt.datetime.now(ZoneInfo('Asia/Dhaka')).date().isoformat(), history, root/'song-draft.json', generation_id=run_id, vocal_gender_override=vocal_gender)
         (root/'song.json').write_text(json.dumps(song, ensure_ascii=False, indent=2))
     if vocal_gender != 'auto' and song.get('vocal_gender') != vocal_gender:
@@ -85,12 +83,6 @@ def prepare(run_id, stage='all', check_history=False, vocal_gender='female'):
         if stage == 'render':
             raise RuntimeError('Music artifact missing; publishing cannot generate through a remote service')
         generate(song, root/'song.wav', state, save)
-    if os.getenv('VERIFY_SUNG_LYRICS')=='true':
-        from lyrics_quality import validate_segment,require_verified
-        if stage=='render':
-            require_verified(song,root/'song.wav')
-        else:
-            validate_segment(dict(song,verify_lyrics=True),root/'song.wav',state,save)
     validate_duration(duration(root/'song.wav'))
     if stage == 'music':
         print(json.dumps({'phase':'music ready', 'run_id':run_id}), flush=True)

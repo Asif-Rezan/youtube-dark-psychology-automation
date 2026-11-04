@@ -4,10 +4,12 @@ from pathlib import Path
 import re
 import subprocess
 
-VERSION='continuous-kids-mix-v2'
+VERSION='continuous-kids-mix-v3'
 BPM=120
 LOUDNESS='loudnorm=I=-14:TP=-1.5:LRA=9'
 MAX_EDGE_TRIM_RATIO=.10
+MAX_INTERNAL_TRIM_RATIO=.05
+MAX_INTERNAL_GAP_SECONDS=3.5
 
 
 class AudioGapError(RuntimeError):
@@ -17,7 +19,7 @@ class AudioGapError(RuntimeError):
 
 
 def uses_continuous_mix(song):
-    return song.get('audio_mastering') in ('continuous-kids-mix-v1',VERSION)
+    return song.get('audio_mastering') in ('continuous-kids-mix-v1','continuous-kids-mix-v2',VERSION)
 
 
 def audio_duration(path):
@@ -26,11 +28,15 @@ def audio_duration(path):
     return float(json.loads(result.stdout)['format']['duration'])
 
 
-def verify_continuity(path,seconds,allow_edge_trim=True):
+def verify_continuity(path,seconds,allow_edge_trim=True,allow_internal_repair=None):
+    if allow_internal_repair is None:
+        allow_internal_repair=allow_edge_trim
     native=audio_duration(path)
     if native<seconds-.1:
         raise AudioGapError(f'Audio is too short: {native:.3f}s for {seconds:.3f}s','too_short')
-    end=min(native,float(seconds))
+    # Inspect bounded native overrun before trimming; the requested prefix can
+    # contain an intro while useful audio continues beyond the delivery cutoff.
+    end=min(native,float(seconds)*(1.25 if allow_edge_trim else 1))
     result=subprocess.run(['ffmpeg','-hide_banner','-nostats','-i',str(path),'-t',str(end),
         '-af','silencedetect=noise=-45dB:d=0.10','-f','null','-'],
         check=True,capture_output=True,text=True,timeout=300)
@@ -56,15 +62,40 @@ def verify_continuity(path,seconds,allow_edge_trim=True):
             trailing=min(trailing,a)
         elif b-a>=.65:
             internal.append((a,b))
-    if internal:
-        raise AudioGapError('Unexpected internal music silence at '+','.join(f'{a:.2f}-{b:.2f}s' for a,b in internal))
-    active=trailing-leading
+    internal_seconds=sum(b-a for a,b in internal)
+    active=trailing-leading-internal_seconds
+    if internal and (not allow_internal_repair
+            or max(b-a for a,b in internal)>MAX_INTERNAL_GAP_SECONDS
+            or internal_seconds>float(seconds)*MAX_INTERNAL_TRIM_RATIO
+            or active<float(seconds)*(1-MAX_EDGE_TRIM_RATIO)):
+        raise AudioGapError('Internal music silence exceeds the bounded repair budget at '+
+                            ','.join(f'{a:.2f}-{b:.2f}s' for a,b in internal))
+
     if active<=0 or active<float(seconds)*(1-MAX_EDGE_TRIM_RATIO):
         raise AudioGapError('Too much silent onset/outro to repair within the 10% duration budget','excessive_edge_silence')
     if not allow_edge_trim and (leading>.15 or end-trailing>.35):
         raise AudioGapError('Unrepaired onset/outro silence remains after mastering','unrepaired_edges')
-    return dict(start=leading,end=trailing,active_seconds=active,
-                source_seconds=native,edge_trim_seconds=end-active)
+    segments=[]
+    cursor=leading
+    for a,b in internal:
+        segments.append((cursor,a));cursor=b
+    segments.append((cursor,trailing))
+    # Keep at most the requested amount of active audio. This uses overrun
+    # rather than stretching a shorter performance beyond the existing budget.
+    remaining=float(seconds)
+    kept=[]
+    for a,b in segments:
+        if remaining<=0:
+            break
+        stop=min(b,a+remaining)
+        kept.append((a,stop))
+        remaining-=stop-a
+    segments=kept
+    active=min(active,float(seconds))
+    return dict(start=segments[0][0],end=segments[-1][1],active_seconds=active,
+                source_seconds=native,edge_trim_seconds=end-(trailing-leading),
+                internal_trim_seconds=internal_seconds,repair_segments=segments)
+
 
 
 def master_parts(parts,target,seconds):
@@ -81,7 +112,20 @@ def master_parts(parts,target,seconds):
         window=verify_continuity(part,seconds if len(parts)==1 else native)
         windows.append(window)
         args+=['-i',str(part)]
-        filters.append(f'[{i}:a]atrim=start={window["start"]:.9f}:end={window["end"]:.9f},asetpts=PTS-STARTPTS[part{i}]')
+        segments=window['repair_segments']
+        if len(segments)==1:
+            filters.append(f'[{i}:a]atrim=start={window["start"]:.9f}:end={window["end"]:.9f},asetpts=PTS-STARTPTS[part{i}]')
+        else:
+            filters.append(f'[{i}:a]asplit={len(segments)}'+''.join(f'[raw{i}_{j}]' for j in range(len(segments))))
+            for j,(a,b) in enumerate(segments):
+                fade=min(.005,(b-a)/4)
+                filters.append(f'[raw{i}_{j}]atrim=start={a:.9f}:end={b:.9f},asetpts=PTS-STARTPTS,'
+                               f'afade=t=in:d={fade:.9f},afade=t=out:st={b-a-fade:.9f}:d={fade:.9f}[keep{i}_{j}]')
+            filters.append(''.join(f'[keep{i}_{j}]' for j in range(len(segments)))+
+                           f'concat=n={len(segments)}:v=0:a=1[part{i}]')
+            print(json.dumps({'phase':'repair bounded internal silence','part':i,
+                'removed_seconds':window['internal_trim_seconds'],'gap_count':len(segments)-1}),flush=True)
+
     previous='part0'
     for i in range(1,len(parts)):
         label=f'join{i}'

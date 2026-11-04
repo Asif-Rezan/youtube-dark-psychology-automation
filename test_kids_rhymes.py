@@ -18,7 +18,7 @@ class KidsTests(unittest.TestCase):
                 visual_world='A peach seaside garden with shell paths.',
                 description='A new playful story about two kind animal friends discovering a garden rainbow.',
                 story_summary='Duck and bunny follow a bright rainbow through the garden.'),
-                sections=[[dict(lyric=f'नन्हे बच्चे {chr(0x915+i//26)} {chr(0x915+i%26)} बगीचे में नाचें',visual=f'Duckling and bunny exploring flower patch {i}')
+                sections=[[dict(lyric=f'Friendly ducks discover garden number {i}',visual=f'Duckling and bunny exploring flower patch {i}')
                            for i in range((seconds+9)//10)]])
         model=patch('kids_rhymes.write_rhyme',side_effect=written)
         model.start()

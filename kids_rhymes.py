@@ -4,6 +4,7 @@ import json
 import math
 import os
 import re
+import shutil
 from pathlib import Path
 import subprocess
 
@@ -52,12 +53,12 @@ def make_song(day, history, draft_path=None, generation_id=None, vocal_gender_ov
     scenes=scenes[:seconds//5]
     outline=written['outline']
     song = dict(title=outline['title'], lyrics='\n'.join(scene['lyric'] for scene in scenes),duration=seconds,
-        prompt='Joyful nursery rhyme, cute sweet adult female singing voice, clear Hindi diction, playful dudi dudi dam dam refrain, C major, 120 BPM, bouncy ukulele, bright xylophone, steady handclaps and gentle bass. Continuous lively instrumental backing under every vocal line, no silent breaks, no stop-start pauses, no shouting.',
+        prompt='Joyful nursery rhyme, cute sweet adult female singing voice, clear English diction, playful dudi dudi dam dam refrain, C major, 120 BPM, bouncy ukulele, bright xylophone, steady handclaps and gentle bass. Continuous lively instrumental backing under every vocal line, no silent breaks, no stop-start pauses, no shouting.',
         description=outline['description'],story_summary=outline['story_summary'],
         visual_identity=dict(characters=outline.get('characters',''), world=outline.get('visual_world','')),
         lyric_writer=dict(backend='local-qwen-cpu',version=written['writer_version'],novelty_checked=True),
-        vocal_gender='female',vocal_language='hi',song_date=day,scenes=scenes,bpm=120,
-        audio_mastering='continuous-kids-mix-v2',
+        vocal_gender='female',song_date=day,scenes=scenes,bpm=120,
+        audio_mastering='continuous-kids-mix-v3',
         tags=['Dudi Dam TV','kids rhymes','nursery rhymes','Dudi Dudi Dam Dam','kids dance'])
     validate_storyboard(song)
     return song
@@ -74,12 +75,6 @@ def validate_storyboard(song):
             raise ValueError('Non-contiguous storyboard')
         if not scene.get('lyric') or not scene.get('prompt'):
             raise ValueError('Scene lyric and prompt required')
-        if song.get('vocal_language') == 'hi':
-            from lyrics_cpu import HINDI_LYRIC_PATTERN
-            if i % 2 and scene['lyric'] != REFRAIN:
-                raise ValueError('Keep the original Dudi refrain unchanged')
-            if not i % 2 and not re.fullmatch(HINDI_LYRIC_PATTERN, scene['lyric']):
-                raise ValueError('Hindi verse must contain 4–12 Devanagari words')
     if song['lyrics'] != '\n'.join(scene['lyric'] for scene in scenes):
         raise ValueError('Storyboard lyrics must match sung lyrics')
 
@@ -101,44 +96,57 @@ def generate_music(song, target, state, save):
     if target.exists() and (not continuous or state.get('mastering_version')==VERSION):
         validate_duration(duration(target))
         return
-    # One-minute source-aligned requests keep paired flow-edit within CPU RAM.
-    # Use successive real reference windows, never loop or insert reference audio.
+    # ACE-Step documents up to 600 seconds per request. Short independent parts
+    # keep 8-12 minute episodes within that contract, with no audio looping.
     parts = []
     scenes = song['scenes']
-    for i in range(0, len(scenes), 12):
-        group = scenes[i:i+12]
+    for i in range(0, len(scenes), 24):
+        group = scenes[i:i+24]
         part = dict(song, duration=len(group)*5, lyrics='\n'.join(s['lyric'] for s in group), _segment=True)
-        from production_music import request as source_request
-        part=source_request(part,start=i*5)
-        path = target.parent / f'part-{i//12:03d}.wav'
-        part_state = state.setdefault('parts', {}).setdefault(str(i//12), {})
+        path = target.parent / f'part-{i//24:03d}.wav'
+        part_state = state.setdefault('parts', {}).setdefault(str(i//24), {})
+        if continuous and not path.exists():
+            for candidate in sorted(path.parent.glob(path.stem+'.rejected*.wav'),reverse=True):
+                try:
+                    window=verify_continuity(candidate,part['duration'])
+                except (AudioGapError,subprocess.CalledProcessError,OSError,ValueError):
+                    continue
+                shutil.copyfile(candidate,path)
+                part_state.update(recovered_candidate=candidate.name,quality_window=window)
+                save()
+                print(json.dumps({'phase':'recovered saved music candidate','part':i//24,
+                    'candidate':candidate.name}),flush=True)
+                break
         for attempt in range(3 if continuous else 1):
             generate_segment(part,path,part_state,save)
             try:
                 if continuous:
-                    verify_continuity(path,part['duration'])
+                    part_state['quality_window']=verify_continuity(path,part['duration'])
+                    part_state.update(audio_ready=True,generation_started=False)
+                    part_state.pop('last_quality_error',None)
+                    save()
                 break
             except AudioGapError as error:
-                print(json.dumps({'phase':'retry invalid music part','part':i//12,
+                print(json.dumps({'phase':'retry invalid music part','part':i//24,
                     'attempt':attempt+1,'reason':error.code,'detail':str(error)}),flush=True)
                 part_state['last_quality_error']=dict(code=error.code,detail=str(error))
                 part_state.update(audio_ready=False,continuity_retries=attempt+1)
                 save()
-                path.replace(path.with_suffix('.rejected-gap.wav'))
+                path.replace(path.with_suffix(f'.rejected-gap-{attempt+1}.wav'))
                 if attempt==2:
-                    raise
+                    raise AudioGapError(f'Music part {i//24} failed three quality attempts ({error.code}); saved parts retained. '+str(error),code=error.code) from error
         parts.append(path)
     # Normalize every part to the planned boundary, refusing short generations.
     normalized = []
     for i, path in enumerate(parts):
-        requested = min(60, song['duration']-i*60)
+        requested = min(120, song['duration']-i*120)
         if duration(path) < requested - .25:
             raise RuntimeError('Music part is too short; regenerate rather than pad or loop')
         dest = target.parent / f'normalized-{i:03d}.wav'
         subprocess.run(['ffmpeg', '-y', '-i', str(path), '-t', str(requested), '-ar', '44100', '-ac', '2', str(dest)], check=True, capture_output=True)
         normalized.append(dest)
     if continuous:
-        master_parts(normalized,target,song['duration'])
+        state['mastering']=master_parts(normalized,target,song['duration'])
         state.update(audio_ready=True,mastering_version=VERSION)
         save()
         return

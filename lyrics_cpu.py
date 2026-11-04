@@ -17,7 +17,6 @@ GGUF_SHA256 = '3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597'
 CONTEXT_TOKENS = 16384
 # A small, bounded word grammar is safe to retain; large prose bounds are not.
 LYRIC_WORD_PATTERN = r'^[A-Za-z]+( [A-Za-z]+){3,11}[.!?]?$'
-HINDI_LYRIC_PATTERN = r'^[\u0900-\u0963\u0971-\u097f]+( [\u0900-\u0963\u0971-\u097f]+){3,11}[।.!?]?$'
 _model = None
 
 
@@ -127,7 +126,7 @@ def request_story(endpoint, payload):
         if isinstance(node, dict):
             node.pop('minLength', None)
             node.pop('maxLength', None)
-            if node.get('pattern') not in (LYRIC_WORD_PATTERN, HINDI_LYRIC_PATTERN):
+            if node.get('pattern') != LYRIC_WORD_PATTERN:
                 node.pop('pattern', None)
             for value in node.values():
                 remove_string_bounds(value)
@@ -191,7 +190,7 @@ def request_story(endpoint, payload):
                 if issue=='maxLength':
                     correction += f' Write this field in no more than {max(1,int(bound*.65))} characters including spaces. Characters are not words.'
             if issue == 'pattern':
-                correction += ' Every lyric must have 4 to 12 words in the required script, separated by single spaces. Hindi lyrics must use Devanagari, never English or Romanized Hindi. Aim for 6 words.'
+                correction += ' Every lyric must have 4 to 12 plain English words, single spaces, no apostrophes or hyphens. Aim for 6 words.'
             if issue == 'incomplete_output':
                 correction += ' Shorten prose and lyric lines so the entire JSON fits the output budget.'
             messages.append({'role': 'user', 'content': correction +

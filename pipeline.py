@@ -18,24 +18,18 @@ class DuplicateSongError(RuntimeError):
 
 
 def pipeline_failure_message(error):
-    from lyrics_quality import LyricsQualityError
-    if isinstance(error,LyricsQualityError):
-        return ('Pipeline stopped [lyrics_unverified]: audio was generated but new verse words '
-                'were not verified. Publication blocked; inspect saved lyric reports and audio.')
     if isinstance(error, DuplicateSongError):
         return ('Pipeline failed [duplicate_song]: lyrics or title already published. '
                 'Create a fresh song with a new run ID; do not retry duplicate media.')
+    from audio_mastering import AudioGapError
+    if isinstance(error,AudioGapError):
+        return f'Pipeline failed [audio_{error.code}]: {error}'
     from lyrics_cpu import StoryGenerationError
     if isinstance(error,StoryGenerationError):
         return 'Pipeline failed ['+error.code+']: '+str(error)+' Details: '+json.dumps(error.details,sort_keys=True)
     # Only expose exact, locally authored messages; API bodies may contain secrets.
     safe_errors = {
         'Wrong YouTube channel; select Dudi Dam TV',
-        'Lyrics checkpoint missing; restore song.json before resuming this stage',
-        'DRIVE_FOLDER_ID must identify the dedicated Grow with Rezan folder',
-        'Configured Drive folder must belong to the authenticated account',
-        'DRIVE_FOLDER_ID must identify an accessible active folder',
-        'Multiple kids rhyme folders require reconciliation',
         'Ambiguous upload; reconcile YouTube before retry to avoid duplicates',
         'Uploaded video unavailable',
         'Unconfirmed schedule is in the past; reconcile the existing video',
@@ -157,9 +151,6 @@ def youtube_client():
 
 
 def publish(client, root, song, state, save, upload_thumbnail=True, metadata_kind="video"):
-    if os.getenv('VERIFY_SUNG_LYRICS')=='true' and metadata_kind=='video' and not state.get('video_id'):
-        from lyrics_quality import require_verified
-        require_verified(song,root/'song.wav')
     from googleapiclient.http import MediaFileUpload
     if not state.get('video_id'):
         if state.get('upload_started'):

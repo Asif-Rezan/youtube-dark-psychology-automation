@@ -19,7 +19,6 @@ MODEL = 'acestep-v15-turbo'
 COMPONENTS = (MODEL, 'vae', 'Qwen3-Embedding-0.6B')
 CPU_GENERATION_TIMEOUT = 18000
 WORKER_TIMEOUT = CPU_GENERATION_TIMEOUT + 900
-DEFAULT_REFERENCE_AUDIO = Path(__file__).resolve().parent/'assets/reference/style-reference.mp3'
 
 
 def checkpoints(root):
@@ -88,108 +87,11 @@ def runtime(source):
     return torch, CpuHandler, GenerationParams, GenerationConfig, generate_music
 
 
-def reference_cover_options(song, reference):
-    """Pinned ACE-Step: higher cover_noise_strength is closer to source audio."""
-    import math
-    if not song.get('reference_cover'):
-        return {}
-    strength = float(song.get('cover_strength', 1.0))
-    noise = float(song.get('cover_noise_strength', 0.2))
-    if not all(math.isfinite(v) and 0 <= v <= 1 for v in (strength, noise)):
-        raise ValueError('Reference cover strengths must be finite values in 0..1')
-    task = song.get('flow_edit_task', 'cover') if song.get('flow_edit_morph') else 'cover'
-    if task not in ('cover', 'text2music'):
-        raise ValueError('Unsupported flow edit conditioning task')
-    if task == 'text2music':
-        # Official flow-edit example: source is used for zt, not cover-code context.
-        return dict(task_type=task, src_audio=reference)
-    return dict(task_type=task, src_audio=reference,
-                audio_cover_strength=strength, cover_noise_strength=noise)
-
-
-def flow_edit_options(song):
-    """Pinned ACE flow-edit uses separate original and replacement lyric embeddings."""
-    if not song.get('flow_edit_morph'):
-        return {}
-    source_lyrics = song.get('source_lyrics', '').strip()
-    if not song.get('reference_cover') or not source_lyrics:
-        raise ValueError('Flow lyric edit requires cover source and original lyrics')
-    if source_lyrics == song.get('lyrics', '').strip():
-        raise ValueError('Source and replacement lyrics must differ')
-    import math
-    edit_start = float(song.get('flow_edit_n_min', 0.0))
-    if not math.isfinite(edit_start) or not 0 <= edit_start < 1:
-        raise ValueError('Flow edit start must be finite and in [0,1)')
-    return dict(flow_edit_morph=True, flow_edit_source_caption=song['prompt'],
-                flow_edit_source_lyrics=source_lyrics,
-                flow_edit_n_min=edit_start, flow_edit_n_max=1., flow_edit_n_avg=1)
-
-
-def prepare_cover_source(reference, seconds, directory):
-    """Cover inference follows source length: trim long references, never loop short ones."""
-    import hashlib
-    import math
-    from pipeline import duration
-    seconds = float(seconds)
-    if not math.isfinite(seconds) or seconds <= 0:
-        raise ValueError('Cover duration must be finite and positive')
-    reference = Path(reference)
-    measured = duration(reference)
-    if measured < seconds - .05:
-        raise ValueError('Reference cover source is shorter than the requested segment')
-    if abs(measured - seconds) <= .05:
-        return str(reference)
-    directory = Path(directory)
-    directory.mkdir(parents=True, exist_ok=True)
-    digest = hashlib.sha256()
-    with reference.open('rb') as stream:
-        for chunk in iter(lambda: stream.read(1024*1024), b''):
-            digest.update(chunk)
-    digest.update(str(seconds).encode())
-    target = directory / ('cover-source-'+digest.hexdigest()[:16]+'.wav')
-    if not target.exists() or abs(duration(target)-seconds) > .05:
-        temporary = target.with_suffix('.part.wav')
-        try:
-            subprocess.run(['ffmpeg','-y','-v','error','-i',str(reference),
-                '-t',str(seconds),'-ar','48000','-ac','2',str(temporary)],check=True)
-            if abs(duration(temporary)-seconds) > .05:
-                raise ValueError('Prepared cover source duration mismatch')
-            temporary.replace(target)
-        finally:
-            temporary.unlink(missing_ok=True)
-    return str(target)
-
-
-def repaint_options(song):
-    """Edit the source arrangement in context rather than generating a separate full mix."""
-    if not song.get('reference_repaint'):
-        return {}
-    import math
-    from pipeline import duration
-    source = Path(song['edit_source'])
-    start, end = float(song['edit_start']), float(song['edit_end'])
-    seconds = float(song['duration'])
-    if not all(math.isfinite(v) for v in (start,end,seconds)) or not 0 <= start < end <= seconds:
-        raise ValueError('Invalid reference repaint interval')
-    if not source.is_file() or abs(duration(source)-seconds) > .05:
-        raise ValueError('Reference repaint source duration mismatch')
-    return dict(task_type='repaint',src_audio=str(source),repainting_start=start,
-        repainting_end=end,chunk_mask_mode='explicit',repaint_mode='balanced',
-        repaint_strength=.5,repaint_wav_crossfade_sec=.1)
-
-
 def synthesize(song, target, source, model_root):
     from pipeline import validate_song, validate_duration, duration
     # Segment requests are derived from a validated full-song manifest.
     if not song.get('_segment'):
         validate_song(song)
-    reference = reference_audio()
-    cover_options = repaint_options(song) if song.get('reference_repaint') else reference_cover_options(song, reference)
-    if song.get('reference_cover'):
-        from production_music import source_window
-        cover_options['src_audio'] = source_window(reference, song.get('reference_start',0), song['duration'], target.parent)
-        # A long source provides timeline context; style conditioning stays bounded.
-        reference = prepare_cover_source(cover_options['src_audio'], min(30,song['duration']), target.parent)
     checkpoints(model_root)
     os.environ['ACESTEP_CHECKPOINTS_DIR'] = str(model_root.resolve())
     os.environ['ACESTEP_INIT_LLM'] = 'false'
@@ -206,16 +108,11 @@ def synthesize(song, target, source, model_root):
         prefer_source='huggingface', use_mlx_dit=False)
     if not ready or handler.device != 'cpu':
         raise RuntimeError('ACE-Step CPU initialization failed')
-    if song.get('flow_edit_morph') and not callable(getattr(handler.model, 'flowedit_generate_audio', None)):
-        raise RuntimeError('Loaded ACE model lacks flow-edit; refusing silent cover fallback')
     params = Params(caption=song['prompt'], lyrics=song['lyrics'],
-        duration=song['duration'], bpm=song.get('bpm'), reference_audio=reference, vocal_language=song.get('vocal_language','en'), instrumental=False,
-        inference_steps=8, shift=3.0, thinking=False, use_cot_metas=False,
-        use_cot_caption=False, use_cot_language=False,
-        **cover_options, **flow_edit_options(song))
-    seed = song.get('generation_seed')
-    seed_options = dict(use_random_seed=False, seeds=[int(seed)]) if seed is not None else {}
-    config = Config(batch_size=1, audio_format='wav', allow_lm_batch=False, **seed_options)
+        duration=song['duration'], bpm=song.get('bpm'), reference_audio=reference_audio(), vocal_language='en', instrumental=False,
+        inference_steps=8, thinking=False, use_cot_metas=False,
+        use_cot_caption=False, use_cot_language=False)
+    config = Config(batch_size=1, audio_format='wav', allow_lm_batch=False)
     print(json.dumps({'phase':'synthesizing music', 'device':'cpu',
         'duration':song['duration'], 'steps':8}), flush=True)
     with torch.inference_mode(), generation_progress():
@@ -232,15 +129,10 @@ def synthesize(song, target, source, model_root):
 
 
 def reference_audio():
-    # Match the motivation project's bundled style even outside Actions.
-    # Resolve repository-relative overrides independently of the worker's cwd.
-    value = os.getenv('REFERENCE_AUDIO_PATH', '').strip()
-    path = Path(value).expanduser() if value else DEFAULT_REFERENCE_AUDIO
-    if not path.is_absolute():
-        path = Path(__file__).resolve().parent/path
-    if not path.is_file() or path.stat().st_size == 0:
-        raise ValueError('Reference audio is missing or empty: ' + str(path))
-    return str(path.resolve())
+    value = os.getenv('REFERENCE_AUDIO_PATH')
+    if value and not Path(value).is_file():
+        raise ValueError('REFERENCE_AUDIO_PATH does not exist')
+    return str(Path(value).resolve()) if value else None
 
 
 def generate(song, target, state, save):
@@ -255,8 +147,6 @@ def generate_segment(song, target, state, save):
     if target.exists():
         if abs(duration(target) - song['duration']) > 2:
             raise ValueError('Invalid saved segment duration')
-        from lyrics_quality import validate_segment
-        validate_segment(song,target,state,save)
         return
     source = Path(os.environ.get('ACESTEP_SOURCE_DIR', '.vendor/ace-step')).resolve()
     model_root = Path(os.environ.get('ACESTEP_CHECKPOINTS_DIR', '.models/acestep')).resolve()
@@ -276,8 +166,6 @@ def generate_segment(song, target, state, save):
         state.update(generation_started=False, generation_failed=str(exc), audio_ready=False)
         save()
         raise RuntimeError('Local ACE-Step CPU worker failed; saved lyrics and parts retained: ' + str(exc)) from exc
-    from lyrics_quality import validate_segment
-    validate_segment(song,target,state,save)
     state.pop('generation_failed', None)
     state.update(audio_ready=True, generation_started=False)
     save()

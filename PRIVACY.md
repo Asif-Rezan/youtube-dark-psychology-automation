@@ -1,6 +1,6 @@
-# Grow with Rezan kids video automation privacy information
+# Dudi Dam TV privacy information
 
-Grow with Rezan kids video automation is the channel owner's personal kids rhyme production automation. It is not a public sign-in service.
+Dudi Dam TV is the channel owner's personal kids rhyme production automation. It is not a public sign-in service.
 
 The automation uses Google authorization to identify the selected YouTube channel, upload and inspect its music videos, set thumbnails, and create and manage its own media/checkpoint files in Google Drive. Separate authorizations are used for YouTube and Drive. It does not request access to Gmail, contacts, or unrelated Drive files.
 

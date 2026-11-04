@@ -46,6 +46,7 @@ def verify_public(client, state):
             'channel_id':snippet.get('channelId')==required('EXPECTED_CHANNEL_ID'),
             'title':snippet.get('title')==title,
             'description':snippet.get('description')==description,
+            'tags':normalized_tags(snippet.get('tags',[]))==normalized_tags(tags),
             'upload_status':status.get('uploadStatus') in ('uploaded','processed')}
     mismatches=[name for name,matched in checks.items() if not matched]
     if mismatches:
@@ -56,11 +57,6 @@ def verify_public(client, state):
             or video.get('processingDetails',{}).get('processingStatus') != 'succeeded'
             or video.get('contentDetails',{}).get('definition') != 'hd'):
         raise CleanupNotEligible('public_hd_not_ready')
-    # Tags are editable discovery metadata, not proof that the uploaded video
-    # or its private source files changed. Keep identity, owner, title,
-    # description, HD processing and exact Drive file checks mandatory.
-    if normalized_tags(snippet.get('tags',[])) != normalized_tags(tags):
-        print('::notice::Public HD video verified; changed YouTube tags do not block temporary media cleanup.', flush=True)
 
 
 def cleanup(store, client, run_id, state):

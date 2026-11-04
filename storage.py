@@ -140,10 +140,8 @@ class Store:
         file_id = file_id or reserved
         if file_id and self.verified(file_id, key, size, checksum):
             return {'id': file_id}
-        # A tiny durable cleanup journal must be writable inside the normal
-        # 100MB reserve, otherwise cleanup itself cannot free a nearly-full Drive.
-        if key.endswith('/cleanup.json') and size<=256*1024:
-            self.check_quota(size,reserve_bytes=0)
+        if key.endswith('/cleanup.json') and size <= 256*1024:
+            self.check_quota(size, reserve_bytes=0)
         else:
             self.check_quota(size)
         if creating and not file_id:

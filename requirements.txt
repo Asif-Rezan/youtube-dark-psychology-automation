@@ -8,6 +8,7 @@ google-auth-oauthlib>=1.2,<2
 
 cryptography>=44,<47
 jsonschema>=4.23,<5
+PyYAML>=6.0.2,<7
 
 # Character silhouettes and conservative facial landmarks.
 scipy>=1.14,<2
