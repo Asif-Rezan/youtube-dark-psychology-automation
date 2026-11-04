@@ -80,6 +80,9 @@ jobs:
           [[ "$RUN_ID" =~ ^[a-zA-Z0-9_-]{1,80}$ ]] || exit 1
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
       - run: pip install -r requirements.txt -r requirements-lyrics.txt
+      - name: Install audio tools for regression tests
+        timeout-minutes: 10
+        run: bash scripts/install-runner-packages.sh ffmpeg
       - run: python -m unittest -v
       - name: Find available recovery checkpoints
         id: recovery
