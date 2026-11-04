@@ -292,3 +292,23 @@ unchanged. Existing saved episodes are not translated or regenerated. Use a new
 run ID for this Hindi writer version. Female voice, reference music, tempo,
 mastering, thumbnails, animation, midnight Asia/Dhaka generation and YouTube /
 Facebook scheduling remain as configured.
+
+
+### ACE reference and lyric verification
+
+The full video workflow uses `assets/reference/style-reference-long.mp3`, a continuous
+12-minute excerpt from the supplied reference. Each one-minute ACE request uses its
+corresponding source window and a bounded 30-second style reference. The full video
+and Short use their newly generated storyboard lyrics; refrain text is normalized to
+Hindi for the singer. The experimental paired flow edit retains the supplied Dudi
+refrain as **partial** source lyric conditioning, not an ASR-verified full transcript.
+
+Each generated audio part is transcribed in a separate bounded CPU worker. The
+verification report compares words from that part's own verses and records audio and
+lyric hashes. A `needs_review` report retains the audio but blocks publication;
+`runtime_error` means verification itself failed. ASR is an estimate, and passing it
+does not establish melody, voice or complete lyric accuracy. This integration has
+not yet demonstrated reliable reference-matched lyric replacement in real audio.
+
+`ace-preview.yml` and `auk-preview.yml` are separate listening experiments. They do
+not replace the full video workflow or run on its daily schedule.

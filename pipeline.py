@@ -18,6 +18,10 @@ class DuplicateSongError(RuntimeError):
 
 
 def pipeline_failure_message(error):
+    from lyrics_quality import LyricsQualityError
+    if isinstance(error,LyricsQualityError):
+        return ('Pipeline stopped [lyrics_unverified]: audio was generated but new verse words '
+                'were not verified. Publication blocked; inspect saved lyric reports and audio.')
     if isinstance(error, DuplicateSongError):
         return ('Pipeline failed [duplicate_song]: lyrics or title already published. '
                 'Create a fresh song with a new run ID; do not retry duplicate media.')

@@ -101,15 +101,17 @@ def generate_music(song, target, state, save):
     if target.exists() and (not continuous or state.get('mastering_version')==VERSION):
         validate_duration(duration(target))
         return
-    # ACE-Step documents up to 600 seconds per request. Short independent parts
-    # keep 8-12 minute episodes within that contract, with no audio looping.
+    # One-minute source-aligned requests keep paired flow-edit within CPU RAM.
+    # Use successive real reference windows, never loop or insert reference audio.
     parts = []
     scenes = song['scenes']
-    for i in range(0, len(scenes), 24):
-        group = scenes[i:i+24]
+    for i in range(0, len(scenes), 12):
+        group = scenes[i:i+12]
         part = dict(song, duration=len(group)*5, lyrics='\n'.join(s['lyric'] for s in group), _segment=True)
-        path = target.parent / f'part-{i//24:03d}.wav'
-        part_state = state.setdefault('parts', {}).setdefault(str(i//24), {})
+        from production_music import request as source_request
+        part=source_request(part,start=i*5)
+        path = target.parent / f'part-{i//12:03d}.wav'
+        part_state = state.setdefault('parts', {}).setdefault(str(i//12), {})
         for attempt in range(3 if continuous else 1):
             generate_segment(part,path,part_state,save)
             try:
@@ -117,7 +119,7 @@ def generate_music(song, target, state, save):
                     verify_continuity(path,part['duration'])
                 break
             except AudioGapError as error:
-                print(json.dumps({'phase':'retry invalid music part','part':i//24,
+                print(json.dumps({'phase':'retry invalid music part','part':i//12,
                     'attempt':attempt+1,'reason':error.code,'detail':str(error)}),flush=True)
                 part_state['last_quality_error']=dict(code=error.code,detail=str(error))
                 part_state.update(audio_ready=False,continuity_retries=attempt+1)
@@ -129,7 +131,7 @@ def generate_music(song, target, state, save):
     # Normalize every part to the planned boundary, refusing short generations.
     normalized = []
     for i, path in enumerate(parts):
-        requested = min(120, song['duration']-i*120)
+        requested = min(60, song['duration']-i*60)
         if duration(path) < requested - .25:
             raise RuntimeError('Music part is too short; regenerate rather than pad or loop')
         dest = target.parent / f'normalized-{i:03d}.wav'

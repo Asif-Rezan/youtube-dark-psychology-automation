@@ -10,3 +10,10 @@ einops>=0.8.1,<0.9
 vector-quantize-pytorch>=1.27.15,<2
 numba>=0.63.1,<1
 peft>=0.18,<0.19
+
+# Enable the pinned turbo model's default wavelet correction (otherwise a no-op).
+pytorch-wavelets==1.3.0
+PyWavelets>=1.6,<2
+
+# Output lyric verification runs in a separate CPU worker.
+openai-whisper==20250625

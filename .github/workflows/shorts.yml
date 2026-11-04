@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 350
     env:
-      REFERENCE_AUDIO_PATH: assets/reference/style-reference.mp3
+      REFERENCE_AUDIO_PATH: assets/reference/style-reference-long.mp3
       CLIP_START: ${{ inputs.clip_start || 0 }}
       CLIP_SECONDS: ${{ inputs.clip_seconds || '40' }}
       SONG_RUN_ID: ${{ inputs.run_id }}

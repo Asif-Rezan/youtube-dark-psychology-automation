@@ -25,6 +25,8 @@ def prepare(run_id, start=0, seconds=40):
         lyrics='\n'.join(s['lyric'] for s in scenes), scenes=scenes,
         prompt=song['prompt'] + ' A fresh standalone short dance arrangement, immediate cheerful vocal hook, '
             'playful rhythmic accents, a complete happy musical ending within this short duration.')
+    from production_music import request as source_request
+    request=source_request(request,start=start)
     target = root/'short-audio'/f'clip-{start}-{seconds}'
     target.mkdir(parents=True, exist_ok=True)
     identity = hashlib.sha256(json.dumps(request, sort_keys=True).encode()).hexdigest()
