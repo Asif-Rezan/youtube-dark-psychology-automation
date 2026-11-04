@@ -324,3 +324,14 @@ than the requested duration. Before model loading, longer cover sources are trim
 to the requested segment length in a content-keyed WAV; the original voice/style
 reference remains unchanged. Short source audio is rejected rather than looped or
 padded. The generated output must still pass the existing duration check.
+
+### Source-context verse editing experiment
+
+The `coherent-60` audio preview replaces the independent verse full-mix approach.
+It creates one 60-second source arrangement from the reference musical material,
+then uses ACE-Step repaint with explicit context for new verse words. No guessed
+BPM/key metadata or request for a new verse tune is used. After inference, original
+intro (0–19s) and refrain regions (28.5–39.5s, 49–60s) are restored exactly in PCM;
+only verse windows (19–28.5s, 39.5–49s) take edited audio with internal edge blends.
+Tests check unchanged fixed sections and mask routing; they do not prove sung-word
+accuracy, singer identity or musical continuity. Listen before accepting this method.

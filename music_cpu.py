@@ -136,14 +136,32 @@ def prepare_cover_source(reference, seconds, directory):
     return str(target)
 
 
+def repaint_options(song):
+    """Edit the source arrangement in context rather than generating a separate full mix."""
+    if not song.get('reference_repaint'):
+        return {}
+    import math
+    from pipeline import duration
+    source = Path(song['edit_source'])
+    start, end = float(song['edit_start']), float(song['edit_end'])
+    seconds = float(song['duration'])
+    if not all(math.isfinite(v) for v in (start,end,seconds)) or not 0 <= start < end <= seconds:
+        raise ValueError('Invalid reference repaint interval')
+    if not source.is_file() or abs(duration(source)-seconds) > .05:
+        raise ValueError('Reference repaint source duration mismatch')
+    return dict(task_type='repaint',src_audio=str(source),repainting_start=start,
+        repainting_end=end,chunk_mask_mode='explicit',repaint_mode='balanced',
+        repaint_strength=.5,repaint_wav_crossfade_sec=.1)
+
+
 def synthesize(song, target, source, model_root):
     from pipeline import validate_song, validate_duration, duration
     # Segment requests are derived from a validated full-song manifest.
     if not song.get('_segment'):
         validate_song(song)
     reference = reference_audio()
-    cover_options = reference_cover_options(song, reference)
-    if cover_options:
+    cover_options = repaint_options(song) if song.get('reference_repaint') else reference_cover_options(song, reference)
+    if cover_options.get('task_type') == 'cover':
         cover_options['src_audio'] = prepare_cover_source(reference, song['duration'], target.parent)
     checkpoints(model_root)
     os.environ['ACESTEP_CHECKPOINTS_DIR'] = str(model_root.resolve())
@@ -163,7 +181,7 @@ def synthesize(song, target, source, model_root):
         raise RuntimeError('ACE-Step CPU initialization failed')
     params = Params(caption=song['prompt'], lyrics=song['lyrics'],
         duration=song['duration'], bpm=song.get('bpm'), reference_audio=reference, vocal_language=song.get('vocal_language','en'), instrumental=False,
-        inference_steps=8, thinking=False, use_cot_metas=False,
+        inference_steps=8, shift=3.0, thinking=False, use_cot_metas=False,
         use_cot_caption=False, use_cot_language=False, **cover_options)
     seed = song.get('generation_seed')
     seed_options = dict(use_random_seed=False, seeds=[int(seed)]) if seed is not None else {}
