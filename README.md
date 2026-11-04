@@ -306,17 +306,18 @@ before adopting a setting for full episodes. Normal generation defaults are
 unchanged, and the preview workflow does not publish video or audio.
 
 
-### Fixed chorus with fresh verses: one-minute preview
+### Opening hook once, separate recurring refrain
 
-The current audio-only preview uses `selective-60`: one strongly reference-conditioned
-chorus is synthesized once and reused at the beginning and end; two original Hindi
-verse blocks use independent text-to-music requests with voice-style reference only.
-The verse requests explicitly disable source-melody cover mode and use content/run-specific
-seeds. Four 15.1875-second sections with three 0.25-second crossfades produce 60 seconds.
-Short generated blocks fail instead of being padded. A reusable `DUDI_APPROVED_CHORUS`
-file can replace chorus synthesis in future arrangements, keeping that chorus audio
-fixed while new verse lyrics and melodies change. Word-level timing and phrase joins
-still require listening review. This preview does not change the live full-video pipeline.
+The `selective-60` preview uses the user-defined reference boundaries: 0–19 seconds
+is the opening hook, used once; 19 seconds to the end of the 30-second reference is
+the recurring Dudi refrain. These audio sections are extracted directly rather than
+regenerating or substituting the opening hook for the refrain. The sequence is:
+19-second intro, 10-second new verse, 11-second reference refrain, 10-second new
+verse, 11-second reference refrain. Four 0.25-second crossfades yield 60 seconds.
+Only the two verses are synthesized. Their voice/style conditioning uses the
+refrain excerpt, excluding the opening hook, and source-melody cover mode is off.
+Verse lyrics and seeds vary by request. Word-level timing and joins still require
+listening review. This remains an audio preview, not a live full-video change.
 
 Cover-duration guard: ACE-Step cover inference can follow source-audio length rather
 than the requested duration. Before model loading, longer cover sources are trimmed

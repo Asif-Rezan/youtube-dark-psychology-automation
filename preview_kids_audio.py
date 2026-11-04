@@ -49,8 +49,8 @@ def main():
     if args.style == 'selective-60':
         from chorus_arrangement import selective_plan, render
         verses = [
-            'रंग बिरंगी तितली आई\nनन्ही चिड़िया गीत सुनाए\nफूलों संग हम हँसते जाएं\nबाग में मिलकर नाचें गाएं',
-            'नीले बादल पानी लाएं\nछोटे मेंढक कूद दिखाएं\nकागज़ की हम नाव चलाएं\nमिलकर सारे खुश हो जाएं',
+            'रंग बिरंगी तितली आई\nफूलों संग हम हँसते जाएं',
+            'नीले बादल पानी लाएं\nकागज़ की हम नाव चलाएं',
         ]
         plan = selective_plan(verses, os.environ.get('PREVIEW_RUN_ID', 'garden-rain-preview'))
         render(plan, Path('output/preview'))
