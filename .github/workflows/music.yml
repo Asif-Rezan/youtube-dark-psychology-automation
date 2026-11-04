@@ -54,6 +54,16 @@ jobs:
           sudo swapon /swapfile-music
           free -h
           df -h .
+      - name: Validate full-length cover reference before installing models
+        run: |
+          python - <<'PYREF'
+          import json, subprocess
+          result = subprocess.check_output(['ffprobe', '-v', 'error', '-show_entries',
+              'format=duration', '-of', 'json', 'assets/reference/style-reference.mp3'], text=True)
+          seconds = float(json.loads(result)['format']['duration'])
+          if seconds < 59.95:
+              raise SystemExit(f'A 60s source-conditioned cover requires a >=60s reference; got {seconds:.2f}s. No splicing or style-only fallback.')
+          PYREF
       - name: Install CPU-only music inference runtime
         run: |
           pip install --no-cache-dir torch==2.10.0 torchaudio==2.10.0 --index-url https://download.pytorch.org/whl/cpu

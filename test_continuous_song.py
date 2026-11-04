@@ -19,7 +19,8 @@ class ContinuousSongTests(unittest.TestCase):
             synthesize.assert_called_once()
             request=synthesize.call_args.args[0]
             self.assertEqual(request['duration'],60)
-            self.assertFalse(request.get('reference_cover'))
+            self.assertTrue(request['reference_cover'])
+            self.assertEqual(request['cover_noise_strength'],.95)
             self.assertFalse(request.get('reference_repaint'))
             self.assertNotIn('edit_source',request)
             for verse in verses:
@@ -30,6 +31,14 @@ class ContinuousSongTests(unittest.TestCase):
             self.assertEqual(command[command.index('-i')+1],str(target))
             report=json.loads((Path(tmp)/'arrangement-report.json').read_text())
             self.assertFalse(report['audio_splicing'])
+
+    def test_short_source_rejected_before_inference(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch('pipeline.duration', return_value=30), \
+             patch('music_cpu.synthesize') as synthesize:
+            with self.assertRaisesRegex(ValueError, 'requires a source'):
+                render_continuous(['एक','दो'], 'test', Path(tmp))
+            synthesize.assert_not_called()
 
     def test_reject_duplicate_verse_blocks(self):
         with self.assertRaises(ValueError):
