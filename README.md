@@ -292,3 +292,15 @@ unchanged. Existing saved episodes are not translated or regenerated. Use a new
 run ID for this Hindi writer version. Female voice, reference music, tempo,
 mastering, thumbnails, animation, midnight Asia/Dhaka generation and YouTube /
 Facebook scheduling remain as configured.
+
+### Dudi chorus reference preview
+
+The audio-only preview workflow generates `chorus-close` and `chorus-strict`
+30-second candidates. Both repeat the exact Dudi line twice in each chorus,
+preserve the source intro and use reference cover mode. In the pinned ACE-Step
+API, `cover_noise_strength=0` starts from pure noise; higher values anchor closer
+to source audio. The previews use 0.85 and 0.95 with `audio_cover_strength=1.0`.
+These are model controls, not measured similarity percentages. Strong source
+anchoring can reduce freedom to change verse vocals; listen to the previews
+before adopting a setting for full episodes. Normal generation defaults are
+unchanged, and the preview workflow does not publish video or audio.
