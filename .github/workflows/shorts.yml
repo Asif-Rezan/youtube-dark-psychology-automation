@@ -91,7 +91,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
+          # Installs below disable pip caching; do not enable a post-job cache save.
       - name: Prepare CPU runner memory and audio tools
         timeout-minutes: 10
         run: |
@@ -164,7 +164,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
+          # Installs below disable pip caching; do not enable a post-job cache save.
       - name: Prepare CPU image memory
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
