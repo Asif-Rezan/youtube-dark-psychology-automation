@@ -317,3 +317,9 @@ Short generated blocks fail instead of being padded. A reusable `DUDI_APPROVED_C
 file can replace chorus synthesis in future arrangements, keeping that chorus audio
 fixed while new verse lyrics and melodies change. Word-level timing and phrase joins
 still require listening review. This preview does not change the live full-video pipeline.
+
+Cover-duration guard: ACE-Step cover inference can follow source-audio length rather
+than the requested duration. Before model loading, longer cover sources are trimmed
+to the requested segment length in a content-keyed WAV; the original voice/style
+reference remains unchanged. Short source audio is rejected rather than looped or
+padded. The generated output must still pass the existing duration check.

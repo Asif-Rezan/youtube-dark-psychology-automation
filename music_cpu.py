@@ -101,6 +101,41 @@ def reference_cover_options(song, reference):
                 audio_cover_strength=strength, cover_noise_strength=noise)
 
 
+def prepare_cover_source(reference, seconds, directory):
+    """Cover inference follows source length: trim long references, never loop short ones."""
+    import hashlib
+    import math
+    from pipeline import duration
+    seconds = float(seconds)
+    if not math.isfinite(seconds) or seconds <= 0:
+        raise ValueError('Cover duration must be finite and positive')
+    reference = Path(reference)
+    measured = duration(reference)
+    if measured < seconds - .05:
+        raise ValueError('Reference cover source is shorter than the requested segment')
+    if abs(measured - seconds) <= .05:
+        return str(reference)
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    digest = hashlib.sha256()
+    with reference.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024*1024), b''):
+            digest.update(chunk)
+    digest.update(str(seconds).encode())
+    target = directory / ('cover-source-'+digest.hexdigest()[:16]+'.wav')
+    if not target.exists() or abs(duration(target)-seconds) > .05:
+        temporary = target.with_suffix('.part.wav')
+        try:
+            subprocess.run(['ffmpeg','-y','-v','error','-i',str(reference),
+                '-t',str(seconds),'-ar','48000','-ac','2',str(temporary)],check=True)
+            if abs(duration(temporary)-seconds) > .05:
+                raise ValueError('Prepared cover source duration mismatch')
+            temporary.replace(target)
+        finally:
+            temporary.unlink(missing_ok=True)
+    return str(target)
+
+
 def synthesize(song, target, source, model_root):
     from pipeline import validate_song, validate_duration, duration
     # Segment requests are derived from a validated full-song manifest.
@@ -108,6 +143,8 @@ def synthesize(song, target, source, model_root):
         validate_song(song)
     reference = reference_audio()
     cover_options = reference_cover_options(song, reference)
+    if cover_options:
+        cover_options['src_audio'] = prepare_cover_source(reference, song['duration'], target.parent)
     checkpoints(model_root)
     os.environ['ACESTEP_CHECKPOINTS_DIR'] = str(model_root.resolve())
     os.environ['ACESTEP_INIT_LLM'] = 'false'

@@ -56,3 +56,27 @@ class ChorusReferenceTests(unittest.TestCase):
                     music_cpu.reference_cover_options({'reference_cover': True,
                         'cover_noise_strength': value}, 'reference.mp3')
         self.assertEqual(music_cpu.reference_cover_options({}, 'reference.mp3'), {})
+
+
+class CoverSourceDurationTests(unittest.TestCase):
+    def test_long_reference_is_trimmed_but_style_reference_is_preserved(self):
+        import subprocess
+        from pipeline import duration
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); reference=root/'reference.wav'
+            subprocess.run(['ffmpeg','-y','-v','error','-f','lavfi','-i',
+                'sine=frequency=440:duration=3',str(reference)],check=True)
+            original=hashlib.sha256(reference.read_bytes()).hexdigest()
+            result=music_cpu.prepare_cover_source(reference,1,root/'prepared')
+            self.assertAlmostEqual(duration(result),1,places=2)
+            self.assertAlmostEqual(duration(reference),3,places=2)
+            self.assertEqual(hashlib.sha256(reference.read_bytes()).hexdigest(),original)
+            self.assertEqual(result,music_cpu.prepare_cover_source(reference,1,root/'prepared'))
+            with self.assertRaisesRegex(ValueError,'shorter'):
+                music_cpu.prepare_cover_source(reference,4,root/'prepared')
+            self.assertEqual(music_cpu.prepare_cover_source(reference,3,root),str(reference))
+
+    def test_invalid_duration_rejected(self):
+        for seconds in (0,-1,float('nan'),float('inf')):
+            with self.assertRaises(ValueError):
+                music_cpu.prepare_cover_source('unused.wav',seconds,Path('.'))
