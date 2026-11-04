@@ -8,15 +8,18 @@ import subprocess
 from chorus_arrangement import REFRAIN
 
 
-def continuous_request(verses, identity, source_lyrics, opening_lyrics=""):
+def continuous_request(verses, identity, source_lyrics, opening_lyrics="", mode="cover-balanced"):
+    if mode not in ("cover-balanced", "flow-full"):
+        raise ValueError("Unknown lyric generation mode")
     if not source_lyrics.strip():
         raise ValueError("Original source lyrics are required for flow-edit")
     if len(verses) != 2 or len(set(verses)) != 2 or any(not v.strip() or REFRAIN in v for v in verses):
         raise ValueError('Two distinct new verse blocks required')
     return dict(
         _segment=True, duration=60, vocal_language='hi',
-        reference_cover=True, cover_strength=1.0, cover_noise_strength=0.0,
-        flow_edit_morph=True, source_lyrics=source_lyrics,
+        reference_cover=True, cover_strength=.65 if mode == "cover-balanced" else 1.0, cover_noise_strength=0.0,
+        flow_edit_morph=mode == "flow-full", source_lyrics=source_lyrics,
+        flow_edit_n_min=0.0,
         generation_seed=int(hashlib.sha256((identity+'\n'.join(verses)).encode()).hexdigest()[:8],16),
         lyrics='\n'.join(['[Intro]', opening_lyrics, '[Verse]', verses[0], '[Chorus]', REFRAIN, REFRAIN,
                           '[Verse]', verses[1], '[Chorus]', REFRAIN, REFRAIN, '[Outro]']),
@@ -33,7 +36,8 @@ def render_continuous(verses, identity, root):
     transcript=json.loads(Path(os.environ['ACE_SOURCE_TRANSCRIPT']).read_text())
     source_lyrics=transcript['text'].strip()
     opening='\n'.join(s['text'].strip() for s in transcript.get('segments', []) if s['start'] < 19)
-    song=continuous_request(verses,identity,source_lyrics,opening)
+    mode=os.environ.get("ACE_LYRIC_MODE", "cover-balanced")
+    song=continuous_request(verses,identity,source_lyrics,opening,mode)
     reference_seconds=duration(reference_audio())
     if reference_seconds < song['duration'] - .05:
         raise ValueError(
@@ -46,7 +50,8 @@ def render_continuous(verses, identity, root):
     subprocess.run(['ffmpeg','-y','-v','error','-i',str(target),'-codec:a','libmp3lame',
                     '-b:a','192k',str(target.with_suffix('.mp3'))],check=True)
     (root/'arrangement-report.json').write_text(json.dumps(dict(
-        seconds=duration(target),method='single source-conditioned flow lyric edit',
+        seconds=duration(target),method=mode,
+        cover_strength=song['cover_strength'],cover_noise_strength=song['cover_noise_strength'],
         generation_calls=1,audio_splicing=False,
         quality='Hook timing, refrain similarity and musical continuity require listening review'),indent=2))
     return target

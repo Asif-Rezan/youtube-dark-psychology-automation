@@ -51,9 +51,10 @@ class ContinuousSongTests(unittest.TestCase):
 class FlowLyricTests(unittest.TestCase):
     def test_source_and_target_conditioning_are_separate(self):
         from music_cpu import flow_edit_options
-        song=continuous_request(['तितली आई','कागज़ की नाव'],'test','दूदी दूदी दम दम')
+        song=continuous_request(['तितली आई','कागज़ की नाव'],'test','दूदी दूदी दम दम',mode='flow-full')
         opts=flow_edit_options(song)
         self.assertTrue(opts['flow_edit_morph'])
+        self.assertEqual(opts['flow_edit_n_min'],0.0)
         self.assertEqual(opts['flow_edit_source_lyrics'],'दूदी दूदी दम दम')
         self.assertNotEqual(opts['flow_edit_source_lyrics'],song['lyrics'])
         self.assertEqual(opts['flow_edit_source_caption'],song['prompt'])
@@ -83,3 +84,21 @@ class EmptySourceTranscriptTests(unittest.TestCase):
             recognized=resolve_transcript(dict(text='recognized',segments=[]),source,fallback)
             self.assertFalse(recognized['partial_lyrics'])
             self.assertEqual(recognized['text'],'recognized')
+
+
+class FullScheduleRegressionTests(unittest.TestCase):
+    def test_default_cover_releases_late_steps_to_new_lyrics_without_noise_truncation(self):
+        from music_cpu import reference_cover_options, flow_edit_options
+        request=continuous_request(['पहली पंक्ति','दूसरी पंक्ति'],'test','दूदी दम')
+        opts=reference_cover_options(request,'source.mp3')
+        self.assertEqual(opts['cover_noise_strength'],0.0)
+        self.assertLess(opts['audio_cover_strength'],1.0)
+        self.assertEqual(flow_edit_options(request),{})
+        self.assertEqual(int(8*opts['audio_cover_strength']),5)
+
+    def test_invalid_flow_start_rejected(self):
+        from music_cpu import flow_edit_options
+        request=continuous_request(['पहली पंक्ति','दूसरी पंक्ति'],'test','दूदी दम',mode='flow-full')
+        for value in [1,-1,float('nan')]:
+            with self.assertRaises(ValueError):
+                flow_edit_options(dict(request,flow_edit_n_min=value))

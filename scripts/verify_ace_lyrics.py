@@ -20,8 +20,8 @@ def main():
     import whisper
     root=Path('output/preview')
     source=json.loads((root/'source-transcript.json').read_text())
-    result=whisper.load_model('base',device='cpu').transcribe(
-        str(root/'dudi-continuous-60s.mp3'),language='hi',fp16=False)
+    result=whisper.load_model('small',device='cpu').transcribe(
+        str(root/'dudi-continuous-60s.mp3'),language='hi',fp16=False,temperature=0,beam_size=5,condition_on_previous_text=False)
     (root/'rendered-transcript.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
     report=assess(source['text'],result['text'])
     (root/'lyrics-verification.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))

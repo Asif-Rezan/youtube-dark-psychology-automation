@@ -17,6 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         style: [continuous-60]
+        lyric_mode: [cover-balanced, flow-full]
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     env:
@@ -24,6 +25,7 @@ jobs:
       ACESTEP_CHECKPOINTS_DIR: .models/acestep
       ACESTEP_INIT_LLM: 'false'
       ACESTEP_GENERATION_TIMEOUT: '18000'
+      ACE_LYRIC_MODE: ${{ matrix.lyric_mode }}
       ACE_SOURCE_TRANSCRIPT: output/preview/source-transcript.json
       REFERENCE_AUDIO_PATH: assets/reference/auk-source-60s.mp3
       CUDA_VISIBLE_DEVICES: ''
@@ -94,6 +96,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: hindi-reference-${{ matrix.style }}
+          name: ace-lyrics-${{ matrix.lyric_mode }}
           path: output/preview/
           retention-days: 7

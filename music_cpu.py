@@ -110,9 +110,13 @@ def flow_edit_options(song):
         raise ValueError('Flow lyric edit requires cover source and original lyrics')
     if source_lyrics == song.get('lyrics', '').strip():
         raise ValueError('Source and replacement lyrics must differ')
+    import math
+    edit_start = float(song.get('flow_edit_n_min', 0.0))
+    if not math.isfinite(edit_start) or not 0 <= edit_start < 1:
+        raise ValueError('Flow edit start must be finite and in [0,1)')
     return dict(flow_edit_morph=True, flow_edit_source_caption=song['prompt'],
                 flow_edit_source_lyrics=source_lyrics,
-                flow_edit_n_min=.5, flow_edit_n_max=1., flow_edit_n_avg=1)
+                flow_edit_n_min=edit_start, flow_edit_n_max=1., flow_edit_n_avg=1)
 
 
 def prepare_cover_source(reference, seconds, directory):
