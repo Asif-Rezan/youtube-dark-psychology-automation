@@ -312,3 +312,15 @@ not yet demonstrated reliable reference-matched lyric replacement in real audio.
 
 `ace-preview.yml` and `auk-preview.yml` are separate listening experiments. They do
 not replace the full video workflow or run on its daily schedule.
+
+
+## Hindi version archived — 2026-11-04
+
+The complete Hindi pipeline at `43cdb83` is preserved before replacing it with
+the directly cloned English `Asif-Rezan/dudi_dam_tv` pipeline. This includes
+Hindi lyrics/vocals, full-reference ACE experiments and lyric verification,
+landscape/Shorts generation, recovery diagnostics, Facebook publishing,
+existing channel/Drive integration and the earlier rollback documentation.
+The snapshot including this log is tagged `hindi-before-english-2026-11-04`.
+Repository secrets remain in the destination repository and are not copied
+from the reference. Existing publications are not edited by the code migration.
