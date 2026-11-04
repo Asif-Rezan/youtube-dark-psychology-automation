@@ -152,6 +152,9 @@ def youtube_client():
 
 
 def publish(client, root, song, state, save, upload_thumbnail=True, metadata_kind="video"):
+    if os.getenv('VERIFY_SUNG_LYRICS')=='true' and metadata_kind=='video' and not state.get('video_id'):
+        from lyrics_quality import require_verified
+        require_verified(song,root/'song.wav')
     from googleapiclient.http import MediaFileUpload
     if not state.get('video_id'):
         if state.get('upload_started'):

@@ -80,3 +80,18 @@ class PublicationFailureMessageTests(unittest.TestCase):
         self.assertIn('[lyrics_unverified]',message)
         self.assertIn('Publication blocked',message)
         self.assertNotIn('internal details',message)
+
+
+class PublicationLyricGateTests(unittest.TestCase):
+    def test_missing_mismatched_and_unverified_audio_cannot_publish(self):
+        from lyrics_quality import require_verified
+        song=dict(lyrics='नए शब्द')
+        with tempfile.TemporaryDirectory() as tmp:
+            audio=Path(tmp)/'song.wav';audio.write_bytes(b'audio')
+            with self.assertRaises(LyricsQualityError):require_verified(song,audio)
+            report=audio.with_suffix('.lyrics-quality.json')
+            report.write_text(json.dumps(dict(status='passed',**identity(song,audio))))
+            require_verified(song,audio)
+            with self.assertRaises(LyricsQualityError):require_verified(dict(lyrics='changed'),audio)
+            audio.write_bytes(b'changed audio')
+            with self.assertRaises(LyricsQualityError):require_verified(song,audio)

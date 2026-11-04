@@ -81,6 +81,16 @@ def validate_segment(song,audio,state,save):
     state['lyrics_quality']=report;save()
 
 
+def require_verified(song,audio):
+    audio=Path(audio)
+    report_path=audio.with_suffix('.lyrics-quality.json')
+    if not audio.exists() or not report_path.exists():
+        raise LyricsQualityError('No verified lyric report exists for this audio; publication blocked')
+    report=json.loads(report_path.read_text())
+    if report.get('status')!='passed' or any(report.get(k)!=v for k,v in identity(song,audio).items()):
+        raise LyricsQualityError('Audio or lyrics differ from the passed verification report; publication blocked')
+
+
 def verify(song,audio,report_path):
     try:
         import whisper
