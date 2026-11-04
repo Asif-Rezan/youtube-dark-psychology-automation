@@ -272,3 +272,13 @@ duplicate prevention and English destination-channel configuration. Workflow
 YAML parsed and both automatic Facebook callers were checked. Existing
 `FACEBOOK_PUBLISH_ENABLED` and `PUBLISH_ENABLED` variables were confirmed true.
 No live Facebook upload was performed during these checks.
+
+
+### Publishing validation — 2026-11-05
+
+All 169 local tests passed again; GitHub component checks on restoration commit
+`ec48cbe` also passed. Google verification run `41880051656` succeeded with the
+existing tokens and destination-channel fallback. The manual **Verify Google
+connections** workflow now additionally checks the existing Facebook Page token
+when Facebook publishing is enabled. That step performs only an identity GET;
+it never creates an upload or publishes a post.
