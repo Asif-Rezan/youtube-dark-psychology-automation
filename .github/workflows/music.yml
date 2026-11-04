@@ -42,7 +42,8 @@ on:
     - cron: '0 18 * * *' # 00:00 Asia/Dhaka (next local day)
 env:
   VIDEO_DURATION_SECONDS: '600'
-  REFERENCE_AUDIO_PATH: assets/reference/style-reference.mp3
+  VERIFY_SUNG_LYRICS: 'true'
+  REFERENCE_AUDIO_PATH: assets/reference/style-reference-long.mp3
 permissions:
   contents: read
   actions: read
@@ -184,6 +185,15 @@ jobs:
         with:
           name: music-input-${{ github.run_id }}
           path: output/
+      - name: Validate source covers complete episode before music inference
+        run: |
+          python - <<'PYREF'
+          import os, json
+          from pathlib import Path
+          from pipeline import duration
+          song=json.loads((Path('output')/os.environ['SONG_RUN_ID']/'song.json').read_text())
+          assert duration(os.environ['REFERENCE_AUDIO_PATH']) >= song['duration'] - .05, 'Reference is too short for full episode'
+          PYREF
       - name: Generate female kids rhyme parts with ACE-Step on GitHub CPU
         run: python -u prepare_music.py --run-id "$SONG_RUN_ID" --stage music
       - uses: actions/upload-artifact@v4
@@ -196,6 +206,7 @@ jobs:
             output/*/part-*.wav
             output/*/generation-state.json
             output/*/worker-resources.txt
+            output/*/*lyrics*.json
           retention-days: 7
   short_music:
     needs: lyrics

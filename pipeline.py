@@ -18,6 +18,10 @@ class DuplicateSongError(RuntimeError):
 
 
 def pipeline_failure_message(error):
+    from lyrics_quality import LyricsQualityError
+    if isinstance(error,LyricsQualityError):
+        return ('Pipeline stopped [lyrics_unverified]: audio was generated but new verse words '
+                'were not verified. Publication blocked; inspect saved lyric reports and audio.')
     if isinstance(error, DuplicateSongError):
         return ('Pipeline failed [duplicate_song]: lyrics or title already published. '
                 'Create a fresh song with a new run ID; do not retry duplicate media.')
@@ -148,6 +152,9 @@ def youtube_client():
 
 
 def publish(client, root, song, state, save, upload_thumbnail=True, metadata_kind="video"):
+    if os.getenv('VERIFY_SUNG_LYRICS')=='true' and metadata_kind=='video' and not state.get('video_id'):
+        from lyrics_quality import require_verified
+        require_verified(song,root/'song.wav')
     from googleapiclient.http import MediaFileUpload
     if not state.get('video_id'):
         if state.get('upload_started'):

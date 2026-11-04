@@ -85,9 +85,10 @@ class MusicGapRetryTests(unittest.TestCase):
             def normalize(args,**kwargs):
                 shutil.copyfile(args[args.index('-i')+1],args[-1])
             def master(parts,path,seconds):path.write_bytes(b'final mix')
-            with patch('music_cpu.generate_segment',side_effect=generate) as model,patch('audio_mastering.verify_continuity',side_effect=[AudioGapError('gap'),None,None,None,None,None]),patch('audio_mastering.master_parts',side_effect=master),patch('pipeline.duration',return_value=120),patch('kids_rhymes.subprocess.run',side_effect=normalize):
+            with patch('music_cpu.generate_segment',side_effect=generate) as model,patch('audio_mastering.verify_continuity',side_effect=[AudioGapError('gap')]+[None]*10),patch('audio_mastering.master_parts',side_effect=master),patch('pipeline.duration',return_value=120),patch('kids_rhymes.subprocess.run',side_effect=normalize):
                 kids_rhymes.generate_music(song,target,state,Mock())
-            self.assertEqual(model.call_count,6)
+            self.assertEqual(model.call_count,11)
+            self.assertEqual([call.args[0]['reference_start'] for call in model.call_args_list[1:]],list(range(0,600,60)))
             self.assertEqual(model.call_args_list[0].args[1],model.call_args_list[1].args[1])
             self.assertEqual(state['parts']['0']['continuity_retries'],1)
             self.assertEqual(state['mastering_version'],VERSION)
