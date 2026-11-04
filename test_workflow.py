@@ -50,7 +50,7 @@ class Checks(unittest.TestCase):
         finally:
             image_cpu._pipeline = previous
 
-    def test_safety_rejections_never_write_black_image(self):
+    def test_five_safety_attempts_then_rewritten_prompt_and_bounded_failure(self):
         import sys
         import types
         import image_cpu
@@ -58,22 +58,44 @@ class Checks(unittest.TestCase):
             def __init__(self, device):
                 pass
             def manual_seed(self, seed):
+                self.seed = seed
                 return self
-        class BlockedPipeline:
+        class Pipeline:
+            def __init__(self, success_at):
+                self.calls = []
+                self.success_at = success_at
             def __call__(self, **kwargs):
-                return types.SimpleNamespace(nsfw_content_detected=[True], images=[Image.new('RGB', (256,256), 'black')])
-        previous = image_cpu._pipeline
-        try:
-            image_cpu._pipeline = BlockedPipeline()
-            fake_torch = types.SimpleNamespace(set_num_threads=lambda n: None, float32='float32', Generator=FakeGenerator)
-            with tempfile.TemporaryDirectory() as temp:
-                target = Path(temp)/'blocked.png'
-                with patch.dict(sys.modules, {'torch': fake_torch, 'diffusers': types.SimpleNamespace(DiffusionPipeline=object, DPMSolverMultistepScheduler=object)}), patch.dict('os.environ', {'CPU_IMAGE_WIDTH': '256', 'CPU_IMAGE_HEIGHT': '256', 'CPU_IMAGE_STEPS': '2'}):
-                    with self.assertRaises(image_cpu.ImageSafetyBlocked):
-                        image_cpu.generate('graphic scene', target)
-                self.assertFalse(target.exists())
-        finally:
-            image_cpu._pipeline = previous
+                self.calls.append(kwargs)
+                blocked = len(self.calls) < self.success_at
+                return types.SimpleNamespace(nsfw_content_detected=[blocked],
+                    images=[Image.new('RGB', (256, 256), 'black' if blocked else 'blue')])
+        fake_torch = types.SimpleNamespace(set_num_threads=lambda n: None,
+            float32='float32', Generator=FakeGenerator)
+        for success_at in (1, 5, 6, 10, 11):
+            with self.subTest(success_at=success_at), tempfile.TemporaryDirectory() as temp:
+                target = Path(temp)/'image.png'
+                pipeline = Pipeline(success_at)
+                with patch.object(image_cpu, '_pipeline', pipeline), patch.dict(sys.modules,
+                    {'torch': fake_torch, 'diffusers': types.SimpleNamespace(
+                        DiffusionPipeline=object, DPMSolverMultistepScheduler=object)}), patch.dict(
+                    'os.environ', {'CPU_IMAGE_WIDTH': '256', 'CPU_IMAGE_HEIGHT': '256', 'CPU_IMAGE_STEPS': '2'}):
+                    if success_at > 10:
+                        with self.assertRaisesRegex(image_cpu.ImageSafetyBlocked, 'five initial and five rewritten'):
+                            image_cpu.generate('Workers studying limestone blocks at Giza', target)
+                        self.assertFalse(target.exists())
+                    else:
+                        image_cpu.generate('Workers studying limestone blocks at Giza', target)
+                        with Image.open(target) as image:
+                            self.assertEqual(image.getpixel((0, 0)), (0, 0, 255))
+                calls = pipeline.calls
+                self.assertEqual(len(calls), min(success_at, 10))
+                self.assertEqual(len({c['generator'].seed for c in calls}), len(calls))
+                self.assertEqual(len({c['prompt'] for c in calls[:5]}), 1)
+                if len(calls) > 5:
+                    self.assertNotEqual(calls[4]['prompt'], calls[5]['prompt'])
+                    self.assertEqual(len({c['prompt'] for c in calls[5:]}), 1)
+                    self.assertIn('limestone blocks at Giza', calls[5]['prompt'])
+                    self.assertIn('no people depicted', calls[5]['prompt'])
 
     def test_visual_quality_advisory_is_recorded_without_hiding_failures(self):
         from long_video import validate_scene_reports

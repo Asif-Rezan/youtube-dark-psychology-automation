@@ -65,26 +65,83 @@ def validate_story(data):
     return data
 
 
-def request_groq(endpoint, payload, binary=False):
+_text_provider = 'groq'
+
+
+def request_gemini(payload):
+    """Use Google's OpenAI-compatible structured text endpoint."""
     import requests
-    # Generation calls are not automatically repeated: repeats can consume credits.
-    for attempt in range(2):
+    import math
+    key = os.getenv('GEMINI_API_KEY')
+    if not key:
+        raise RuntimeError('Groq failed; GEMINI_API_KEY is required for immediate fallback')
+    candidate = dict(payload, model=os.getenv('GEMINI_MODEL', 'gemini-3.5-flash'))
+    # A larger output allowance leaves room for Gemini reasoning and the JSON.
+    candidate['max_completion_tokens'] = max(8192, payload.get('max_completion_tokens', 8192))
+    for attempt in range(4):
+        try:
+            response = requests.post('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+                headers={'Authorization': 'Bearer ' + key}, json=candidate, timeout=180)
+        except requests.RequestException:
+            raise RuntimeError('Gemini fallback transport failed') from None
+        if response.ok:
+            break
+        if response.status_code not in (500, 502, 503, 504) or attempt == 3:
+            raise RuntimeError(f'Gemini fallback failed with HTTP {response.status_code} after {attempt+1} attempt(s)')
+        # Retry explicit temporary server failures, not quota/auth/safety errors.
+        delay = 2 ** (attempt + 1)
+        value = response.headers.get('retry-after')
+        if value is not None:
+            try:
+                seconds = float(value)
+                if not math.isfinite(seconds) or seconds > 30:
+                    raise RuntimeError('Gemini requested a cooldown beyond the 30-second retry limit')
+                delay = max(delay, math.ceil(seconds))
+            except (TypeError, ValueError):
+                pass
+        print(json.dumps({'check': 'Gemini temporary failure', 'http_status': response.status_code,
+                          'attempt': attempt+1, 'retry_seconds': delay}), flush=True)
+        time.sleep(delay)
+    try:
+        result = response.json()
+        choice = result['choices'][0]
+        if choice.get('finish_reason') != 'stop' or not choice['message'].get('content'):
+            raise ValueError('Incomplete or blocked Gemini response')
+        json.loads(choice['message']['content'])
+    except (ValueError, KeyError, IndexError, TypeError):
+        raise RuntimeError('Gemini fallback returned incomplete or invalid JSON') from None
+    print(json.dumps({'check': 'Gemini fallback', 'passed': True}), flush=True)
+    return result
+
+
+def request_groq(endpoint, payload, binary=False):
+    """Try Groq once; immediately switch text generation to Gemini on failure."""
+    global _text_provider
+    import requests
+    text_request = endpoint == 'chat/completions' and not binary
+    if text_request and (_text_provider == 'gemini' or not os.getenv('GROQ_API_KEY')):
+        return request_gemini(payload)
+    try:
         response = requests.post('https://api.groq.com/openai/v1/' + endpoint,
             headers={'Authorization': 'Bearer ' + required('GROQ_API_KEY')}, json=payload, timeout=180)
         if response.ok:
-            break
-        try:
-            error_code = response.json().get('error', {}).get('code')
-        except ValueError:
-            error_code = None
-        print(json.dumps({'check': 'Groq generation', 'http_status': response.status_code,
-            'api_error_code': error_code, 'attempt': attempt+1}), flush=True)
-        if attempt == 0 and (response.status_code == 429 or
-                (response.status_code == 400 and error_code == 'json_validate_failed')):
-            time.sleep(60)
-            continue
-        raise RuntimeError(f'Groq request failed with HTTP {response.status_code}; code={error_code}')
-    return response.content if binary else response.json()
+            if binary:
+                return response.content
+            result = response.json()
+            choice = result['choices'][0]
+            if choice.get('finish_reason') != 'stop' or not choice['message'].get('content'):
+                raise ValueError('Incomplete Groq response')
+            json.loads(choice['message']['content'])
+            return result
+        reason = 'HTTP ' + str(response.status_code)
+    except (requests.RequestException, ValueError, KeyError, IndexError, TypeError):
+        reason = 'transport or invalid response'
+    if text_request:
+        print(json.dumps({'check': 'Text provider fallback', 'from': 'groq',
+                          'to': 'gemini', 'reason': reason, 'wait_seconds': 0}), flush=True)
+        _text_provider = 'gemini'
+        return request_gemini(payload)
+    raise RuntimeError(f'Groq audio request failed: {reason}; text fallback does not support audio')
 
 
 def make_story(day, previous):

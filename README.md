@@ -102,3 +102,13 @@ an upload: the old workflow reruns generation on a fresh runner and uses its old
 code revision. Successful upload-only shard recovery does not automatically
 assemble or upload a video; inspect all shard results and existing YouTube state
 before continuing those stages.
+
+
+## Local documentary work preserved — 2026-11-04
+
+This checkout predates the Hindi kids pipeline. Before replacing the active
+project with the cloned English Dudi Dam TV pipeline, its pending work was
+preserved on `archive/documentary-local-2026-11-04`: bounded provider retries
+and Gemini fallback checks, metadata packaging validation/repair, image safety
+recovery, workflow configuration and associated regression tests. These changes
+are historical work, not part of the new English production pipeline.

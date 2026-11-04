@@ -3,7 +3,7 @@ import copy
 import unittest
 from pathlib import Path
 from PIL import Image
-from video_packaging import choose_package, request_package
+from video_packaging import artwork_candidate, choose_package, description_parts, request_package
 from thumbnail_design import render_thumbnail
 
 
@@ -49,9 +49,41 @@ class PackagingTests(unittest.TestCase):
 
     def test_rejects_vague_or_unanchored_thumbnail_question(self):
         self.payload['option_a']['thumbnail_text'] = 'WHAT HAPPENED?'
-        self.payload['option_c']['thumbnail_prompt'] = 'A generic desert panorama with a vague object on the right and dark space on the left.'
+        self.payload['option_c']['thumbnail_text'] = 'WHAT IS THIS?'
         with self.assertRaisesRegex(ValueError, 'No accurate'):
             choose_package(self.story, self.topic, self.payload)
+
+    def test_malformed_artwork_uses_curated_composition_without_retry(self):
+        for prompt in ('A generic desert panorama with empty space on the left.',
+                       'Limestone blocks ' + 'in sunlight ' * 30):
+            with self.subTest(prompt=prompt):
+                payload = copy.deepcopy(self.payload)
+                for key in ('option_a', 'option_b', 'option_c'):
+                    payload[key]['thumbnail_prompt'] = prompt
+                calls = []
+                def ask(*args):
+                    calls.append(args)
+                    return payload
+                result = request_package(copy.deepcopy(self.story), self.topic, ask,
+                    pause=lambda _: self.fail('Curated artwork should avoid retry'))
+                self.assertEqual(len(calls), 1)
+                self.assertTrue(result['thumbnail_prompt'].startswith(self.topic['thumbnail_visual_story']))
+                self.assertNotIn('generic desert', result['thumbnail_prompt'])
+
+    def test_curated_artwork_still_rejects_forbidden_elements(self):
+        self.topic['thumbnail_visual_story'] = 'Limestone blocks beside a pyramid in sunlight with dark space on the left'
+        for key in ('option_a', 'option_b', 'option_c'):
+            self.payload[key]['thumbnail_prompt'] = 'Too short'
+        with self.assertRaisesRegex(ValueError, 'forbidden visual element'):
+            choose_package(self.story, self.topic, self.payload)
+
+    def test_every_topic_has_a_valid_curated_artwork_fallback(self):
+        import json
+        for topic in json.loads(Path('history_topics.json').read_text()):
+            with self.subTest(topic=topic['id']):
+                prompt = artwork_candidate('', topic)
+                self.assertTrue(25 <= len(prompt) <= 220)
+                self.assertIn(topic['thumbnail_anchor'].casefold(), prompt.casefold())
 
     def test_thumbnail_is_wide_readable_and_small_enough(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -84,13 +116,39 @@ class PackagingTests(unittest.TestCase):
         attempts, pauses = [], []
         def ask(prompt, limit, schema):
             attempts.append(prompt)
-            return {**self.payload, 'description_intro': 'Too short'}
+            return {**self.payload, 'description_intro': 'Shocking proof exposed'}
         original = copy.deepcopy(self.story)
-        with self.assertRaisesRegex(ValueError, 'Description opening'):
+        with self.assertRaisesRegex(ValueError, 'prohibited clickbait'):
             request_package(self.story, self.topic, ask, pause=pauses.append)
         self.assertEqual(len(attempts), 3)
         self.assertEqual(pauses, [60, 60])
         self.assertEqual(self.story, original)
+
+    def test_description_failures_recover_without_regenerating_story(self):
+        payload = copy.deepcopy(self.payload)
+        payload.update(description_intro='A different subject opens this otherwise long enough description. More historical evidence follows.',
+                       description_details='Too short')
+        scenes = copy.deepcopy(self.story['scenes'])
+        result = request_package(self.story, self.topic, lambda *args: payload,
+                                 pause=lambda _: self.fail('Unnecessary regeneration'))
+        self.assertTrue(result['description'].startswith(self.topic['search_phrase']))
+        self.assertIn(self.topic['facts'][0], result['description'])
+        self.assertEqual(result['scenes'], scenes)
+
+    def test_curated_descriptions_cover_every_topic(self):
+        import json
+        for topic in json.loads(Path('history_topics.json').read_text()):
+            with self.subTest(topic=topic['id']):
+                intro, details = description_parts({}, topic)
+                self.assertTrue(80 <= len(intro) <= 400)
+                self.assertTrue(80 <= len(details) <= 800)
+                self.assertIn(topic['search_phrase'], intro.split(':')[0])
+                for fact in topic['facts']:
+                    self.assertIn(fact, details)
+
+    def test_valid_description_is_preserved(self):
+        self.assertEqual(description_parts(self.payload, self.topic),
+            (self.payload['description_intro'], self.payload['description_details']))
 
     def test_successful_metadata_does_not_retry(self):
         calls = []
