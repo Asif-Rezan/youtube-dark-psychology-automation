@@ -460,6 +460,17 @@ jobs:
       run_id: ${{ needs.lyrics.outputs.run_id }}
       upload_mode: ${{ inputs.upload_mode || 'scheduled' }}
     secrets: inherit
+  facebook:
+    name: Schedule Facebook landscape video
+    needs: [lyrics, publish]
+    if: vars.FACEBOOK_PUBLISH_ENABLED == 'true' && vars.PUBLISH_ENABLED == 'true'
+    uses: ./.github/workflows/facebook.yml
+    with:
+      source_run: ${{ format('{0}', github.run_id) }}
+      run_id: ${{ needs.lyrics.outputs.run_id }}
+      kind: video
+      non_blocking: true
+    secrets: inherit
   cleanup:
     name: Clean published media from Drive
     needs: [lyrics, publish]

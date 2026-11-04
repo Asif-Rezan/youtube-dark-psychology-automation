@@ -244,3 +244,24 @@ in connections, long-video publication/cleanup, Shorts and recovery workflows.
 Tokens and other secrets are unchanged. Verification now checks channel
 configuration before token refresh and reports allowlisted local errors safely.
 Regression checks cover every destination channel binding.
+
+
+### Facebook publishing restored for English episodes — 2026-11-04
+
+Restored the existing Facebook publisher, regression tests and reusable/manual
+`facebook.yml` workflow from `hindi-before-english-2026-11-04`. New English
+landscape episodes and portrait Reels reuse their original rendered MP4 and
+verified YouTube schedule. The Page remains Grow with Rezan
+(`301624356367343`), using the existing `FACEBOOK_PAGE_ACCESS_TOKEN`.
+`FACEBOOK_PUBLISH_ENABLED=true` and `PUBLISH_ENABLED=true` enable automatic
+Facebook jobs. English lyrics/audio, the reference model setup, and the
+03:00 Asia/Dhaka generation schedule remain unchanged.
+
+Facebook checkpoints stay in the existing private kids Drive folder and retain
+video IDs across retries. API errors leave YouTube publication independent.
+Manual Facebook-only recovery accepts the original GitHub `source_run`, song
+`run_id`, and `kind` (`video` or `short`), without generating or uploading to
+YouTube again. Shorts use the existing 0–40-second portrait identity. A verified
+future YouTube schedule is required; public-mode runs without a schedule stop.
+Already-started Actions runs keep their original workflow; automatic Facebook
+jobs are added only to newly started runs. No existing post is edited.

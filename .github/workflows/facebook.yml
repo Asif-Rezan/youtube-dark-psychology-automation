@@ -1,0 +1,87 @@
+name: Schedule existing episode on Facebook
+on:
+  workflow_call:
+    inputs:
+      source_run:
+        required: true
+        type: string
+      run_id:
+        required: true
+        type: string
+      kind:
+        required: true
+        type: string
+      non_blocking:
+        type: boolean
+        default: true
+    secrets:
+      FACEBOOK_PAGE_ACCESS_TOKEN:
+        required: false
+      DRIVE_TOKEN_JSON:
+        required: false
+      DRIVE_FOLDER_ID:
+        required: false
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: GitHub run containing kids-video or rhyme-short artifact
+        required: true
+        type: string
+      run_id:
+        description: Original song run ID
+        required: true
+        type: string
+      kind:
+        description: Existing media type
+        type: choice
+        options: [video, short]
+        default: video
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: facebook-publication-${{ inputs.kind }}
+  cancel-in-progress: false
+jobs:
+  facebook:
+    if: vars.FACEBOOK_PUBLISH_ENABLED == 'true'
+    continue-on-error: ${{ inputs.non_blocking == true }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      SONG_RUN_ID: ${{ inputs.run_id }}
+      MEDIA_KIND: ${{ inputs.kind }}
+      FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+      DRIVE_TOKEN_JSON: ${{ secrets.DRIVE_TOKEN_JSON }}
+      DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Download original video
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.kind == 'short' && format('rhyme-short-{0}', inputs.source_run) || format('kids-video-{0}', inputs.source_run) }}
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: ${{ inputs.kind == 'short' && 'output/shorts/' || 'output/' }}
+      - id: publication
+        name: Publish without regenerating media or touching YouTube
+        run: python -u facebook_publish.py --run-id "$SONG_RUN_ID" --kind "$MEDIA_KIND"
+      - name: Report optional Facebook failure
+        if: failure() && inputs.non_blocking == true
+        run: |
+          echo "::warning::Facebook publication failed. YouTube publication is independent; retry using Schedule existing episode on Facebook."
+          echo "### Facebook publication needs retry" >> "$GITHUB_STEP_SUMMARY"
+          echo "YouTube publication is unaffected. Inspect this job and retry the existing episode through the Facebook-only recovery workflow." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: facebook-publication-${{ github.run_id }}-${{ inputs.kind }}
+          path: output/**/facebook-state.json
+          retention-days: 7
