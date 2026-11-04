@@ -265,3 +265,10 @@ YouTube again. Shorts use the existing 0–40-second portrait identity. A verifi
 future YouTube schedule is required; public-mode runs without a schedule stop.
 Already-started Actions runs keep their original workflow; automatic Facebook
 jobs are added only to newly started runs. No existing post is edited.
+
+Restoration validation: all 169 unit/regression tests passed, including Page
+identity, both upload formats, frozen schedule readback, chunk resumption,
+duplicate prevention and English destination-channel configuration. Workflow
+YAML parsed and both automatic Facebook callers were checked. Existing
+`FACEBOOK_PUBLISH_ENABLED` and `PUBLISH_ENABLED` variables were confirmed true.
+No live Facebook upload was performed during these checks.
