@@ -27,6 +27,22 @@ CLI startup checks passed for generation, publication and Shorts. Reference
 tracked-file comparison confirms only the documented integration changes.
 Cloud inference/publication are separate from these component checks.
 
+### Migration cloud runs
+
+Started on migration commit `d6da97d`:
+
+- [Component checks](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/41877221554)
+- [Existing Google credential verification](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/41877276827)
+- [Fresh English generation: english-reference-20261104](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/41877430990)
+
+These runs were queued at the time of this log. Full model inference, cloud
+credential readback and finished video output are not yet verified. The
+generation run uses the reference's scheduled publication mode and existing
+`PUBLISH_ENABLED` repository variable. No secrets or repository variables were
+changed. GitHub refused cancellation of the superseded Hindi run `41868656076`
+with “Cannot cancel a workflow run that is not in progress”; its displayed
+status was queued. That old run is not converted by updating main.
+
 ---
 
 # Dudi Dam TV — kids rhyme video automation
