@@ -8,8 +8,8 @@ import subprocess
 from chorus_arrangement import REFRAIN
 
 
-def continuous_request(verses, identity, source_lyrics, opening_lyrics="", mode="cover-balanced"):
-    if mode not in ("cover-balanced", "flow-full"):
+def continuous_request(verses, identity, source_lyrics, opening_lyrics="", mode="flow-text"):
+    if mode not in ("cover-balanced", "flow-full", "flow-text"):
         raise ValueError("Unknown lyric generation mode")
     if not source_lyrics.strip():
         raise ValueError("Original source lyrics are required for flow-edit")
@@ -18,7 +18,8 @@ def continuous_request(verses, identity, source_lyrics, opening_lyrics="", mode=
     return dict(
         _segment=True, duration=60, vocal_language='hi',
         reference_cover=True, cover_strength=.65 if mode == "cover-balanced" else 1.0, cover_noise_strength=0.0,
-        flow_edit_morph=mode == "flow-full", source_lyrics=source_lyrics,
+        flow_edit_morph=mode in ("flow-full", "flow-text"), source_lyrics=source_lyrics,
+        flow_edit_task="text2music" if mode == "flow-text" else "cover",
         flow_edit_n_min=0.0,
         generation_seed=int(hashlib.sha256((identity+'\n'.join(verses)).encode()).hexdigest()[:8],16),
         lyrics='\n'.join(['[Intro]', opening_lyrics, '[Verse]', verses[0], '[Chorus]', REFRAIN, REFRAIN,
@@ -36,7 +37,7 @@ def render_continuous(verses, identity, root):
     transcript=json.loads(Path(os.environ['ACE_SOURCE_TRANSCRIPT']).read_text())
     source_lyrics=transcript['text'].strip()
     opening='\n'.join(s['text'].strip() for s in transcript.get('segments', []) if s['start'] < 19)
-    mode=os.environ.get("ACE_LYRIC_MODE", "cover-balanced")
+    mode=os.environ.get("ACE_LYRIC_MODE", "flow-text")
     song=continuous_request(verses,identity,source_lyrics,opening,mode)
     reference_seconds=duration(reference_audio())
     if reference_seconds < song['duration'] - .05:

@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         style: [continuous-60]
-        lyric_mode: [cover-balanced, flow-full]
+        lyric_mode: [flow-text]
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     env:

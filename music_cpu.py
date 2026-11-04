@@ -97,7 +97,13 @@ def reference_cover_options(song, reference):
     noise = float(song.get('cover_noise_strength', 0.2))
     if not all(math.isfinite(v) and 0 <= v <= 1 for v in (strength, noise)):
         raise ValueError('Reference cover strengths must be finite values in 0..1')
-    return dict(task_type='cover', src_audio=reference,
+    task = song.get('flow_edit_task', 'cover') if song.get('flow_edit_morph') else 'cover'
+    if task not in ('cover', 'text2music'):
+        raise ValueError('Unsupported flow edit conditioning task')
+    if task == 'text2music':
+        # Official flow-edit example: source is used for zt, not cover-code context.
+        return dict(task_type=task, src_audio=reference)
+    return dict(task_type=task, src_audio=reference,
                 audio_cover_strength=strength, cover_noise_strength=noise)
 
 

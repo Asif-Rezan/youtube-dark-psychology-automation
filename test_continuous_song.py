@@ -89,7 +89,7 @@ class EmptySourceTranscriptTests(unittest.TestCase):
 class FullScheduleRegressionTests(unittest.TestCase):
     def test_default_cover_releases_late_steps_to_new_lyrics_without_noise_truncation(self):
         from music_cpu import reference_cover_options, flow_edit_options
-        request=continuous_request(['पहली पंक्ति','दूसरी पंक्ति'],'test','दूदी दम')
+        request=continuous_request(['पहली पंक्ति','दूसरी पंक्ति'],'test','दूदी दम',mode='cover-balanced')
         opts=reference_cover_options(request,'source.mp3')
         self.assertEqual(opts['cover_noise_strength'],0.0)
         self.assertLess(opts['audio_cover_strength'],1.0)
@@ -102,3 +102,16 @@ class FullScheduleRegressionTests(unittest.TestCase):
         for value in [1,-1,float('nan')]:
             with self.assertRaises(ValueError):
                 flow_edit_options(dict(request,flow_edit_n_min=value))
+
+
+class OfficialFlowTextRoutingTests(unittest.TestCase):
+    def test_source_audio_is_kept_without_cover_semantic_conditioning(self):
+        from music_cpu import reference_cover_options, flow_edit_options
+        request=continuous_request(['पहली पंक्ति','दूसरी पंक्ति'],'test','दूदी दम')
+        routing=reference_cover_options(request,'source.mp3')
+        edit=flow_edit_options(request)
+        self.assertEqual(routing,dict(task_type='text2music',src_audio='source.mp3'))
+        self.assertTrue(edit['flow_edit_morph'])
+        self.assertEqual(edit['flow_edit_n_min'],0)
+        self.assertNotEqual(edit['flow_edit_source_lyrics'],request['lyrics'])
+        self.assertNotIn('cover_noise_strength',routing)
