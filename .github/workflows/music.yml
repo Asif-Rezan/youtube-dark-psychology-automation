@@ -83,17 +83,7 @@ jobs:
       - name: Transcribe original lyrics for paired flow editing
         run: |
           pip install --no-cache-dir openai-whisper==20250625
-          python - <<'PYASR'
-          import whisper, json, os
-          from pathlib import Path
-          result = whisper.load_model('base', device='cpu').transcribe(os.environ['REFERENCE_AUDIO_PATH'], language='hi', fp16=False)
-          if not result['text'].strip():
-              raise SystemExit('No source lyrics detected; refusing blind flow edit')
-          target = Path(os.environ['ACE_SOURCE_TRANSCRIPT'])
-          target.parent.mkdir(parents=True, exist_ok=True)
-          target.write_text(json.dumps(result, ensure_ascii=False, indent=2))
-          print('Source transcript retained for review')
-          PYASR
+          python scripts/transcribe_ace_source.py
       - name: Generate improved Hindi kids vocal preview
         env:
           PREVIEW_STYLE: ${{ matrix.style }}

@@ -66,3 +66,20 @@ class FlowLyricTests(unittest.TestCase):
         self.assertFalse(assess(original,original)['replacement_verses_detected'])
         self.assertFalse(assess(original,'तितली आई')['replacement_verses_detected'])
         self.assertTrue(assess(original,'तितली आई कागज़ की नाव')['replacement_verses_detected'])
+
+
+class EmptySourceTranscriptTests(unittest.TestCase):
+    def test_empty_asr_uses_only_hash_matched_supplied_lyrics(self):
+        import hashlib
+        from scripts.transcribe_ace_source import resolve_transcript
+        with tempfile.TemporaryDirectory() as tmp:
+            source=Path(tmp)/'source.mp3'; source.write_bytes(b'reference')
+            fallback=dict(source_sha256=hashlib.sha256(b'reference').hexdigest(),known_lyrics='दूदी दम')
+            result=resolve_transcript(dict(text='',segments=[]),source,fallback)
+            self.assertTrue(result['partial_lyrics'])
+            self.assertEqual(result['text'],'दूदी दम')
+            with self.assertRaises(ValueError):
+                resolve_transcript(dict(text=''),source,dict(fallback,source_sha256='wrong'))
+            recognized=resolve_transcript(dict(text='recognized',segments=[]),source,fallback)
+            self.assertFalse(recognized['partial_lyrics'])
+            self.assertEqual(recognized['text'],'recognized')
