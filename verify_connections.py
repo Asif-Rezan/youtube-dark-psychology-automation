@@ -8,6 +8,7 @@ from pipeline import youtube_client
 
 
 def verify():
+    required('EXPECTED_CHANNEL_ID')
     for name in ('YOUTUBE_TOKEN_JSON','DRIVE_TOKEN_JSON'):
         credentials = Credentials.from_authorized_user_info(json.loads(required(name)))
         if name == 'YOUTUBE_TOKEN_JSON' and not credentials.has_scopes(['https://www.googleapis.com/auth/youtube.force-ssl']):
@@ -32,5 +33,13 @@ if __name__=='__main__':
     try:
         verify()
     except Exception as error:
-        print('Connection verification failed: '+type(error).__name__+'. No credentials printed.')
+        safe_messages = {
+            'Missing configuration: EXPECTED_CHANNEL_ID',
+            'YouTube scheduling update permission missing',
+            'Offline refresh token missing',
+            'Destination channel identity mismatch',
+            'Drive folder is trashed',
+        }
+        detail = str(error) if type(error) is RuntimeError and str(error) in safe_messages else type(error).__name__
+        print('Connection verification failed: '+detail+'. No credentials printed.')
         raise SystemExit(1)

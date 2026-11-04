@@ -233,3 +233,14 @@ and an explicit `audio_internal_gap` diagnostic instead of a generic error.
 The 120-second part failure at 91.61–94.57 seconds is covered by a real FFmpeg
 regression including pitch and output-duration checks. Generative audio quality
 is still not guaranteed; excessive missing audio remains a visible failure.
+
+
+### Destination channel configuration repair — 2026-11-04
+
+Connection run `41877276827` failed with an empty `EXPECTED_CHANNEL_ID` binding.
+The reference migration had dropped the destination workflow fallback. Restored
+secret → repository variable → existing channel `UCYjz7d66SsshimfpxZahlhQ` lookup
+in connections, long-video publication/cleanup, Shorts and recovery workflows.
+Tokens and other secrets are unchanged. Verification now checks channel
+configuration before token refresh and reports allowlisted local errors safely.
+Regression checks cover every destination channel binding.
