@@ -31,6 +31,11 @@ def pipeline_failure_message(error):
     # Only expose exact, locally authored messages; API bodies may contain secrets.
     safe_errors = {
         'Wrong YouTube channel; select Dudi Dam TV',
+        'Lyrics checkpoint missing; restore song.json before resuming this stage',
+        'DRIVE_FOLDER_ID must identify the dedicated Grow with Rezan folder',
+        'Configured Drive folder must belong to the authenticated account',
+        'DRIVE_FOLDER_ID must identify an accessible active folder',
+        'Multiple kids rhyme folders require reconciliation',
         'Ambiguous upload; reconcile YouTube before retry to avoid duplicates',
         'Uploaded video unavailable',
         'Unconfirmed schedule is in the past; reconcile the existing video',

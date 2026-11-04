@@ -72,6 +72,26 @@ class FacebookPublishingTests(unittest.TestCase):
                     publish(api,path,'video',{'title':'Song','description':'AI'},1234,state,save)
             self.assertEqual(api.request.call_count,1)
 
+    def test_invalid_or_premature_chunk_completion_never_finishes(self):
+        for initial, response in [((0, 0), None), ((4, 4), None),
+                                  ((0, 4), (4, 4)), ((0, 4), (9, 9)),
+                                  ((0, 4), (4, 3)), ((0, 4), (0, 4))]:
+            with self.subTest(initial=initial, response=response), tempfile.TemporaryDirectory() as folder:
+                path=Path(folder)/'video.mp4';path.write_bytes(b'abcdefgh')
+                api=Mock()
+                replies=[dict(video_id='123', upload_session_id='456',
+                              start_offset=str(initial[0]), end_offset=str(initial[1]))]
+                if response:
+                    replies.append(dict(start_offset=str(response[0]), end_offset=str(response[1])))
+                api.request.side_effect=replies
+                state={}
+                with self.assertRaises(FacebookError):
+                    publish(api,path,'video',{'title':'Song','description':'AI'},1234,state,Mock())
+                self.assertFalse(state.get('transferred',False))
+                self.assertFalse(state.get('finish_started',False))
+                self.assertFalse(any(call.kwargs.get('data',{}).get('upload_phase')=='finish'
+                                     for call in api.request.call_args_list))
+
     def test_long_chunks_resume_with_one_video_and_finish(self):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'video.mp4';path.write_bytes(b'abcdefgh')
