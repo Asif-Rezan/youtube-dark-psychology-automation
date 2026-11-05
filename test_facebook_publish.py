@@ -121,8 +121,21 @@ class FacebookEpisodeRoutingTests(unittest.TestCase):
                     self.assertEqual(stamp,int(target.timestamp()))
                     self.assertEqual(path.name,'video.mp4')
                     state['video_id']='123';save()
-                with patch.dict('os.environ', FACEBOOK_PAGE_ACCESS_TOKEN='test-only'), patch('storage.Store',return_value=store), patch('facebook_publish.publish',side_effect=uploaded) as publish:
+                with patch.dict('os.environ', FACEBOOK_PAGE_ACCESS_TOKEN='test-only'), patch('storage.Store',return_value=store), patch('facebook_feed.prepare',side_effect=lambda path,store,run_id:path.parent/'facebook-feed'/'video.mp4') as feed, patch('facebook_publish.publish',side_effect=uploaded) as publish:
                     facebook_publish.run('kids-test',kind)
                 self.assertEqual(store.load.call_args_list[0].args[0],key)
                 self.assertEqual(store.save.call_args.args[0],f'facebook/kids-test/{kind}/state.json')
                 publish.assert_called_once()
+                self.assertEqual(feed.call_count,1 if kind=='video' else 0)
+
+    def test_retry_of_existing_landscape_upload_does_not_change_its_media(self):
+        import facebook_publish
+        target=(dt.datetime.now(dt.timezone.utc)+dt.timedelta(days=4)).replace(microsecond=0)
+        with tempfile.TemporaryDirectory() as tmp, contextlib.chdir(tmp):
+            store=Mock()
+            store.load.side_effect=[{'phase':'scheduled','schedule_target':target.isoformat()},
+                                    {'video_id':'123','publish_at':int(target.timestamp()),'identity':{'sha256':'legacy'}}]
+            with patch('storage.Store',return_value=store), patch('facebook_feed.prepare') as feed, patch('facebook_publish.publish') as upload:
+                facebook_publish.run('legacy','video')
+            feed.assert_not_called()
+            self.assertEqual(upload.call_args.args[1],Path('output/legacy/video.mp4'))

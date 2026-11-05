@@ -62,7 +62,10 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-      - run: pip install -r requirements.txt
+      - name: Install publication and feed export tools
+        run: |
+          bash scripts/install-runner-packages.sh ffmpeg
+          pip install -r requirements.txt
       - name: Download original video
         uses: actions/download-artifact@v4
         with:
@@ -71,7 +74,7 @@ jobs:
           github-token: ${{ github.token }}
           path: ${{ inputs.kind == 'short' && 'output/shorts/' || 'output/' }}
       - id: publication
-        name: Publish without regenerating media or touching YouTube
+        name: Export Facebook feed format and schedule existing media
         run: python -u facebook_publish.py --run-id "$SONG_RUN_ID" --kind "$MEDIA_KIND"
       - name: Report optional Facebook failure
         if: failure() && inputs.non_blocking == true
