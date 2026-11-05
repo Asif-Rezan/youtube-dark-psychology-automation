@@ -17,7 +17,7 @@ class DestinationWorkflowTests(unittest.TestCase):
                     bindings.append((path.name, name))
                     with self.subTest(workflow=path.name, job=name):
                         self.assertEqual(value, "${{ secrets.EXPECTED_CHANNEL_ID || vars.EXPECTED_CHANNEL_ID || 'UCYjz7d66SsshimfpxZahlhQ' }}")
-        self.assertEqual(len(bindings), 7)
+        self.assertEqual(len(bindings), 8)
 
     def test_missing_channel_fails_before_refreshing_credentials(self):
         from verify_connections import verify

@@ -328,3 +328,10 @@ It is waiting for scheduled generation `41947277047` to release the shared
 publication lock; the running generation was left intact. Source video, music,
 artwork and manifest artifacts were confirmed unexpired. Publication and cleanup
 outcomes are pending; scheduled/private media must remain until public-HD checks pass.
+
+
+Manual storage maintenance is available through `manual-drive-cleanup.yml`.
+It sweeps this project's existing publication checkpoints, permanently deletes
+only media belonging to verified public HD episodes, preserves scheduled/private
+and unverified media, and saves quota plus a read-only project-folder inventory.
+It does not alter generation/publication settings or empty unrelated Drive Trash.
