@@ -102,6 +102,9 @@ def generate_song_images(root, song):
                 with Image.open(target) as im:
                     im.verify()
                 valid = True
+                if kind=='thumbnail' and song.get('thumbnail_design'):
+                    receipt=json.loads((root/'thumbnail-design.json').read_text())
+                    valid=receipt.get('source_sha256')==hashlib.sha256(target.read_bytes()).hexdigest()
             except (OSError,ValueError):
                 pass
         if not valid:

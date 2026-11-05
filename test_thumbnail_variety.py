@@ -84,3 +84,24 @@ class ThumbnailVarietyTests(unittest.TestCase):
         design=next_design({'title':'Party'},'next',history)
         self.assertNotEqual(design['layout_index'],1)
         self.assertNotEqual(design['palette_index'],1)
+
+
+    def test_managed_thumbnail_cache_requires_matching_source_receipt(self):
+        import os
+        from unittest.mock import patch
+        from song_images import generate_song_images
+        from test_thumbnail_reference import ThumbnailReferenceTests
+        song=ThumbnailReferenceTests().song()
+        song['thumbnail_design']=next_design(song,'managed-cache',[])
+        def generate(prompt,path,**kwargs):Image.new('RGB',(64,36),'purple').save(path)
+        with tempfile.TemporaryDirectory() as tmp, patch('image_cpu.generate',side_effect=generate) as worker:
+            # Place all scenes on another shard; generate only the final thumbnail.
+            count=len(song['scenes'])+1
+            with patch.dict(os.environ,IMAGE_SHARDS=str(count),IMAGE_SHARD=str(count-1)):
+                generate_song_images(tmp,song)
+                self.assertEqual(worker.call_count,1)
+                generate_song_images(tmp,song)
+                self.assertEqual(worker.call_count,1)
+                Image.new('RGB',(64,36),'green').save(Path(tmp)/'thumbnail-source.png')
+                generate_song_images(tmp,song)
+                self.assertEqual(worker.call_count,2)
