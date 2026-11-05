@@ -72,6 +72,7 @@ def image_plan(song):
                          visual_style='dudi-varied-thumbnail-v2', **thumbnail_reference(identity,song.get("thumbnail_design")))
         if song.get('thumbnail_design'):
             thumbnail['design']=song['thumbnail_design']
+            thumbnail['conditioning']='palette-style-only'
         w,h,steps=thumbnail['width'],thumbnail['height'],thumbnail['steps']
         if (w%8 or h%8 or not 256<=w<=1536 or not 256<=h<=1536
                 or abs(w/h-16/9)>.1 or not 1<=steps<=50):

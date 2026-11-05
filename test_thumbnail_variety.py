@@ -105,3 +105,19 @@ class ThumbnailVarietyTests(unittest.TestCase):
                 Image.new('RGB',(64,36),'green').save(Path(tmp)/'thumbnail-source.png')
                 generate_song_images(tmp,song)
                 self.assertEqual(worker.call_count,2)
+
+
+    def test_managed_thumbnail_uses_reference_colors_without_copying_layout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            ref=root/'reference.png';Image.new('RGB',(64,36),'blue').save(ref)
+            design=next_design({'title':'Flower friends'},'new',[])
+            calls=[]
+            def generate(prompt,path,**kwargs):
+                calls.append((prompt,kwargs));Image.new('RGB',(64,36),'pink').save(path)
+            generate_distinct(root/'thumb.png',dict(seed=1,width=64,height=36,steps=16,conditioning='palette-style-only'),
+                              {'thumbnail_design':design},generate,dict(reference_image=ref,strength=.72))
+            self.assertNotIn('reference_image',calls[0][1])
+            self.assertNotIn('strength',calls[0][1])
+            self.assertIn('Accent colors:',calls[0][0])
+            self.assertLess(len(calls[0][0].split()),85)

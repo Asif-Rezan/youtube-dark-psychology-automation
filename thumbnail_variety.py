@@ -9,11 +9,11 @@ from PIL import Image
 VERSION='thumbnail-variety-v1'
 HISTORY_KEY='thumbnail-history.json'
 LAYOUTS=(
-    'Close-up of one smiling toddler on the left and a baby animal on the right, faces large, one clear lyric prop between them.',
-    'Two baby animal friends in the foreground interacting with one oversized lyric prop; two toddlers small in the background.',
-    'Low camera angle, one toddler and one baby animal on a diagonal adventure path, clear open sky, no centered group lineup.',
-    'Overhead playful semicircle of three friends around a large topic prop, visible happy faces looking up, simple background.',
-    'One toddler on the right pointing toward a large magical topic prop on the left, one small animal companion, asymmetric framing.',
+    'Close-up: one clothed toddler left, one baby bunny right, one flower between them.',
+    'Two baby animals foreground, one giant flower, two clothed toddlers small in the background.',
+    'Low angle: one clothed toddler and one baby bunny along a diagonal adventure path.',
+    'Overhead view: three cute friends forming a semicircle around one giant toy.',
+    'One clothed toddler right, pointing at a giant colorful prop left, one puppy companion.',
 )
 PALETTES=('turquoise and sunny yellow','lavender and peach','coral and sky blue','mint and warm pink','golden orange and soft blue')
 
@@ -26,9 +26,9 @@ def topic_for(song):
                         (('sleep','moon','night'),'a crescent moon, soft stars and a cozy bedtime cloud'),
                         (('dance','party','music'),'colorful musical notes, a small toy drum and a dance floor'),
                         (('sea','ocean','beach'),'seashells, a sandcastle and gentle seaside waves')]:
-        if any(re.search(r'\b'+re.escape(term)+r'\b',text) for term in terms):
+        if any(re.search(r'\b'+re.escape(term)+r'(?:s|es|ing|y)?\b',text) for term in terms):
             return topic
-    return song.get('story_summary',song.get('title','a playful friendship adventure'))[:240]
+    return 'a joyful friendship adventure with a colorful toy'
 
 
 def next_design(song,run_id,history):
@@ -99,10 +99,10 @@ def reserve_design(song,run_id,store,published=None):
 def prompt_for(song,design,attempt=0):
     layout=LAYOUTS[(design['layout_index']+attempt)%len(LAYOUTS)]
     palette=PALETTES[(design['palette_index']+attempt)%len(PALETTES)]
-    return ('Cute colorful 3D storybook cartoon nursery rhyme thumbnail. '+layout+
-            ' Topic and hero props: '+design['topic']+'. Dominant colors: '+palette+'. '+
-            'Expressive friendly faces, clear silhouettes, large readable subjects, soft cinematic light. '
-            'One coherent full-frame scene, no panels, no text, no logos, no photography.')
+    return ('Cute 3D storybook nursery cartoon. '+layout+' '+design['topic']+'. '+
+            palette+' colors. Happy expressive faces, colorful rompers, soft light, clear silhouettes. '
+            'No text or logos.')
+
 
 
 def fingerprint(path):
@@ -124,10 +124,39 @@ def similar(signature,previous):
     return False
 
 
+def reference_colors(path):
+    """Use a reference's colors without copying its people or composition."""
+    import colorsys
+    with Image.open(path) as image:
+        small=image.convert('RGB').resize((64,64)).quantize(colors=8)
+        palette=small.getpalette()
+        names=[]
+        for _,index in sorted(small.getcolors(),reverse=True):
+            r,g,b=palette[index*3:index*3+3]
+            hue,saturation,value=colorsys.rgb_to_hsv(r/255,g/255,b/255)
+            if saturation<.3 or value<.3:continue
+            name=('coral','orange','yellow','green','turquoise','blue','purple','pink')[int(hue*8)%8]
+            if name not in names:names.append(name)
+            if len(names)==2:break
+    return ' and '.join(names)
+
+
 def generate_distinct(target,plan,song,generate,options):
     design=song['thumbnail_design']
+    options=dict(options)
+    if plan.get('conditioning')=='palette-style-only':
+        # Do not feed the old character layout into img2img. Use its palette as a style cue.
+        reference=options.pop('reference_image',None)
+        options.pop('strength',None)
+        if reference:
+            palette=reference_colors(reference)
+        else:
+            palette=''
+    else:
+        palette=''
     for attempt in range(3):
         prompt=prompt_for(song,design,attempt)
+        if palette:prompt += ' Accent colors: '+palette+'.'
         seed=plan['seed']+attempt*104729
         generate(prompt,target,seed=seed,allow_text=False,width=plan['width'],height=plan['height'],steps=plan['steps'],**options)
         signature=fingerprint(target)

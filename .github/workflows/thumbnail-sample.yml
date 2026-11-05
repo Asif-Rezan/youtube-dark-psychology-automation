@@ -48,6 +48,10 @@ jobs:
           github-token: ${{ github.token }}
           path: preview-source/
       - name: Generate one review thumbnail without publishing
+        env:
+          THUMBNAIL_IMAGE_WIDTH: '1024'
+          THUMBNAIL_IMAGE_HEIGHT: '576'
+          THUMBNAIL_IMAGE_STEPS: '16'
         run: python -u preview_thumbnail.py --source preview-source --output output/thumbnail-preview
       - uses: actions/upload-artifact@v4
         with:
