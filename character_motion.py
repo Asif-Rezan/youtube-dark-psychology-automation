@@ -14,7 +14,7 @@ import subprocess
 import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
-VERSION = 'dudi-layered-characters-v14-no-twirl'
+VERSION = 'dudi-layered-characters-v15-face-safe-effects'
 # Extraction has not changed; retain verified expensive clean plates.
 LAYER_VERSION = 'dudi-layered-characters-v11-tempo-aware-dance'
 FPS, SECONDS = 25, 5

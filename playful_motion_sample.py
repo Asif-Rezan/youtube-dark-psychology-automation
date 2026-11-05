@@ -12,9 +12,9 @@ MOVES = [
     ('Jelly bounce', 'jelly bounce dance'),
     ('Clap + side step', 'clap hands dance'),
     ('Penguin walk', 'penguin walk dance'),
-    ('Head bob + ear flop', 'head bob ear flop dance'),
-    ('Peekaboo', 'peekaboo dance'),
-    ('Follow the leader', 'follow the leader dance'),
+    ('Floating balloons', 'balloons dance'),
+    ('Glowing fireflies', 'fireflies dance'),
+    ('Ripple hops', 'ripple hop dance'),
     ('Floating bubbles', 'gentle dance'),
 ]
 
