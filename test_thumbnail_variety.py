@@ -116,10 +116,11 @@ class ThumbnailVarietyTests(unittest.TestCase):
             def generate(prompt,path,**kwargs):
                 calls.append((prompt,kwargs));Image.new('RGB',(64,36),'pink').save(path)
             generate_distinct(root/'thumb.png',dict(seed=1,width=64,height=36,steps=16,conditioning='reference-image'),
-                              {'thumbnail_design':design},generate,dict(reference_image=ref,strength=.35))
+                              {'thumbnail_design':design},generate,dict(reference_image=ref,strength=.50))
             self.assertEqual(calls[0][1]['reference_image'],ref)
-            self.assertEqual(calls[0][1]['strength'],.35)
-            self.assertIn('Match the reference image closely',calls[0][0])
+            self.assertEqual(calls[0][1]['strength'],.50)
+            self.assertIn('fresh variation of the reference',calls[0][0])
+            self.assertIn('Slightly vary outfit accents',calls[0][0])
             self.assertIn('human toddler',calls[0][0])
 
     def test_each_reference_keeps_its_own_cast_and_outfits(self):
