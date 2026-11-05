@@ -281,12 +281,14 @@ def run(run_id, defer_drive_cleanup=False):
         with tarfile.open(root/'storyboard.tar.gz', 'w:gz') as archive:
             for path in sorted(root.glob('scene-*-source.png')) + sorted(root.glob('image-manifest-*.json')):
                 archive.add(path, arcname=path.name)
-        for name in ('render-state.json', 'storyboard.tar.gz', 'song.json', 'video.mp4', 'thumbnail.jpg', 'background-source.png', 'thumbnail-source.png', 'image-manifest.json'):
+        for name in ('render-state.json', 'storyboard.tar.gz', 'song.json', 'video.mp4', 'thumbnail.jpg', 'thumbnail-design.json', 'background-source.png', 'thumbnail-source.png', 'image-manifest.json'):
             if (root/name).exists():
                 print(json.dumps({'phase':'back up media','file':name}),flush=True)
                 store.upload(root/name, f'runs/{run_id}/{name}')
     elif not (root/'thumbnail.jpg').exists():
         store.download(store.find(f'runs/{run_id}/thumbnail.jpg'), root/'thumbnail.jpg')
+    from thumbnail_variety import record_thumbnail
+    record_thumbnail(store,root,run_id)
     print(json.dumps({'phase':'upload or verify YouTube video'}),flush=True)
     publish(client, root, song, state, save)
     if not any(h['run'] == run_id for h in history):

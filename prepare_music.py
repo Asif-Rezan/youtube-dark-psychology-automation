@@ -55,6 +55,9 @@ def prepare(run_id, stage='all', check_history=False, vocal_gender='female'):
             from pipeline import DuplicateSongError
             raise DuplicateSongError()
         if store:
+            from thumbnail_variety import reserve_design
+            reserve_design(song,run_id,store,published=[row for row in history if row.get("video_id")])
+            (root/'song.json').write_text(json.dumps(song,ensure_ascii=False,indent=2))
             entry = dict(run=run_id, title=song['title'], story_summary=song['story_summary'],
                 visual_identity=song.get('visual_identity', {}),
                 verse_lines=lines, hash=__import__('hashlib').sha256(song['lyrics'].encode()).hexdigest())

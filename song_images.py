@@ -19,14 +19,14 @@ THUMBNAIL_REFERENCES = (
 )
 
 
-def thumbnail_reference(identity=''):
+def thumbnail_reference(identity='',design=None):
     override = os.getenv('THUMBNAIL_REFERENCE_IMAGE')
     # Stable pseudo-random selection: shards and retries of the same generation agree.
     selection_seed = os.getenv('SONG_RUN_ID', '') + ':' + identity
-    path = Path(override) if override else random.Random(selection_seed).choice(THUMBNAIL_REFERENCES)
+    path = Path(override) if override else (THUMBNAIL_REFERENCES[design['reference_index']] if design else random.Random(selection_seed).choice(THUMBNAIL_REFERENCES))
     if not path.is_absolute():
         path = Path(__file__).resolve().parent/path
-    strength = float(os.getenv('THUMBNAIL_DENOISE_STRENGTH', '0.50'))
+    strength = float(os.getenv('THUMBNAIL_DENOISE_STRENGTH', '0.72' if design else '0.50'))
     if not 0 < strength <= 1:
         raise ValueError('Thumbnail strength must be greater than zero and at most one')
     with Image.open(path) as image:
@@ -57,12 +57,9 @@ def image_plan(song):
                     ' Keep characters and lyric props visible, no borders or panels.')
                    for kind, prompt in entries]
     else:
-        entries.append(('thumbnail',
-            'Cute colorful 3D storybook cartoon, stylized animated children, rounded toy-like shapes. '
-            'Five happy toddlers dancing with baby animal friends, one large central child, '
-            'two friends on each side, joyful expressive faces, raised hands, colorful rompers. '
-            'Vibrant dreamy garden party, glowing festive lights, flowers, soft magical light. '
-            'Polished nursery rhyme thumbnail, no text, no photography. ' + song['scenes'][0]['prompt']))
+        from thumbnail_variety import next_design, prompt_for
+        design=song.get('thumbnail_design') or next_design(song,os.getenv('SONG_RUN_ID',identity),[])
+        entries.append(('thumbnail',prompt_for(song,design)))
     plans = [dict(kind=kind, prompt=prompt, seed=int(hashlib.sha256((identity+kind).encode()).hexdigest()[:8],16),
         model=MODEL, revision=REVISION, width=int(os.getenv('CPU_IMAGE_WIDTH','576' if portrait else '1024')),
         height=int(os.getenv('CPU_IMAGE_HEIGHT','1024' if portrait else '576')), steps=int(os.getenv('CPU_IMAGE_STEPS','16')),
@@ -72,7 +69,9 @@ def image_plan(song):
         thumbnail.update(width=int(os.getenv('THUMBNAIL_IMAGE_WIDTH','1344')),
                          height=int(os.getenv('THUMBNAIL_IMAGE_HEIGHT','768')),
                          steps=int(os.getenv('THUMBNAIL_IMAGE_STEPS','20')),
-                         visual_style='dudi-reference-storybook-hd-v1', **thumbnail_reference(identity))
+                         visual_style='dudi-varied-thumbnail-v2', **thumbnail_reference(identity,song.get("thumbnail_design")))
+        if song.get('thumbnail_design'):
+            thumbnail['design']=song['thumbnail_design']
         w,h,steps=thumbnail['width'],thumbnail['height'],thumbnail['steps']
         if (w%8 or h%8 or not 256<=w<=1536 or not 256<=h<=1536
                 or abs(w/h-16/9)>.1 or not 1<=steps<=50):
@@ -113,8 +112,12 @@ def generate_song_images(root, song):
                 if not reference.is_absolute():
                     reference = Path(__file__).resolve().parent/reference
                 reference_options = dict(reference_image=reference, strength=plan['strength'])
-            generate(plan['prompt'], temporary, seed=plan['seed'], allow_text=False,
-                     width=plan['width'], height=plan['height'], steps=plan['steps'], **reference_options)
+            if kind=='thumbnail' and song.get('thumbnail_design'):
+                from thumbnail_variety import generate_distinct
+                generate_distinct(temporary,plan,song,generate,reference_options)
+            else:
+                generate(plan['prompt'], temporary, seed=plan['seed'], allow_text=False,
+                         width=plan['width'], height=plan['height'], steps=plan['steps'], **reference_options)
             with Image.open(temporary) as im:
                 im.verify()
             temporary.replace(target)
