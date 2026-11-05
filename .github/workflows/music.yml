@@ -342,6 +342,7 @@ jobs:
           path: |
             output/*/scene-*-source.png
             output/*/thumbnail-source.png
+            output/*/thumbnail-design.json
             output/*/image-manifest-*.json
             output/*/characters/**
             output/*/motion/**
