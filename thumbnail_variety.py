@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-VERSION='thumbnail-variety-v3-gentle-variation'
+VERSION='thumbnail-variety-v4-balanced-variation'
 HISTORY_KEY='thumbnail-history.json'
 LAYOUTS=(
     'Close-up: one clothed toddler left, one baby bunny right, one flower between them.',
@@ -136,9 +136,11 @@ REFERENCE_BRIEFS=(
 def reference_prompt(design,attempt=0):
     # Composition/cast/colors come from the selected reference, never a new animal-only layout.
     brief=REFERENCE_BRIEFS[design['reference_index']]
-    details=('soft glowing light','bright sparkling accents','gentle festive highlights')[attempt]
+    details=('Central toddler waving, friends clapping, small star decorations.',
+             'Central toddler clapping, friends waving, tiny floating balloons.',
+             'Playful side-step poses, flower confetti and warm glowing lights.')[attempt]
     return ('Create a fresh variation of the reference. Keep its human toddler cast, art style and broad framing. '
-            'Slightly vary outfit accents, hand poses, small props and lighting; keep the same scene type. '
+            'Vary outfit accents and hand poses; change small background decorations, keep the same scene type. '
             +brief+' '+details+'. No text or logos.')
 
 
