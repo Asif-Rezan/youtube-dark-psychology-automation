@@ -132,3 +132,19 @@ class ThumbnailVarietyTests(unittest.TestCase):
             self.assertNotIn('Close-up:',prompt)
             if index!=3:self.assertIn(expected[index],prompt)
             else:self.assertIn('lion, panda, bunny and tiger costumes',prompt)
+
+
+    def test_bright_3d_prompt_and_color_finish_preserve_geometry(self):
+        from thumbnail_variety import reference_prompt,brighten_thumbnail
+        prompt=reference_prompt(dict(reference_index=0))
+        for phrase in ('3D animated','glossy highlights','bright saturated colors'):
+            self.assertIn(phrase,prompt)
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'image.png'
+            Image.new('RGB',(96,54),(100,150,185)).save(p)
+            before=np.asarray(Image.open(p)).astype(float)
+            brighten_thumbnail(p)
+            after=np.asarray(Image.open(p)).astype(float)
+            self.assertEqual(after.shape,before.shape)
+            self.assertGreater(after.max()-after.min(),before.max()-before.min())
+            self.assertTrue(np.isfinite(after).all())

@@ -4,9 +4,9 @@ import json
 import re
 from pathlib import Path
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageEnhance
 
-VERSION='thumbnail-variety-v4-balanced-variation'
+VERSION='thumbnail-variety-v5-bright-3d'
 HISTORY_KEY='thumbnail-history.json'
 LAYOUTS=(
     'Close-up: one clothed toddler left, one baby bunny right, one flower between them.',
@@ -139,10 +139,21 @@ def reference_prompt(design,attempt=0):
     details=('Central toddler waving, friends clapping, small star decorations.',
              'Central toddler clapping, friends waving, tiny floating balloons.',
              'Playful side-step poses, flower confetti and warm glowing lights.')[attempt]
-    return ('Create a fresh variation of the reference. Keep its human toddler cast, art style and broad framing. '
-            'Vary outfit accents and hand poses; change small background decorations, keep the same scene type. '
+    return ('Vibrant polished 3D animated nursery cartoon, rounded toy-like characters, glossy highlights, '
+            'soft rim lighting, bright saturated colors. Create a fresh variation of the reference. '
+            'Keep its human toddler cast and broad framing. Vary outfit accents and hand poses. '
             +brief+' '+details+'. No text or logos.')
 
+
+
+def brighten_thumbnail(path):
+    """Small bounded color finishing, with no geometric or facial deformation."""
+    with Image.open(path) as source:
+        image=source.convert('RGB')
+        image=ImageEnhance.Color(image).enhance(1.15)
+        image=ImageEnhance.Contrast(image).enhance(1.04)
+        image=ImageEnhance.Brightness(image).enhance(1.03)
+        image.save(path)
 
 
 def generate_distinct(target,plan,song,generate,options):
@@ -155,6 +166,7 @@ def generate_distinct(target,plan,song,generate,options):
         prompt=reference_prompt(design,attempt) if faithful else prompt_for(song,design,attempt)
         seed=plan['seed']+attempt*104729
         generate(prompt,target,seed=seed,allow_text=False,width=plan['width'],height=plan['height'],steps=plan['steps'],**options)
+        brighten_thumbnail(target)
         signature=fingerprint(target)
         if not similar(signature,design.get('prior_signatures',[])):
             receipt=dict(version=VERSION,run=design['run'],design=design,attempt=attempt,
