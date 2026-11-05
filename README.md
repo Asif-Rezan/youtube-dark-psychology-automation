@@ -319,3 +319,12 @@ then invokes the existing Facebook publisher and a separate guarded Drive
 cleanup job after successful recovery. Cleanup saves a downloadable report.
 Scheduled/private or non-HD YouTube media are retained until verified public
 HD publication; a successful cleanup check does not imply immediate deletion.
+
+Validation: all 174 local tests passed, including missing configuration before
+network/storage/output writes, private diagnostics, preflight binding parity,
+and recovery Facebook/cleanup dependencies. Recovery was dispatched on current
+main as [run 41957340330](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/41957340330).
+It is waiting for scheduled generation `41947277047` to release the shared
+publication lock; the running generation was left intact. Source video, music,
+artwork and manifest artifacts were confirmed unexpired. Publication and cleanup
+outcomes are pending; scheduled/private media must remain until public-HD checks pass.
