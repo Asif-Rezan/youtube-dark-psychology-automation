@@ -289,3 +289,33 @@ verified Grow with Rezan channel `UCYjz7d66SsshimfpxZahlhQ`, the private kids
 Drive folder, both Google refresh tokens, and Facebook Page `301624356367343`
 using the existing secret. No media was uploaded. Actual Facebook transfer and
 schedule acceptance remain dependent on a future episode publication.
+
+
+### Early publication validation and safe diagnostics — 2026-11-05
+
+Run `41877430990` rendered the 600-second episode successfully but its old
+`d6da97d` workflow passed an empty `EXPECTED_CHANNEL_ID` into publication.
+It stopped during account verification before upload; the old generic error
+hid the missing configuration. The destination fallback was already restored
+in `7cc735f`, and live Google/Facebook validation subsequently passed.
+
+Publication now checks all required configuration before storage/network calls
+or local output creation. Missing known keys produce a safe actionable
+`configuration_missing` message; arbitrary API errors remain private. New
+publishing runs validate settings and live Google identities in the lyrics
+job before costly generation, and again before final rendering. Preview-only
+runs remain available when publishing is disabled. Preflight and publication
+use the same channel fallback and credentials. External API failures can still
+occur after preflight; existing upload IDs and frozen schedules remain durable.
+
+To recover the existing finished episode with current code, use **Recover
+finished video publication** on `main`, source run `41877430990`, song ID
+`english-reference-20261104`. Do not re-run the original failed job: GitHub
+reuses its old commit. Recovery verifies the existing render and reuses saved
+publication identities rather than regenerating or duplicating uploads.
+
+Finished-video recovery now runs account preflight before artifact downloads,
+then invokes the existing Facebook publisher and a separate guarded Drive
+cleanup job after successful recovery. Cleanup saves a downloadable report.
+Scheduled/private or non-HD YouTube media are retained until verified public
+HD publication; a successful cleanup check does not imply immediate deletion.

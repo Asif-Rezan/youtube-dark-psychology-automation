@@ -79,6 +79,21 @@ jobs:
           [[ "$RUN_ID" =~ ^[a-zA-Z0-9_-]{1,80}$ ]] || exit 1
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
       - run: pip install -r requirements.txt -r requirements-lyrics.txt
+      - name: Verify publication accounts before generation
+        if: vars.PUBLISH_ENABLED == 'true'
+        env:
+          YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+          EXPECTED_CHANNEL_ID: ${{ secrets.EXPECTED_CHANNEL_ID || vars.EXPECTED_CHANNEL_ID || 'UCYjz7d66SsshimfpxZahlhQ' }}
+          DRIVE_TOKEN_JSON: ${{ secrets.DRIVE_TOKEN_JSON }}
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+          UPLOAD_MODE: ${{ inputs.upload_mode || 'scheduled' }}
+          PUBLISH_AT: ${{ inputs.publish_at }}
+          VIDEO_LANGUAGE: ${{ inputs.video_language || 'en' }}
+          AUDIO_LANGUAGE: ${{ inputs.audio_language || 'en' }}
+          VIDEO_CATEGORY_ID: ${{ inputs.category_id || '10' }}
+        run: |
+          python -c 'from upload_settings import load_settings; load_settings()'
+          python verify_connections.py
       - run: python -m unittest -v
       - name: Find available recovery checkpoints
         id: recovery
@@ -430,6 +445,9 @@ jobs:
           path: output/
       - name: Validate publication settings before rendering
         run: python -c 'from upload_settings import load_settings; load_settings()'
+      - name: Verify publication accounts before rendering
+        if: vars.PUBLISH_ENABLED == 'true'
+        run: python verify_connections.py
       - name: Render video on GitHub CPU
         run: python -u prepare_music.py --run-id "$SONG_RUN_ID" --stage render
       - uses: actions/upload-artifact@v4

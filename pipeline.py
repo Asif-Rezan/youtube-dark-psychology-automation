@@ -17,6 +17,15 @@ class DuplicateSongError(RuntimeError):
     """A safe diagnostic; never expose raw API responses or checkpoint contents."""
 
 
+PUBLICATION_CONFIGURATION = ('EXPECTED_CHANNEL_ID', 'YOUTUBE_TOKEN_JSON', 'DRIVE_TOKEN_JSON', 'DRIVE_FOLDER_ID')
+
+
+def validate_publication_configuration():
+    """Fail before network calls, local writes, inference or upload."""
+    for name in PUBLICATION_CONFIGURATION:
+        required(name)
+
+
 def pipeline_failure_message(error):
     if isinstance(error, DuplicateSongError):
         return ('Pipeline failed [duplicate_song]: lyrics or title already published. '
@@ -27,6 +36,12 @@ def pipeline_failure_message(error):
     from lyrics_cpu import StoryGenerationError
     if isinstance(error,StoryGenerationError):
         return 'Pipeline failed ['+error.code+']: '+str(error)+' Details: '+json.dumps(error.details,sort_keys=True)
+    if type(error) is RuntimeError and str(error) in {
+            'Missing configuration: ' + name for name in PUBLICATION_CONFIGURATION}:
+        name = str(error).split(': ', 1)[1]
+        return ('Pipeline failed [configuration_missing]: ' + name +
+                ' is empty. Check repository secrets/variables and workflow bindings. '
+                'Start recovery on current main with the original run ID; rerunning an old job uses its old code.')
     # Only expose exact, locally authored messages; API bodies may contain secrets.
     safe_errors = {
         'Wrong YouTube channel; select Dudi Dam TV',
@@ -141,10 +156,10 @@ def render(root):
 def youtube_client():
     from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
+    expected = required('EXPECTED_CHANNEL_ID')
     client = build('youtube', 'v3', credentials=Credentials.from_authorized_user_info(
         json.loads(required('YOUTUBE_TOKEN_JSON'))), cache_discovery=False)
     items = client.channels().list(part='id,snippet', mine=True).execute().get('items', [])
-    expected = required('EXPECTED_CHANNEL_ID')
     if len(items) != 1 or items[0]['id'] != expected:
         raise RuntimeError('Wrong YouTube channel; select Dudi Dam TV')
     return client
@@ -213,6 +228,7 @@ def publish(client, root, song, state, save, upload_thumbnail=True, metadata_kin
 def run(run_id, defer_drive_cleanup=False):
     if not re.fullmatch(r'[a-zA-Z0-9_-]{1,80}', run_id):
         raise ValueError('Invalid run ID')
+    validate_publication_configuration()
     root = Path('output')/run_id
     root.mkdir(parents=True, exist_ok=True)
     print(json.dumps({'phase':'verify publication accounts'}),flush=True)

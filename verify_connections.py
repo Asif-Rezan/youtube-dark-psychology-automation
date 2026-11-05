@@ -4,11 +4,11 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from storage import Store, required
-from pipeline import youtube_client
+from pipeline import youtube_client, validate_publication_configuration
 
 
 def verify():
-    required('EXPECTED_CHANNEL_ID')
+    validate_publication_configuration()
     for name in ('YOUTUBE_TOKEN_JSON','DRIVE_TOKEN_JSON'):
         credentials = Credentials.from_authorized_user_info(json.loads(required(name)))
         if name == 'YOUTUBE_TOKEN_JSON' and not credentials.has_scopes(['https://www.googleapis.com/auth/youtube.force-ssl']):
