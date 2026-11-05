@@ -1,0 +1,47 @@
+name: Playful animation sample
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Completed generation run containing verified artwork layers
+        type: string
+        required: true
+      shard:
+        description: Landscape artwork shard
+        type: choice
+        options: ['0', '1', '2', '3']
+        default: '0'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  sample:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install lightweight animation tools
+        run: |
+          bash scripts/install-runner-packages.sh ffmpeg
+          pip install -r requirements.txt
+      - name: Test animation and source integrity
+        run: python -m unittest test_scene_actions test_character_motion test_playful_motion_sample -v
+      - uses: actions/download-artifact@v4
+        with:
+          name: generated-artwork-${{ inputs.source_run }}-${{ inputs.shard }}
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: sample-source/
+      - name: Render eight labeled animation examples
+        run: python -u playful_motion_sample.py --source sample-source --output output/playful-motion-sample.mp4 --audio assets/reference/style-reference.mp3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: playful-motion-sample
+          path: |
+            output/playful-motion-sample.mp4
+            output/playful-motion-sample.json
+          if-no-files-found: error
+          retention-days: 7

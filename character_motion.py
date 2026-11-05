@@ -14,7 +14,9 @@ import subprocess
 import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
-VERSION = 'dudi-layered-characters-v11-tempo-aware-dance'
+VERSION = 'dudi-layered-characters-v12-playful-dance'
+# Extraction has not changed; retain verified expensive clean plates.
+LAYER_VERSION = 'dudi-layered-characters-v11-tempo-aware-dance'
 FPS, SECONDS = 25, 5
 _SESSION = None
 _LAMA = None
@@ -90,7 +92,7 @@ def clean_plate(image,mask):
 
 def prepare_layers(source,folder,extract=mask_for,inpaint=clean_plate):
     folder.mkdir(parents=True,exist_ok=True)
-    identity={'version':VERSION,'source_sha256':digest(source),'mask_model':'birefnet-general-lite','inpaint':'big-lama-v0.1.0'}
+    identity={'version':LAYER_VERSION,'source_sha256':digest(source),'mask_model':'birefnet-general-lite','inpaint':'big-lama-v0.1.0'}
     record=folder/'layers.json'
     if record.exists():
         try:

@@ -2,7 +2,7 @@ import math
 import unittest
 import numpy as np
 from PIL import Image, ImageDraw
-from scene_actions import plan_scene, state_at, detect_face, compose_frame, actor_parts, compose_scene, motion_prompt, background_motion, camera_viewport, actor_profile, dance_body_motion
+from scene_actions import plan_scene, state_at, detect_face, compose_frame, actor_parts, compose_scene, motion_prompt, background_motion, camera_viewport, actor_profile, dance_body_motion, DANCE_VARIANTS, draw_bubbles
 
 
 class SceneActionTests(unittest.TestCase):
@@ -176,16 +176,65 @@ class VariedDanceTests(unittest.TestCase):
     def test_variety_is_repeatable_and_only_hop_scenes_jump(self):
         plans=[plan_scene('toddlers and bunny dancing',i) for i in range(60)]
         self.assertEqual(plans,[plan_scene('toddlers and bunny dancing',i) for i in range(60)])
-        self.assertEqual({p['dance_variant'] for p in plans},{'wave','waist','step','sway','hop'})
+        self.assertEqual({p['dance_variant'] for p in plans},set(DANCE_VARIANTS))
         for plan in plans:
             hops=[state_at(plan,t/25)['hop'] for t in range(125)]
-            if plan['dance_variant']=='hop':
+            if plan['dance_variant'] in ('hop','jelly'):
                 self.assertGreater(max(hops),.5)
             else:
                 self.assertEqual(max(hops),0)
                 self.assertEqual(max(state_at(plan,t/25)['landing'] for t in range(125)),0)
-            self.assertTrue(all(actor_profile(plan,i,3)['variant']==plan['dance_variant'] for i in range(3)))
+            self.assertTrue(all(actor_profile(plan,i,3)['variant']==('clap' if plan['dance_variant']=='follow' else plan['dance_variant']) for i in range(3)))
 
     def test_non_hopping_story_does_not_make_companions_jump(self):
         plan=plan_scene('child waves hello with puppy')
         self.assertTrue(all(actor_profile(plan,i,3)['movement']!='two_hops' for i in range(3)))
+
+
+class PlayfulDanceTests(unittest.TestCase):
+    def test_literal_lyrics_select_matching_move(self):
+        for prompt, variant in [('tummy wiggle','tummy'), ('belly dance','tummy'),
+                                ('jelly bounce','jelly'), ('clap hands','clap'),
+                                ('penguin walk','penguin'), ('head bob ear flop','head_bob'),
+                                ('peekaboo','peekaboo'), ('follow the leader','follow')]:
+            with self.subTest(prompt=prompt):
+                plan=plan_scene(prompt+' 120 bpm')
+                self.assertEqual((plan['action'],plan['dance_variant']),('dance',variant))
+                self.assertEqual(plan['beat_seconds'],.5)
+
+    def test_tummy_and_clap_preserve_head_pixels_and_animate_different_regions(self):
+        image=Image.fromarray(np.random.default_rng(2).integers(0,256,(240,160,4),dtype=np.uint8))
+        original=np.asarray(image)
+        results=[]
+        for variant in ('tummy','clap','peekaboo'):
+            result=np.asarray(dance_body_motion(image,.73,variant=variant))
+            np.testing.assert_array_equal(result[:60],original[:60])
+            self.assertGreater(np.abs(result[110:].astype(float)-original[110:]).mean(),5)
+            results.append(result)
+        self.assertFalse(np.array_equal(results[0],results[1]))
+
+    def test_leader_followers_repeat_same_move_with_delayed_start(self):
+        plan=plan_scene('follow the leader dance')
+        profiles=[actor_profile(plan,i,3) for i in range(3)]
+        self.assertEqual([p['delay'] for p in profiles],[0,.35,.7])
+        self.assertEqual({p['phase'] for p in profiles},{0.})
+        self.assertEqual({p['variant'] for p in profiles},{'clap'})
+
+    def test_all_moves_render_landscape_and_portrait_without_empty_frames(self):
+        for w,h in [(160,90),(90,160)]:
+            bg=Image.new('RGBA',(w,h),'skyblue')
+            actor=Image.new('RGBA',(30,50),'coral')
+            box=(w//2-15,h-60,w//2+15,h-10)
+            for variant in DANCE_VARIANTS:
+                plan=dict(plan_scene('dance'),dance_variant=variant)
+                for t in (0,.73,2.3,4.96):
+                    frame=compose_scene(bg,[(actor,box,None)],plan,t)
+                    self.assertEqual((frame.mode,frame.size),('RGB',(w,h)))
+                    self.assertTrue(np.isfinite(np.asarray(frame)).all())
+
+    def test_bubbles_move_without_changing_opaque_background(self):
+        bg=Image.new('RGBA',(320,180),'skyblue')
+        first=np.asarray(draw_bubbles(bg,0))
+        last=np.asarray(draw_bubbles(bg,1))
+        self.assertFalse(np.array_equal(first,last))
+        self.assertEqual(last[:,:,3].min(),255)
