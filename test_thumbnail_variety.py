@@ -107,7 +107,7 @@ class ThumbnailVarietyTests(unittest.TestCase):
                 self.assertEqual(worker.call_count,2)
 
 
-    def test_managed_thumbnail_uses_reference_colors_without_copying_layout(self):
+    def test_managed_thumbnail_keeps_actual_reference_image_and_strength(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
             ref=root/'reference.png';Image.new('RGB',(64,36),'blue').save(ref)
@@ -115,9 +115,19 @@ class ThumbnailVarietyTests(unittest.TestCase):
             calls=[]
             def generate(prompt,path,**kwargs):
                 calls.append((prompt,kwargs));Image.new('RGB',(64,36),'pink').save(path)
-            generate_distinct(root/'thumb.png',dict(seed=1,width=64,height=36,steps=16,conditioning='palette-style-only'),
-                              {'thumbnail_design':design},generate,dict(reference_image=ref,strength=.72))
-            self.assertNotIn('reference_image',calls[0][1])
-            self.assertNotIn('strength',calls[0][1])
-            self.assertIn('Accent colors:',calls[0][0])
-            self.assertLess(len(calls[0][0].split()),85)
+            generate_distinct(root/'thumb.png',dict(seed=1,width=64,height=36,steps=16,conditioning='reference-image'),
+                              {'thumbnail_design':design},generate,dict(reference_image=ref,strength=.35))
+            self.assertEqual(calls[0][1]['reference_image'],ref)
+            self.assertEqual(calls[0][1]['strength'],.35)
+            self.assertIn('Match the reference image closely',calls[0][0])
+            self.assertIn('human toddler',calls[0][0])
+
+    def test_each_reference_keeps_its_own_cast_and_outfits(self):
+        from thumbnail_variety import reference_prompt
+        expected=('disco lights','red rose dresses','pastel floral dresses','animal-costume-unused','fruit-inspired dresses')
+        for index in range(5):
+            prompt=reference_prompt(dict(reference_index=index))
+            self.assertIn('human toddler',prompt)
+            self.assertNotIn('Close-up:',prompt)
+            if index!=3:self.assertIn(expected[index],prompt)
+            else:self.assertIn('lion, panda, bunny and tiger costumes',prompt)

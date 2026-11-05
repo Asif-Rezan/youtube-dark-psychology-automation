@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-VERSION='thumbnail-variety-v1'
+VERSION='thumbnail-variety-v2-reference-faithful'
 HISTORY_KEY='thumbnail-history.json'
 LAYOUTS=(
     'Close-up: one clothed toddler left, one baby bunny right, one flower between them.',
@@ -124,45 +124,38 @@ def similar(signature,previous):
     return False
 
 
-def reference_colors(path):
-    """Use a reference's colors without copying its people or composition."""
-    import colorsys
-    with Image.open(path) as image:
-        small=image.convert('RGB').resize((64,64)).quantize(colors=8)
-        palette=small.getpalette()
-        names=[]
-        for _,index in sorted(small.getcolors(),reverse=True):
-            r,g,b=palette[index*3:index*3+3]
-            hue,saturation,value=colorsys.rgb_to_hsv(r/255,g/255,b/255)
-            if saturation<.3 or value<.3:continue
-            name=('coral','orange','yellow','green','turquoise','blue','purple','pink')[int(hue*8)%8]
-            if name not in names:names.append(name)
-            if len(names)==2:break
-    return ' and '.join(names)
+REFERENCE_BRIEFS=(
+    'Five joyful baby toddlers dancing, one large central baby, friends on both sides, colorful outfits, disco lights and a glossy dance floor.',
+    'Five happy toddler girls in red rose dresses and red flower crowns, one large central girl, friends beside her in a lush rose garden.',
+    'Five happy toddler girls dancing in pastel floral dresses and flower crowns, one large central girl, colorful flower garden and butterflies.',
+    'Four cute human toddlers dancing in lion, panda, bunny and tiger costumes, colorful playground, balloons and flowers.',
+    'Five happy toddler girls dancing in bright fruit-inspired dresses, one large central girl, rainbow party, balloons and candy colors.',
+)
+
+
+def reference_prompt(design,attempt=0):
+    # Composition/cast/colors come from the selected reference, never a new animal-only layout.
+    brief=REFERENCE_BRIEFS[design['reference_index']]
+    details=('soft glowing light','bright sparkling accents','gentle festive highlights')[attempt]
+    return ('Match the reference image closely. Preserve its human toddler cast, face style, outfits, '
+            'camera framing, arrangement and colors. '+brief+' '+details+'. No text or logos.')
+
 
 
 def generate_distinct(target,plan,song,generate,options):
     design=song['thumbnail_design']
     options=dict(options)
-    if plan.get('conditioning')=='palette-style-only':
-        # Do not feed the old character layout into img2img. Use its palette as a style cue.
-        reference=options.pop('reference_image',None)
-        options.pop('strength',None)
-        if reference:
-            palette=reference_colors(reference)
-        else:
-            palette=''
-    else:
-        palette=''
+    faithful=plan.get('conditioning')=='reference-image'
+    if faithful and not options.get('reference_image'):
+        raise ValueError('Reference-faithful thumbnails require the selected reference image')
     for attempt in range(3):
-        prompt=prompt_for(song,design,attempt)
-        if palette:prompt += ' Accent colors: '+palette+'.'
+        prompt=reference_prompt(design,attempt) if faithful else prompt_for(song,design,attempt)
         seed=plan['seed']+attempt*104729
         generate(prompt,target,seed=seed,allow_text=False,width=plan['width'],height=plan['height'],steps=plan['steps'],**options)
         signature=fingerprint(target)
         if not similar(signature,design.get('prior_signatures',[])):
             receipt=dict(version=VERSION,run=design['run'],design=design,attempt=attempt,
-                         prompt=prompt,seed=seed,signature=signature,source_sha256=hashlib.sha256(Path(target).read_bytes()).hexdigest())
+                         prompt=prompt,conditioning=plan.get('conditioning','legacy'),seed=seed,signature=signature,source_sha256=hashlib.sha256(Path(target).read_bytes()).hexdigest())
             Path(target).parent.joinpath('thumbnail-design.json').write_text(json.dumps(receipt,indent=2))
             return
     Path(target).unlink(missing_ok=True)

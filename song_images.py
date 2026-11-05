@@ -26,7 +26,7 @@ def thumbnail_reference(identity='',design=None):
     path = Path(override) if override else (THUMBNAIL_REFERENCES[design['reference_index']] if design else random.Random(selection_seed).choice(THUMBNAIL_REFERENCES))
     if not path.is_absolute():
         path = Path(__file__).resolve().parent/path
-    strength = float(os.getenv('THUMBNAIL_DENOISE_STRENGTH', '0.72' if design else '0.50'))
+    strength = float(os.getenv('THUMBNAIL_DENOISE_STRENGTH', '0.35' if design else '0.50'))
     if not 0 < strength <= 1:
         raise ValueError('Thumbnail strength must be greater than zero and at most one')
     with Image.open(path) as image:
@@ -57,9 +57,9 @@ def image_plan(song):
                     ' Keep characters and lyric props visible, no borders or panels.')
                    for kind, prompt in entries]
     else:
-        from thumbnail_variety import next_design, prompt_for
+        from thumbnail_variety import next_design, prompt_for, reference_prompt
         design=song.get('thumbnail_design') or next_design(song,os.getenv('SONG_RUN_ID',identity),[])
-        entries.append(('thumbnail',prompt_for(song,design)))
+        entries.append(('thumbnail',reference_prompt(design) if song.get('thumbnail_design') else prompt_for(song,design)))
     plans = [dict(kind=kind, prompt=prompt, seed=int(hashlib.sha256((identity+kind).encode()).hexdigest()[:8],16),
         model=MODEL, revision=REVISION, width=int(os.getenv('CPU_IMAGE_WIDTH','576' if portrait else '1024')),
         height=int(os.getenv('CPU_IMAGE_HEIGHT','1024' if portrait else '576')), steps=int(os.getenv('CPU_IMAGE_STEPS','16')),
@@ -72,7 +72,7 @@ def image_plan(song):
                          visual_style='dudi-varied-thumbnail-v2', **thumbnail_reference(identity,song.get("thumbnail_design")))
         if song.get('thumbnail_design'):
             thumbnail['design']=song['thumbnail_design']
-            thumbnail['conditioning']='palette-style-only'
+            thumbnail['conditioning']='reference-image'
         w,h,steps=thumbnail['width'],thumbnail['height'],thumbnail['steps']
         if (w%8 or h%8 or not 256<=w<=1536 or not 256<=h<=1536
                 or abs(w/h-16/9)>.1 or not 1<=steps<=50):
