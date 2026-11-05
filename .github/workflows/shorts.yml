@@ -2,6 +2,14 @@ name: Create and publish a rhyme Short
 on:
   workflow_dispatch:
     inputs:
+      prepared_music:
+        description: Reuse independent Shorts music from source_run
+        type: boolean
+        default: false
+      prepared_portraits:
+        description: Reuse portrait artwork from source_run
+        type: boolean
+        default: false
       source_run:
         description: GitHub run containing the finished kids-video artifact
         type: string
@@ -46,8 +54,9 @@ on:
         required: false
       YOUTUBE_TOKEN_JSON:
         required: true
+      # Destination identity also resolves from repository variables or the pinned default.
       EXPECTED_CHANNEL_ID:
-        required: true
+        required: false
       DRIVE_TOKEN_JSON:
         required: true
       DRIVE_FOLDER_ID:

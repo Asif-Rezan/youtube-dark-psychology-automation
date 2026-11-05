@@ -47,3 +47,30 @@ class DestinationWorkflowTests(unittest.TestCase):
         self.assertEqual(jobs['cleanup']['needs'], 'recover')
         self.assertIn("needs.recover.result == 'success'", jobs['cleanup']['if'])
         self.assertTrue(any('cleanup_drive.py' in step.get('run', '') for step in jobs['cleanup']['steps']))
+
+
+    def test_fallback_secrets_do_not_block_reusable_workflow_dispatch(self):
+        # GitHub validates required secrets before jobs can evaluate env fallbacks.
+        checked = []
+        for path in Path('.github/workflows').glob('*.yml'):
+            workflow = yaml.safe_load(path.read_text())
+            triggers = workflow.get('on', workflow.get(True, {}))
+            if not isinstance(triggers, dict):
+                continue
+            call = triggers.get('workflow_call') or {}
+            for secret, declaration in (call.get('secrets') or {}).items():
+                if '${{ secrets.' + secret + ' ||' in path.read_text():
+                    checked.append((path.name, secret))
+                    with self.subTest(workflow=path.name, secret=secret):
+                        self.assertFalse(declaration.get('required', False),
+                                         'Fallback-backed secrets must be optional at workflow_call')
+        self.assertIn(('shorts.yml', 'EXPECTED_CHANNEL_ID'), checked)
+
+    def test_manual_recovery_can_reuse_prepared_short_assets(self):
+        workflow = yaml.safe_load(Path('.github/workflows/shorts.yml').read_text())
+        triggers = workflow.get('on', workflow.get(True))
+        for name in ('prepared_music', 'prepared_portraits'):
+            value = triggers['workflow_dispatch']['inputs'][name]
+            self.assertEqual(value['type'], 'boolean')
+            self.assertIs(value['default'], False)
+            self.assertIn(name, triggers['workflow_call']['inputs'])
