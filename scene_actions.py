@@ -9,8 +9,8 @@ import re
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-VERSION = 'scene-stories-v6-playful-dance'
-DANCE_VARIANTS = ('wave', 'waist', 'step', 'sway', 'hop', 'tummy', 'jelly', 'clap', 'penguin', 'head_bob', 'peekaboo', 'follow')
+VERSION = 'scene-stories-v7-twirl-dance'
+DANCE_VARIANTS = ('wave', 'waist', 'step', 'sway', 'hop', 'tummy', 'jelly', 'clap', 'penguin', 'head_bob', 'peekaboo', 'follow', 'twirl')
 
 
 def smooth(value):
@@ -20,7 +20,7 @@ def smooth(value):
 
 def plan_scene(prompt, index=0):
     words = set(re.findall(r'[a-z]+', prompt.lower()))
-    if words & {'dance','dances','dancing','clap','claps','clapping','bounce','bounces','bouncing','wiggle','wiggling','twirl','twirling','stomp','stomping','tummy','belly','jelly','penguin','peekaboo','leader','bob','flop'}:
+    if words & {'dance','dances','dancing','clap','claps','clapping','bounce','bounces','bouncing','wiggle','wiggling','twirl','twirling','stomp','stomping','tummy','belly','jelly','penguin','peekaboo','leader','bob','flop','spin','spinning','rotate','rotation'}:
         kind, prop, action = 'dance', None, 'dance'
     elif words & {'sleep', 'sleepy', 'sleeping', 'bed', 'night', 'moon'}:
         kind, prop, action = 'rest', 'star', 'settle'
@@ -35,7 +35,8 @@ def plan_scene(prompt, index=0):
     seed=int.from_bytes(hashlib.sha256(f'{index}:{prompt}'.encode()).digest()[:8],'big')
     variant=DANCE_VARIANTS[seed % len(DANCE_VARIANTS)]
     # Literal lyric instructions take priority over deterministic variety.
-    for cues, selected in [(('tummy','belly','wiggle','wiggling'),'tummy'),
+    for cues, selected in [(('twirl','twirling','spin','spinning','rotate','rotation'),'twirl'),
+                           (('tummy','belly','wiggle','wiggling'),'tummy'),
                            (('jelly','bounce','bounces','bouncing'),'jelly'),
                            (('clap','claps','clapping'),'clap'),
                            (('penguin',),'penguin'), (('bob','flop'),'head_bob'),
@@ -48,7 +49,7 @@ def plan_scene(prompt, index=0):
     bpm=bpm if 30<=bpm<=300 else 100
     return dict(version=VERSION, kind=kind, prop=prop, action=action, dance_variant=variant,beat_seconds=60/bpm,
                 direction=1 if index % 2 == 0 else -1,
-                beats=[dict(at=0., action='blink'), dict(at=.65, action='prop_enters'),
+                beats=[dict(at=0., action='original_expression'), dict(at=.65, action='prop_enters'),
                        dict(at=1.35, action='look'), dict(at=2.1, action=action),
                        dict(at=4.1, action='close_up_reaction')])
 
@@ -67,7 +68,7 @@ def state_at(plan, t):
         ramp=smooth((t-.3)/.4)*smooth((5-t)/.4)
         hop=max(0.,math.sin(2*math.pi*(t-.3)/plan.get('beat_seconds',.6)))*ramp
         landing=max(0.,-math.sin(2*math.pi*(t-.3)/plan.get('beat_seconds',.6)))**6*ramp
-    blink = max(0., 1 - abs(t - .3) / .13)
+    blink = 0.
     return dict(progress=progress, hop=hop, landing=landing, blink=blink,
                 look=smooth((t - 1.35) / .5), reaction=smooth((t - 4.1) / .65),
                 direction=plan['direction'])
@@ -109,44 +110,8 @@ multiple faces. Never apply a guessed blink to a whole multi-character group.
 
 
 def face_motion(actor, rig, state):
-    if not rig:
-        return actor
-    image = actor.copy()
-    w, h = image.size
-    # Replace only the small verified eye region; eyelid color comes from fur/skin.
-    for box in rig['eyes']:
-        x0,y0,x1,y1 = [round(v*(w if i%2==0 else h)) for i,v in enumerate(box)]
-        pad = max(1, round(w*.006))
-        x0,y0,x1,y1 = max(0,x0-pad),max(0,y0-pad),min(w,x1+pad),min(h,y1+pad)
-        if state['blink'] > 0 and x1>x0 and y1>y0:
-            patch = image.crop((x0,y0,x1,y1))
-            samples=[image.getpixel((max(0,min(w-1,x)),max(0,min(h-1,y))))
-                     for x,y in [(x0-pad,(y0+y1)//2),(x1+pad,(y0+y1)//2),((x0+x1)//2,y0-3*pad)]]
-            color=max(samples,key=lambda c:sum(c[:3]) if c[3]>240 else -1)
-            lid = Image.new('RGBA',patch.size,color)
-            eye = patch.resize((patch.width,max(1,round(patch.height*(1-.96*state['blink'])))),Image.Resampling.BICUBIC)
-            lid.alpha_composite(eye,(0,(patch.height-eye.height)//2))
-            mask = Image.new('L',patch.size,0)
-            ImageDraw.Draw(mask).rounded_rectangle((1,1,patch.width-2,patch.height-2),radius=max(2,pad),fill=255)
-            mask = mask.filter(ImageFilter.GaussianBlur(max(.5,pad/2)))
-            image.paste(lid,(x0,y0),mask)
-    # Local head turn (2D puppet approximation), leaving the body and feet fixed.
-    eyes = rig['eyes']
-    cx = sum((b[0]+b[2])/2 for b in eyes)/len(eyes)*w
-    cy = sum((b[1]+b[3])/2 for b in eyes)/len(eyes)*h
-    radius = max(abs(eyes[0][0]-eyes[-1][2])*w,.22*w)
-    mesh=[]
-    def point(x,y):
-        weight=math.exp(-((x-cx)/(radius*1.1))**4-((y-cy)/(.19*h))**4)
-        dx = -.025*w*state['look']*state['direction']*weight
-        # Subtle cheek lift on the final happy reaction, retaining the original mouth.
-        cheek=math.exp(-((x-cx)/(radius*.8))**4-((y-cy-.11*h)/(.055*h))**4)
-        return x+dx, y+state['reaction']*.008*h*cheek
-    for y in range(0,h,16):
-        for x in range(0,w,16):
-            r,b=min(w,x+16),min(h,y+16)
-            mesh.append(((x,y,r,b),tuple(c for p in [point(x,y),point(x,b),point(r,b),point(r,y)] for c in p)))
-    return image.transform(image.size,Image.Transform.MESH,mesh,Image.Resampling.BICUBIC)
+    """Keep the supplied expression unchanged; no blink or cheek deformation."""
+    return actor.copy()
 
 
 def draw_prop(canvas, plan, t, anchor, travel):
@@ -357,6 +322,10 @@ def compose_frame(bg, subject, bbox, plan, t, rig=None, camera=True, prop=True, 
         if variant=='jelly':
             stretch+=.09*state['hop']-.10*state['landing']
             angle=1.2*pulse
+        elif variant=='twirl':
+            angle=5*pulse
+            stretch=1.
+            lift=min(h*.018,max(0,bbox[1]*.15))*(.5-.5*math.cos(2*math.pi*local_t/local_plan.get('beat_seconds',.6)))
         elif variant=='penguin':
             angle=6*pulse
             travel=min(w*.018,room_left,room_right)*pulse
@@ -375,6 +344,13 @@ def compose_frame(bg, subject, bbox, plan, t, rig=None, camera=True, prop=True, 
         actor=dance_body_motion(actor,local_t,profile['phase'],local_plan['dance_variant'],local_plan.get('beat_seconds',.6))
     aw=max(1,round(subject.width/stretch**.4));ah=max(1,round(subject.height*stretch))
     actor=actor.resize((aw,ah),Image.Resampling.BICUBIC)
+    if movement=='dance' and local_plan['dance_variant']=='twirl':
+        # Stylized vertical-axis turn of the original 2D artwork, not a generated rear view.
+        turn=2*math.pi*local_t/(local_plan.get('beat_seconds',.6)*4)
+        facing=math.cos(turn)
+        if facing<0:
+            actor=actor.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+        actor=actor.resize((max(1,round(aw*(.30+.70*abs(facing)))),ah),Image.Resampling.BICUBIC)
     if angle:
         actor=actor.rotate(angle,Image.Resampling.BICUBIC,expand=True)
     actor.thumbnail((w,h),Image.Resampling.BICUBIC)

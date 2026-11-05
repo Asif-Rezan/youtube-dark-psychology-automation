@@ -13,7 +13,7 @@ class SceneActionTests(unittest.TestCase):
         self.assertEqual(starts,2)
         self.assertTrue(all(v==0 for v in samples[:210]))
         self.assertEqual([b['action'] for b in plan['beats']],
-                         ['blink','prop_enters','look','two_hops','close_up_reaction'])
+                         ['original_expression','prop_enters','look','two_hops','close_up_reaction'])
 
     def test_non_hopping_scenes_have_other_actions(self):
         for prompt,action,prop in [('child rolls a ball with puppy','approach','ball'),
@@ -174,8 +174,8 @@ class BodyDanceTests(unittest.TestCase):
 
 class VariedDanceTests(unittest.TestCase):
     def test_variety_is_repeatable_and_only_hop_scenes_jump(self):
-        plans=[plan_scene('toddlers and bunny dancing',i) for i in range(60)]
-        self.assertEqual(plans,[plan_scene('toddlers and bunny dancing',i) for i in range(60)])
+        plans=[plan_scene('toddlers and bunny dancing',i) for i in range(300)]
+        self.assertEqual(plans,[plan_scene('toddlers and bunny dancing',i) for i in range(300)])
         self.assertEqual({p['dance_variant'] for p in plans},set(DANCE_VARIANTS))
         for plan in plans:
             hops=[state_at(plan,t/25)['hop'] for t in range(125)]
@@ -196,7 +196,7 @@ class PlayfulDanceTests(unittest.TestCase):
         for prompt, variant in [('tummy wiggle','tummy'), ('belly dance','tummy'),
                                 ('jelly bounce','jelly'), ('clap hands','clap'),
                                 ('penguin walk','penguin'), ('head bob ear flop','head_bob'),
-                                ('peekaboo','peekaboo'), ('follow the leader','follow')]:
+                                ('peekaboo','peekaboo'), ('follow the leader','follow'), ('spin around','twirl'), ('twirl dance','twirl')]:
             with self.subTest(prompt=prompt):
                 plan=plan_scene(prompt+' 120 bpm')
                 self.assertEqual((plan['action'],plan['dance_variant']),('dance',variant))
@@ -238,3 +238,32 @@ class PlayfulDanceTests(unittest.TestCase):
         last=np.asarray(draw_bubbles(bg,1))
         self.assertFalse(np.array_equal(first,last))
         self.assertEqual(last[:,:,3].min(),255)
+
+
+class TwirlDanceTests(unittest.TestCase):
+    def test_twirl_changes_width_without_disappearing_or_turning_upside_down(self):
+        bg=Image.new('RGBA',(240,180),'white')
+        actor=Image.new('RGBA',(60,100),'red')
+        parts=[(actor,(90,50,150,150),None)]
+        plan=plan_scene('spin around dance 100 bpm')
+        widths=[]
+        for t in (0,.6,1.2,1.8,2.4):
+            frame=np.asarray(compose_scene(bg,parts,plan,t,camera=False,environment=False))
+            mask=(frame[:,:,:3]==[255,0,0]).all(axis=2)
+            self.assertTrue(mask.any())
+            ys,xs=np.where(mask)
+            self.assertGreater(ys.max()-ys.min(),80)
+            widths.append(xs.max()-xs.min())
+        self.assertLess(widths[1],widths[0]*.6)
+        self.assertGreater(widths[2],widths[1]*2)
+
+
+class OriginalExpressionTests(unittest.TestCase):
+    def test_even_a_detected_face_keeps_original_eyes_and_smile(self):
+        from scene_actions import face_motion
+        image=Image.fromarray(np.random.default_rng(9).integers(0,256,(160,100,4),dtype=np.uint8))
+        rig={'eyes':[[.25,.25,.35,.35],[.6,.25,.7,.35]]}
+        for t in (.3,1.8,4.8):
+            state=state_at(plan_scene('dance'),t)
+            self.assertEqual(state['blink'],0)
+            np.testing.assert_array_equal(np.asarray(face_motion(image,rig,state)),np.asarray(image))

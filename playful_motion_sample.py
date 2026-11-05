@@ -16,6 +16,7 @@ MOVES = [
     ('Peekaboo', 'peekaboo dance'),
     ('Follow the leader', 'follow the leader dance'),
     ('Floating bubbles', 'gentle dance'),
+    ('Upright twirl', 'spin around dance'),
 ]
 
 
@@ -42,6 +43,7 @@ def verified_layers(root):
 
 
 def render(root, output, audio=None):
+    seconds=5*len(MOVES)
     folder=verified_layers(root)
     bg=Image.open(folder/'background.png').convert('RGBA')
     fg=Image.open(folder/'foreground.png').convert('RGBA')
@@ -70,7 +72,7 @@ def render(root, output, audio=None):
                 image=compose_scene(bg,parts,plan,frame/25)
                 draw=ImageDraw.Draw(image)
                 draw.rectangle((0,0,native[0],42),fill=(30,40,65))
-                draw.text((12,5),f'{index+1}/8  {label}',font=font,fill='white')
+                draw.text((12,5),f'{index+1}/{len(MOVES)}  {label}',font=font,fill='white')
                 proc.stdin.write(image.tobytes())
     finally:
         proc.stdin.close()
@@ -79,15 +81,15 @@ def render(root, output, audio=None):
     args=['ffmpeg','-y','-v','error','-i',str(silent)]
     if audio:
         args+=['-stream_loop','-1','-i',str(audio),'-map','0:v:0','-map','1:a:0',
-               '-c:a','aac','-af','volume=0.6,afade=t=in:d=0.5,afade=t=out:st=39:d=1']
-    args+=['-c:v','copy','-t','40','-movflags','+faststart',str(output)]
+               '-c:a','aac','-af',f'volume=0.6,afade=t=in:d=0.5,afade=t=out:st={seconds-1}:d=1']
+    args+=['-c:v','copy','-t',str(seconds),'-movflags','+faststart',str(output)]
     subprocess.run(args,check=True)
     silent.unlink()
     probe=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_streams','-show_format','-of','json',str(output)]))
     video=next(s for s in probe['streams'] if s['codec_type']=='video')
     assert (video['width'],video['height'])==(1280,720)
-    assert abs(float(probe['format']['duration'])-40)<.1
-    report=dict(version=VERSION,source=str(folder),actor_count=len(parts),duration=40,
+    assert abs(float(probe['format']['duration'])-seconds)<.1
+    report=dict(version=VERSION,source=str(folder),actor_count=len(parts),duration=seconds,
                 output_sha256=digest(output),moves=MOVES)
     output.with_suffix('.json').write_text(json.dumps(report,indent=2))
     print(json.dumps(report),flush=True)

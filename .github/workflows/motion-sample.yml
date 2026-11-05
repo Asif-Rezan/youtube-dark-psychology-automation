@@ -35,7 +35,7 @@ jobs:
           run-id: ${{ inputs.source_run }}
           github-token: ${{ github.token }}
           path: sample-source/
-      - name: Render eight labeled animation examples
+      - name: Render labeled animation examples
         run: python -u playful_motion_sample.py --source sample-source --output output/playful-motion-sample.mp4 --audio assets/reference/style-reference.mp3
       - uses: actions/upload-artifact@v4
         with:
