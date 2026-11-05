@@ -16,7 +16,6 @@ MOVES = [
     ('Peekaboo', 'peekaboo dance'),
     ('Follow the leader', 'follow the leader dance'),
     ('Floating bubbles', 'gentle dance'),
-    ('Upright twirl', 'spin around dance'),
 ]
 
 

@@ -9,8 +9,8 @@ import re
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-VERSION = 'scene-stories-v7-twirl-dance'
-DANCE_VARIANTS = ('wave', 'waist', 'step', 'sway', 'hop', 'tummy', 'jelly', 'clap', 'penguin', 'head_bob', 'peekaboo', 'follow', 'twirl')
+VERSION = 'scene-stories-v8-no-twirl'
+DANCE_VARIANTS = ('wave', 'waist', 'step', 'sway', 'hop', 'tummy', 'jelly', 'clap', 'penguin', 'head_bob', 'peekaboo', 'follow')
 
 
 def smooth(value):
@@ -35,7 +35,7 @@ def plan_scene(prompt, index=0):
     seed=int.from_bytes(hashlib.sha256(f'{index}:{prompt}'.encode()).digest()[:8],'big')
     variant=DANCE_VARIANTS[seed % len(DANCE_VARIANTS)]
     # Literal lyric instructions take priority over deterministic variety.
-    for cues, selected in [(('twirl','twirling','spin','spinning','rotate','rotation'),'twirl'),
+    for cues, selected in [(('twirl','twirling','spin','spinning','rotate','rotation'),'sway'),
                            (('tummy','belly','wiggle','wiggling'),'tummy'),
                            (('jelly','bounce','bounces','bouncing'),'jelly'),
                            (('clap','claps','clapping'),'clap'),
@@ -322,10 +322,6 @@ def compose_frame(bg, subject, bbox, plan, t, rig=None, camera=True, prop=True, 
         if variant=='jelly':
             stretch+=.09*state['hop']-.10*state['landing']
             angle=1.2*pulse
-        elif variant=='twirl':
-            angle=5*pulse
-            stretch=1.
-            lift=min(h*.018,max(0,bbox[1]*.15))*(.5-.5*math.cos(2*math.pi*local_t/local_plan.get('beat_seconds',.6)))
         elif variant=='penguin':
             angle=6*pulse
             travel=min(w*.018,room_left,room_right)*pulse
@@ -344,13 +340,6 @@ def compose_frame(bg, subject, bbox, plan, t, rig=None, camera=True, prop=True, 
         actor=dance_body_motion(actor,local_t,profile['phase'],local_plan['dance_variant'],local_plan.get('beat_seconds',.6))
     aw=max(1,round(subject.width/stretch**.4));ah=max(1,round(subject.height*stretch))
     actor=actor.resize((aw,ah),Image.Resampling.BICUBIC)
-    if movement=='dance' and local_plan['dance_variant']=='twirl':
-        # Stylized vertical-axis turn of the original 2D artwork, not a generated rear view.
-        turn=2*math.pi*local_t/(local_plan.get('beat_seconds',.6)*4)
-        facing=math.cos(turn)
-        if facing<0:
-            actor=actor.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-        actor=actor.resize((max(1,round(aw*(.30+.70*abs(facing)))),ah),Image.Resampling.BICUBIC)
     if angle:
         actor=actor.rotate(angle,Image.Resampling.BICUBIC,expand=True)
     actor.thumbnail((w,h),Image.Resampling.BICUBIC)

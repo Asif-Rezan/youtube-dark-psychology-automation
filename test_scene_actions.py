@@ -196,7 +196,7 @@ class PlayfulDanceTests(unittest.TestCase):
         for prompt, variant in [('tummy wiggle','tummy'), ('belly dance','tummy'),
                                 ('jelly bounce','jelly'), ('clap hands','clap'),
                                 ('penguin walk','penguin'), ('head bob ear flop','head_bob'),
-                                ('peekaboo','peekaboo'), ('follow the leader','follow'), ('spin around','twirl'), ('twirl dance','twirl')]:
+                                ('peekaboo','peekaboo'), ('follow the leader','follow'), ('spin around','sway'), ('twirl dance','sway')]:
             with self.subTest(prompt=prompt):
                 plan=plan_scene(prompt+' 120 bpm')
                 self.assertEqual((plan['action'],plan['dance_variant']),('dance',variant))
@@ -240,22 +240,13 @@ class PlayfulDanceTests(unittest.TestCase):
         self.assertEqual(last[:,:,3].min(),255)
 
 
-class TwirlDanceTests(unittest.TestCase):
-    def test_twirl_changes_width_without_disappearing_or_turning_upside_down(self):
-        bg=Image.new('RGBA',(240,180),'white')
-        actor=Image.new('RGBA',(60,100),'red')
-        parts=[(actor,(90,50,150,150),None)]
-        plan=plan_scene('spin around dance 100 bpm')
-        widths=[]
-        for t in (0,.6,1.2,1.8,2.4):
-            frame=np.asarray(compose_scene(bg,parts,plan,t,camera=False,environment=False))
-            mask=(frame[:,:,:3]==[255,0,0]).all(axis=2)
-            self.assertTrue(mask.any())
-            ys,xs=np.where(mask)
-            self.assertGreater(ys.max()-ys.min(),80)
-            widths.append(xs.max()-xs.min())
-        self.assertLess(widths[1],widths[0]*.6)
-        self.assertGreater(widths[2],widths[1]*2)
+class NoTwirlTests(unittest.TestCase):
+    def test_rotation_cannot_be_selected_from_lyrics_or_variety(self):
+        from playful_motion_sample import MOVES
+        self.assertNotIn('twirl',DANCE_VARIANTS)
+        for prompt in ('twirl dance','spin around','rotate','rotation','spinning'):
+            self.assertEqual(plan_scene(prompt)['dance_variant'],'sway')
+        self.assertFalse(any('twirl' in label.lower() for label,_ in MOVES))
 
 
 class OriginalExpressionTests(unittest.TestCase):
