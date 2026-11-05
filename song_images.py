@@ -26,7 +26,7 @@ def thumbnail_reference(identity='',design=None):
     path = Path(override) if override else (THUMBNAIL_REFERENCES[design['reference_index']] if design else random.Random(selection_seed).choice(THUMBNAIL_REFERENCES))
     if not path.is_absolute():
         path = Path(__file__).resolve().parent/path
-    strength = float(os.getenv('THUMBNAIL_DENOISE_STRENGTH', '0.65' if design else '0.50'))
+    strength = float(os.getenv('THUMBNAIL_DENOISE_STRENGTH', '0.50'))
     if not 0 < strength <= 1:
         raise ValueError('Thumbnail strength must be greater than zero and at most one')
     with Image.open(path) as image:
