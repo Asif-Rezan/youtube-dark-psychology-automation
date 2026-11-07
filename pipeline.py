@@ -156,13 +156,46 @@ def render(root):
 def youtube_client():
     from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
+    import httplib2
+    from google_auth_httplib2 import AuthorizedHttp
     expected = required('EXPECTED_CHANNEL_ID')
-    client = build('youtube', 'v3', credentials=Credentials.from_authorized_user_info(
-        json.loads(required('YOUTUBE_TOKEN_JSON'))), cache_discovery=False)
+    credentials = Credentials.from_authorized_user_info(json.loads(required('YOUTUBE_TOKEN_JSON')))
+    # httplib2's default socket timeout is too short for 8 MiB upload chunks on
+    # shared Actions runners; a slow response must not abort the whole publish.
+    http = AuthorizedHttp(credentials, http=httplib2.Http(timeout=YOUTUBE_HTTP_TIMEOUT))
+    client = build('youtube', 'v3', http=http, cache_discovery=False)
     items = client.channels().list(part='id,snippet', mine=True).execute().get('items', [])
     if len(items) != 1 or items[0]['id'] != expected:
         raise RuntimeError('Wrong YouTube channel; select Dudi Dam TV')
     return client
+
+
+YOUTUBE_HTTP_TIMEOUT = 300
+UPLOAD_CHUNK_ATTEMPTS = 8
+
+
+def upload_resumable(request, attempts=UPLOAD_CHUNK_ATTEMPTS, sleep=time.sleep):
+    """Finish a resumable upload, resuming the same session after transient failures.
+
+    googleapiclient's own num_retries does not cover a raw socket read timeout,
+    which previously killed the job mid-upload. The request object keeps its
+    resumable session URI, so retrying next_chunk() continues the same upload
+    and cannot create a duplicate video.
+    """
+    from storage import drive_transient
+    result, failures = None, 0
+    while result is None:
+        try:
+            _, result = request.next_chunk(num_retries=5)
+            failures = 0
+        except Exception as error:
+            failures += 1
+            if not drive_transient(error) or failures >= attempts:
+                raise
+            print(json.dumps({'check': 'YouTube upload chunk', 'retry': failures,
+                'error_type': type(error).__name__}), flush=True)
+            sleep(min(2 ** failures, 60))
+    return result
 
 
 def publish(client, root, song, state, save, upload_thumbnail=True, metadata_kind="video"):
@@ -185,9 +218,7 @@ def publish(client, root, song, state, save, upload_thumbnail=True, metadata_kin
         request = client.videos().insert(part='snippet,status,paidProductPlacementDetails',
             body=state['upload_body'], notifySubscribers=state['upload_settings']['notify_subscribers'],
             media_body=MediaFileUpload(str(root/'video.mp4'), resumable=True, chunksize=8*1024*1024))
-        result = None
-        while result is None:
-            _, result = request.next_chunk(num_retries=5)
+        result = upload_resumable(request)
         state['video_id'] = result['id']
         state['upload_completed_at'] = dt.datetime.now(dt.timezone.utc).isoformat()
         save()
