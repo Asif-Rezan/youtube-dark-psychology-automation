@@ -98,7 +98,7 @@ def verify_continuity(path,seconds,allow_edge_trim=True,allow_internal_repair=No
 
 
 
-def master_parts(parts,target,seconds):
+def master_parts(parts,target,seconds,*,_prior_ratio=1.,_repair_pass=0):
     """Trim edge silence, crossfade, and restore exact duration without padding."""
     if not parts or seconds<=0:
         raise ValueError('Mastering needs audio parts and a positive duration')
@@ -134,7 +134,7 @@ def master_parts(parts,target,seconds):
     active_seconds=sum(w['active_seconds'] for w in windows)-.08*(len(parts)-1)
     ratio=active_seconds/seconds
     # The budget includes both edge trimming and crossfade compensation.
-    if not .9<=ratio<=1.1:
+    if not .9<=ratio*_prior_ratio<=1.1:
         raise AudioGapError('Music needs excessive duration adjustment; regenerate the affected part','duration_budget')
     filters.append(f'[{previous}]atempo={ratio:.12f},{LOUDNESS},atrim=duration={seconds},asetpts=N/SR/TB[out]')
     try:
@@ -143,7 +143,21 @@ def master_parts(parts,target,seconds):
             check=True,capture_output=True,timeout=600)
         if abs(audio_duration(temporary)-seconds)>.1:
             raise ValueError('Mastered music duration differs from the storyboard')
-        verify_continuity(temporary,seconds,allow_edge_trim=False)
+        try:
+            verify_continuity(temporary,seconds,allow_edge_trim=False)
+        except AudioGapError as error:
+            # Cutting the delivery prefix can turn a short internal pause into
+            # an outro. Re-detect on the actual master, keeping the cumulative
+            # duration budget and strict final validation; never pad silence.
+            if error.code != 'unrepaired_edges' or _repair_pass >= 2:
+                raise
+            repaired=target.with_suffix(f'.repair-{_repair_pass}.wav')
+            try:
+                master_parts([temporary],repaired,seconds,
+                             _prior_ratio=_prior_ratio*ratio,_repair_pass=_repair_pass+1)
+                repaired.replace(temporary)
+            finally:
+                repaired.unlink(missing_ok=True)
         temporary.replace(target)
         return dict(version=VERSION,seconds=seconds,tempo_compensation=ratio,windows=windows)
     finally:

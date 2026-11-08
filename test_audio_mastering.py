@@ -236,6 +236,15 @@ class InternalSilenceRepairTests(unittest.TestCase):
             chunk=samples[44100:88200];spectrum=np.abs(np.fft.rfft(chunk))
             self.assertAlmostEqual(np.argmax(spectrum),440,delta=3)
 
+    def test_delivery_cutoff_pause_is_repaired_after_mastering(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            self.source(root/'native.wav',45,[(39.4,40.0)])
+            master_parts([root/'native.wav'],root/'master.wav',40)
+            verify_continuity(root/'master.wav',40,allow_edge_trim=False)
+            self.assertFalse(list(root.glob('*.tmp.wav')))
+            self.assertFalse(list(root.glob('*.repair-*.wav')))
+
     def test_large_single_gap_and_excessive_total_gaps_are_not_repaired(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)

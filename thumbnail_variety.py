@@ -6,6 +6,10 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+class ThumbnailSimilarityError(RuntimeError):
+    pass
+
+
 VERSION='thumbnail-variety-v3-gentle-variation'
 HISTORY_KEY='thumbnail-history.json'
 LAYOUTS=(
@@ -125,21 +129,29 @@ def similar(signature,previous):
 
 
 REFERENCE_BRIEFS=(
-    'Five joyful baby toddlers dancing, one large central baby, friends on both sides, colorful outfits, disco lights and a glossy dance floor.',
-    'Five happy toddler girls in red rose dresses and red flower crowns, one large central girl, friends beside her in a lush rose garden.',
-    'Five happy toddler girls dancing in pastel floral dresses and flower crowns, one large central girl, colorful flower garden and butterflies.',
-    'Four cute human toddlers dancing in lion, panda, bunny and tiger costumes, colorful playground, balloons and flowers.',
-    'Five happy toddler girls dancing in bright fruit-inspired dresses, one large central girl, rainbow party, balloons and candy colors.',
+    'Five toddlers dancing, large central baby, colorful outfits, disco lights, glossy dance floor.',
+    'Five toddler girls in red rose dresses and flower crowns, central girl, rose garden.',
+    'Five toddler girls in pastel floral dresses and flower crowns, central girl, garden butterflies.',
+    'Four human toddlers in lion, panda, bunny and tiger costumes, playground balloons.',
+    'Five toddler girls in fruit-inspired dresses, central girl, rainbow party, balloons.',
 )
 
 
 def reference_prompt(design,attempt=0):
     # Composition/cast/colors come from the selected reference, never a new animal-only layout.
     brief=REFERENCE_BRIEFS[design['reference_index']]
-    details=('soft glowing light','bright sparkling accents','gentle festive highlights')[attempt]
-    return ('Create a fresh variation of the reference. Keep its human toddler cast, art style and broad framing. '
-            'Slightly vary outfit accents, hand poses, small props and lighting; keep the same scene type. '
-            +brief+' '+details+'. No text or logos.')
+    # Put the cast and concrete variation before CLIP's 77-token cutoff.
+    variations=(
+        'Slightly vary outfit accents and hand poses, soft glowing light.',
+        'Raised waving hands, colorful ribbons, bright sparkling lights.',
+        'Arms stretched sideways, flower props, warm festive lighting.',
+        'Clapping hands, floating balloons, cool sparkling lights.',
+        'Hands on hips, colorful bunting, golden festive lighting.',
+        'Waving flower wands, bubbles, pastel party lighting.',
+    )
+    return ('Fresh variation of the reference, same human toddler cast. '
+            +brief+' '+variations[attempt]+ ' No text or logos.')
+
 
 
 
@@ -149,7 +161,7 @@ def generate_distinct(target,plan,song,generate,options):
     faithful=plan.get('conditioning')=='reference-image'
     if faithful and not options.get('reference_image'):
         raise ValueError('Reference-faithful thumbnails require the selected reference image')
-    for attempt in range(3):
+    for attempt in range(6 if faithful else 3):
         prompt=reference_prompt(design,attempt) if faithful else prompt_for(song,design,attempt)
         seed=plan['seed']+attempt*104729
         generate(prompt,target,seed=seed,allow_text=False,width=plan['width'],height=plan['height'],steps=plan['steps'],**options)
@@ -160,7 +172,7 @@ def generate_distinct(target,plan,song,generate,options):
             Path(target).parent.joinpath('thumbnail-design.json').write_text(json.dumps(receipt,indent=2))
             return
     Path(target).unlink(missing_ok=True)
-    raise RuntimeError('Thumbnail too similar to recent thumbnails after three compositions; refusing repeated artwork')
+    raise ThumbnailSimilarityError('Thumbnail too similar to recent thumbnails after bounded composition retries; candidates rejected')
 
 
 def record_thumbnail(store,root,run_id):

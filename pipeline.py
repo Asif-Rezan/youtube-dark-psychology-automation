@@ -30,6 +30,9 @@ def pipeline_failure_message(error):
     if isinstance(error, DuplicateSongError):
         return ('Pipeline failed [duplicate_song]: lyrics or title already published. '
                 'Create a fresh song with a new run ID; do not retry duplicate media.')
+    from thumbnail_variety import ThumbnailSimilarityError
+    if isinstance(error, ThumbnailSimilarityError):
+        return 'Pipeline failed [thumbnail_similarity]: ' + str(error)
     from audio_mastering import AudioGapError
     if isinstance(error,AudioGapError):
         return f'Pipeline failed [audio_{error.code}]: {error}'

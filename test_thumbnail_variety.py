@@ -62,7 +62,7 @@ class ThumbnailVarietyTests(unittest.TestCase):
             design=next_design({'title':'Party'},'new',[])
             design['prior_signatures']=[fingerprint(p)]
             def generate(prompt,path,**kwargs):Image.new('RGB',(64,36),'red').save(path)
-            with self.assertRaisesRegex(RuntimeError,'three compositions'):
+            with self.assertRaisesRegex(RuntimeError,'bounded composition retries'):
                 generate_distinct(p,dict(seed=1,width=64,height=36,steps=20),{'thumbnail_design':design},generate,{})
             self.assertFalse(p.exists())
             self.assertFalse((p.parent/'thumbnail-design.json').exists())
@@ -119,9 +119,29 @@ class ThumbnailVarietyTests(unittest.TestCase):
                               {'thumbnail_design':design},generate,dict(reference_image=ref,strength=.50))
             self.assertEqual(calls[0][1]['reference_image'],ref)
             self.assertEqual(calls[0][1]['strength'],.50)
-            self.assertIn('fresh variation of the reference',calls[0][0])
+            self.assertIn('Fresh variation of the reference',calls[0][0])
             self.assertIn('Slightly vary outfit accents',calls[0][0])
             self.assertIn('human toddler',calls[0][0])
+
+    def test_reference_retries_change_visible_poses_and_remain_bounded(self):
+        from thumbnail_variety import reference_prompt,ThumbnailSimilarityError
+        prompts=[reference_prompt(dict(reference_index=0),i) for i in range(6)]
+        self.assertEqual(len(set(prompts)),6)
+        self.assertTrue(all(len(p.split())<77 for p in prompts))
+        with tempfile.TemporaryDirectory() as tmp:
+            target=Path(tmp)/'thumb.png'
+            Image.new('RGB',(64,36),'red').save(target)
+            design=next_design({'title':'Party'},'new',[])
+            design['prior_signatures']=[fingerprint(target)]
+            def generate(prompt,path,**kwargs):
+                Image.new('RGB',(64,36),'red').save(path)
+            worker=Mock(side_effect=generate)
+            with self.assertRaises(ThumbnailSimilarityError):
+                generate_distinct(target,dict(seed=1,width=64,height=36,steps=20,conditioning='reference-image'),
+                                  {'thumbnail_design':design},worker,dict(reference_image='reference.png',strength=.5))
+            self.assertEqual(worker.call_count,6)
+            self.assertFalse(target.exists())
+            self.assertTrue(all(c.kwargs['strength']==.5 for c in worker.call_args_list))
 
     def test_each_reference_keeps_its_own_cast_and_outfits(self):
         from thumbnail_variety import reference_prompt
