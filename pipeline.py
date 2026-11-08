@@ -156,13 +156,12 @@ def render(root):
 def youtube_client():
     from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
-    import httplib2
     from google_auth_httplib2 import AuthorizedHttp
     expected = required('EXPECTED_CHANNEL_ID')
     credentials = Credentials.from_authorized_user_info(json.loads(required('YOUTUBE_TOKEN_JSON')))
     # httplib2's default socket timeout is too short for 8 MiB upload chunks on
     # shared Actions runners; a slow response must not abort the whole publish.
-    http = AuthorizedHttp(credentials, http=httplib2.Http(timeout=YOUTUBE_HTTP_TIMEOUT))
+    http = AuthorizedHttp(credentials, http=youtube_http_transport())
     client = build('youtube', 'v3', http=http, cache_discovery=False)
     items = client.channels().list(part='id,snippet', mine=True).execute().get('items', [])
     if len(items) != 1 or items[0]['id'] != expected:
@@ -172,6 +171,17 @@ def youtube_client():
 
 YOUTUBE_HTTP_TIMEOUT = 300
 UPLOAD_CHUNK_ATTEMPTS = 8
+
+
+def youtube_http_transport():
+    """Keep Google's resumable-upload response handling with our longer timeout."""
+    from googleapiclient.http import build_http
+    # Google's factory excludes 308 from httplib2 redirects: YouTube uses it
+    # for Resume Incomplete, without a Location header. A bare Http() breaks
+    # every multi-chunk upload with RedirectMissingLocation.
+    http = build_http()
+    http.timeout = YOUTUBE_HTTP_TIMEOUT
+    return http
 
 
 def upload_resumable(request, attempts=UPLOAD_CHUNK_ATTEMPTS, sleep=time.sleep):

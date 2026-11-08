@@ -335,3 +335,24 @@ It sweeps this project's existing publication checkpoints, permanently deletes
 only media belonging to verified public HD episodes, preserves scheduled/private
 and unverified media, and saves quota plus a read-only project-folder inventory.
 It does not alter generation/publication settings or empty unrelated Drive Trash.
+
+
+## YouTube resumable upload transport fix (2026-11-08)
+
+Run `42428450610` rendered successfully but publication failed with
+`RedirectMissingLocation`. The custom bare `httplib2.Http` introduced for longer
+upload timeouts interpreted YouTube's `308 Resume Incomplete` as a redirect.
+YouTube intentionally sends this upload progress response without `Location`.
+`youtube_http_transport()` now uses Google's `build_http()` factory, which
+excludes 308 from redirect handling, and retains the 300-second timeout.
+The shared client covers episode and Shorts publication and recovery.
+
+Regression tests exercise the real httplib2/googleapiclient multi-chunk state
+machine with a 308 response without Location, verify authenticated client wiring,
+and retain bounded timeout retries on the same upload request. Run
+`python -m unittest -v test_upload_resume`; these tests also run in Component checks.
+Existing duplicate-upload guards remain active. This prevents the transport bug,
+not unrelated quota, credential or network failures. The failed run used older
+code: rerunning that job alone will not load this fix. Its saved upload_started
+checkpoint requires reconciliation before attempting publication again; never
+clear it blindly or create a duplicate video.
