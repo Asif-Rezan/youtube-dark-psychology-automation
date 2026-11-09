@@ -1,0 +1,7 @@
+{
+  "requested": "2026-11-09",
+  "reason": "User requested a fresh video after reference migration",
+  "reference_commit": "44f8a3384a4e4e02d4f67e94929195cbe225c637",
+  "duration_seconds": 240,
+  "publication": "existing scheduled workflow"
+}
