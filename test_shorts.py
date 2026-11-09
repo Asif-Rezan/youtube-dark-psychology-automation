@@ -18,13 +18,12 @@ class ShortsTests(unittest.TestCase):
                 shorts.validate_clip(start, seconds)
 
     def test_metadata_uses_existing_song_without_new_generation(self):
-        song = {'title':'A' * 100, 'tags':['kids rhymes']}
+        song = {'title':'A' * 100, 'description':'A garden story.', 'tags':['kids rhymes'], 'scenes':[{'lyric':'Tiny turtles wave beside flowers'} for _ in range(12)]}
         meta = shorts.short_metadata(song, 20, 40)
         self.assertLessEqual(len(meta['title']), 100)
-        from upload_metadata import fixed_metadata
-        self.assertEqual(meta['title'],'Dudi dudi dum dum 🍼😻#shorts #shortsfeed #dudidudidam')
-        self.assertEqual(meta['description'],fixed_metadata()['description'])
-        self.assertEqual(meta['tags'], [])
+        self.assertIn('Tiny turtles',meta['title'])
+        self.assertIn('kids dance song',meta['tags'])
+        self.assertIn('#Shorts',meta['title'])
         self.assertEqual(meta['clip_start'], 20)
 
     def test_rejects_missing_audio_and_out_of_range_before_encoding(self):
@@ -75,7 +74,7 @@ class ShortsTests(unittest.TestCase):
             paths.side_effect = lambda value: Path(tmp)/value
             source = Path(tmp)/'output/episode'
             source.mkdir(parents=True)
-            (source/'song.json').write_text(json.dumps({'title':'Tiny Turtle Garden','tags':[]}))
+            (source/'song.json').write_text(json.dumps({'title':'Tiny Turtle Garden','description':'Tiny turtles play together in the garden.','tags':[]}))
             with patch('shorts.render_short', return_value=plan), patch('storage.Store') as store, patch('pipeline.youtube_client'), patch('pipeline.publish') as publish:
                 store.return_value.load.side_effect = lambda key, default: copy.deepcopy(remote.get(key, default))
                 store.return_value.save.side_effect = lambda key, state: remote.update({key:copy.deepcopy(state)})

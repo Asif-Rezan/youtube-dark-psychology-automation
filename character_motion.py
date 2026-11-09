@@ -14,7 +14,7 @@ import subprocess
 import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
-VERSION = 'dudi-layered-characters-v15-face-safe-effects'
+VERSION = 'dudi-layered-characters-v16-opening-hook'
 # Extraction has not changed; retain verified expensive clean plates.
 LAYER_VERSION = 'dudi-layered-characters-v11-tempo-aware-dance'
 FPS, SECONDS = 25, 5
@@ -242,6 +242,16 @@ def verify_clip(path,width,height):
     subprocess.run(['ffmpeg','-v','error','-xerror','-i',str(path),'-f','null','-'],check=True)
 
 
+def clip_source(artwork, song, index, portrait=False):
+    """Verse-chorus episodes open on the thumbnail artwork so the click matches the first frames."""
+    if index==0 and not portrait and song.get('song_form'):
+        thumbnail=Path(artwork)/'thumbnail-source.png'
+        if not thumbnail.is_file():
+            raise FileNotFoundError('Opening scene needs thumbnail-source.png from its image shard')
+        return thumbnail
+    return Path(artwork)/f'scene-{index:03d}-source.png'
+
+
 def prepare_shard(root):
     song=json.loads((root/'song.json').read_text())
     portrait=os.getenv('IMAGE_VARIANT')=='portrait'
@@ -255,7 +265,7 @@ def prepare_shard(root):
     width,height=(1080,1920) if portrait else (1920,1080)
     for plan in entries:
         index=int(plan['kind'].split('-')[1])
-        source=artwork/f"{plan['kind']}-source.png"
+        source=clip_source(artwork,song,index,portrait)
         target=artwork/'motion'/f'clip-{index:03d}.mp4'
         prompt=motion_prompt(song['scenes'][index])
         if not cached_clip(source,target,width,height,index,prompt):

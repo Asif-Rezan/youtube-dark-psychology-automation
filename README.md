@@ -1,10 +1,17 @@
-# Reference migration backup — 2026-11-09
+# Reference migration — 2026-11-09
 
-Current implementation baseline: `9768a2b`. Rollback tag:
-`before-motivation-reference-2026-11-09`.
-[Original README and previous version history](docs/archive/before-motivation-reference-2026-11-09-README.md).
+- Destination: `Asif-Rezan/youtube-dark-psychology-automation`.
+- Reference: [successful run 42540767777](https://github.com/Asif-Rezan/youtube-motivation-automation/actions/runs/42540767777), pinned to `44f8a3384a4e4e02d4f67e94929195cbe225c637`.
+- Previous code: `9768a2b`; backup documentation commit: `6a7dbe3`.
+- Rollback tag: `before-motivation-reference-2026-11-09`.
+- [Previous README and complete historical logs](docs/archive/before-motivation-reference-2026-11-09-README.md).
+- Music, 240-second default (180–300 allowed), chorus-first lyrics, video, character animation, title/description/tags, opening-scene thumbnail, audio mastering, retry handling, Shorts and publication follow the pinned reference.
+- Destination YouTube fallback `UCYjz7d66SsshimfpxZahlhQ`, Facebook Page `301624356367343`, existing private Drive namespace, account setup and OAuth pages are preserved. Existing secrets and repository variables are not copied from the source.
+- Destination finished-publication recovery retains independent Facebook retry and guarded cleanup; destination credential verification is retained.
+- Source-only legacy project and one-off recovery triggers referring to source run IDs are excluded. No historical source episode is requested by this migration.
+- Reference v1 rollback tags mentioned below belong to the source repository; use this destination's rollback tag to restore this project.
 
-Restore on a branch without rewriting history:
+Restore the previous implementation without rewriting history:
 
 ```sh
 git switch -c codex/restore-before-reference
@@ -12,54 +19,164 @@ git restore --source before-motivation-reference-2026-11-09 -- .
 git commit -m "Restore generator before reference migration"
 ```
 
-This restores tracked code only; credentials, cloud settings and published media are separate.
+Code rollback does not restore credentials, cloud settings or deleted/published media.
+Use a fresh run ID after migration; previous 600-second artifacts are not converted.
+
+Validation: all 204 component tests pass, including real FFmpeg audio/motion checks,
+metadata/retention tests, credential guards and destination storage tests. Sixteen
+core generation/configuration files were compared byte-for-byte with the pinned
+reference. `git diff --check` passes. Local actionlint could not be downloaded
+(GitHub returned HTTP 504); the component-check workflow runs pinned actionlint.
+A full destination cloud generation/publication has not been run as part of this migration.
 
 ---
 
-# English pipeline migration log — 2026-11-04
+## Version log (how to go back)
 
-- Hindi baseline: `43cdb83`; documented snapshot: `1ddcc6b`.
-- Rollback tag: `hindi-before-english-2026-11-04`.
-- [Full Hindi version log and README](docs/archive/hindi-before-english-2026-11-04-README.md).
-- Earlier uncommitted documentary work: `archive/documentary-local-2026-11-04`,
-  commit `1610b05`; preserved separately because it predates the Hindi pipeline.
-- Replaced the tracked implementation with a direct clone of
-  `Asif-Rezan/dudi_dam_tv` at `01c2249`. English lyrics, English audio, models,
-  bundled reference assets, metadata, scheduling, Shorts, recovery and cleanup
-  follow that exact reference. Reference schedule: 03:00 Asia/Dhaka.
-- Destination repository, existing YouTube identity and private Grow with Rezan
-  kids Drive folder remain unchanged. GitHub secrets/variables are not replaced.
-  Only `storage.py` initialization, `setup_accounts.py`, `verify_connections.py`,
-  destination `.env.example` and their integration tests differ for this purpose.
-  Existing OAuth privacy/site documents are retained to keep their URLs available.
-- Hindi-only ACE experiments, lyric verifier and Facebook workflows are archived
-  in the rollback tag and are not active in the English reference implementation.
-- Use a fresh run ID for English generation; saved Hindi runs are not translated.
+| Version | Commit / tag | What it is |
+|---|---|---|
+| v2 retention (current) | this PR | 4-minute chorus-first verse-chorus song, opening scene = thumbnail, punch-in hook motion, two dance moves per scene, consistent lighting, SEO titles without sound-alike names, real chapters; 130 BPM bouncy kids-pop groove, a NEW Qwen-written chorus hook every episode (no fixed Dudi refrain), short energetic final chorus with a button ending |
+| v1 baseline | tag `v1-pre-retention-2026-11-07` (commit `c1b61b2`) | 10-minute song with the refrain after every line, 8-step ACE-Step, best-scene thumbnail |
 
-Restore code by creating a restoration commit from the rollback tag; do not
-rewrite history. Tags do not restore cloud settings, deleted media or credentials.
+Why v2: video `r2gjHCPxpEU` kept 80% of viewers at 0:06, 36% at 0:24 and 8% at 1:55
+(average 0:42 of 10:01, 25% likes), with 95.6% of traffic from Suggested next to other
+channels' "Duri Duri Dum Dum" videos.
 
-Validation before migration commit: `python -m unittest -v` passed all 159
-tests, including actual FFmpeg render/audio checks and destination Drive guards.
-CLI startup checks passed for generation, publication and Shorts. Reference
-tracked-file comparison confirms only the documented integration changes.
-Cloud inference/publication are separate from these component checks.
+To return to v1 for new episodes, restore the old code on a branch and merge it:
 
-### Migration cloud runs
+```bash
+git switch -c rollback/v1 && git restore --source v1-pre-retention-2026-11-07 -- . && git commit -m "Roll back to v1 generator"
+```
 
-Started on migration commit `d6da97d`:
+`VIDEO_DURATION_SECONDS` (`.github/workflows/music.yml`) controls length: 180–300 seconds in v2,
+480–720 in v1. `ACESTEP_INFERENCE_STEPS` (default 8, max 20) tunes the turbo music model, which
+upstream distills for 8 steps.
 
-- [Component checks](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/41877221554)
-- [Existing Google credential verification](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/41877276827)
-- [Fresh English generation: english-reference-20261104](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/41877430990)
+## Retention-focused episodes (v2)
 
-These runs were queued at the time of this log. Full model inference, cloud
-credential readback and finished video output are not yet verified. The
-generation run uses the reference's scheduled publication mode and existing
-`PUBLISH_ENABLED` repository variable. No secrets or repository variables were
-changed. GitHub refused cancellation of the superseded Hindi run `41868656076`
-with “Cannot cancel a workflow run that is not in progress”; its displayed
-status was queued. That old run is not converted by updating main.
+- **Hook first:** every song opens with the full four-line chorus (0:00–0:20), sung with
+  ACE-Step `[Chorus - high energy]` / `[Verse]` tags and "starts instantly, no intro" in the caption.
+- **Thumbnail = first frames:** the package must pick scene 0 for the thumbnail, and the scene-0
+  clip is animated from `thumbnail-source.png`, so viewers see exactly what they clicked.
+- **Faster opening:** the first three clips (15 s) cut from a wide shot to a punch-in at 2.5 s,
+  with a livelier pan and 1.5x larger dance moves.
+- **More dance:** each dance scene switches to a second move at 2.5 s; chorus scenes rotate
+  eight dance poses; every scene and the thumbnail share one lighting/time of day.
+- **Structure:** four-line verses alternate with the fixed channel chorus
+  (`dudi dudi dam dam dudi dudi dam`, `clap your hands and dance with me`, ...).
+- **SEO:** titles start with the real search phrase (animal + action + "Song for Kids"), never
+  other channels' song names or sound-alikes (Dodi/Duri/Duty/Dum Dum, enforced in code), and
+  descriptions get real chapter timestamps from the storyboard.
+- **Checks:** `episode-packaging-check.yml` runs real Qwen on PRs; `episode-preview.yml` builds a
+  full video without publishing on any `preview/**` branch and verifies length and the opening frame.
+
+## Cute animals with a child playmate
+
+New episodes keep cute baby animals as the leads, with a small child playmate
+in the original soft, pastel 3D storybook style. Shared refrains get separate
+dancing compositions and varied gentle movement guided by the new 130-BPM request. Image model, image
+size, step counts and guidance are unchanged. See [cast and dance details](docs/toddler-animal-dance.md).
+
+## Lyric word-bound recovery
+
+Sung lines retain a compact 4–12 plain-word constraint in the native Qwen grammar,
+while large prose character bounds remain outside the native parser. The prompt
+aims for 4–8 words. Contractions/hyphens are avoided so generation and validation
+count words consistently. Rejected candidates are saved and supplied to targeted
+rewrites alongside their constraints; accepted lines and completed chapters stay
+in the checkpoint. Lyrics are never truncated or replaced with canned text.
+
+The lyrics stage retries explicitly retryable model/content failures up to three
+times using the same run ID and saved draft, with bounded backoff. Fatal errors
+and non-lyrics stages are not replayed. Successful recovery clears that stage's
+stale failure marker. A real CPU-model regression tests an adversarial 13-word
+request and a complete twelve-line chapter before production dispatch.
+
+## Automatic character animation
+
+Every newly generated landscape and portrait scene now uses CPU character
+segmentation (BiRefNet Lite), background completion (LaMa), and layered puppet animation.
+Original 3D storybook artwork stays intact in the foreground. Characters breathe,
+sway and make gentle hops with landing squash; rabbit scenes additionally bend
+the upper ears and move the tail region. The main connected character/group is animated;
+this is not full 3D rigging, action understanding or speech lip-sync. Automated
+mattes/inpainting can vary from the hand-prepared demo and require visual review.
+Implausible empty or oversized masks stop the affected image shard for review.
+
+Sixteen landscape and four portrait workers prepare layers and exact five-second
+1080p scene clips after image generation exits, releasing diffusion model memory.
+Final assembly requires current verified character-motion clips; it cannot silently
+fall back to the old zoom-and-bubbles slideshow. Clip/source hashes invalidate
+stale or corrupt caches. Layer PNGs and MP4 clips travel in the same seven-day
+artifacts as their source images, so retries reuse finished work. Old runs without
+these clips must regenerate their image shards using the new workflow.
+
+Install CPU PyTorch, `requirements.txt`, and `requirements-motion-cpu.txt`, then
+run `python character_motion.py --root output/RUN_ID` with the same IMAGE_SHARD,
+IMAGE_SHARDS and IMAGE_VARIANT values used to generate that worker's artwork.
+The first run downloads public BiRefNet Lite and LaMa model weights. No paid image/video
+inference API or GPU runner is used. Model sources: [rembg](https://github.com/danielgatis/rembg)
+and [LaMa CPU wrapper/model](https://github.com/enesmsahin/simple-lama-inpainting).
+
+## Facebook Page cross-posting
+
+Facebook integration setup and recovery: [docs/facebook-publishing.md](docs/facebook-publishing.md). The destination is Rezan Relaxation (`297892583408910`). Existing YouTube generation/upload remains active; Facebook requires its own Page authorization and `FACEBOOK_PAGE_ACCESS_TOKEN` secret. Facebook is enabled independently with `FACEBOOK_PUBLISH_ENABLED=true` after the authorized live test. Do not treat the code installation as a completed Meta connection.
+
+## Automatic upload restored for the existing channel
+
+The existing destination is `UCztvMrNCT34DO3DtzLPgWaw`, preserved from the archived Ancient Humans workflow. All active workflows resolve `EXPECTED_CHANNEL_ID` from an existing secret, then an optional repository variable, then that original channel ID. The uploader still verifies that OAuth belongs to this exact destination. No new OAuth token is required for this migration.
+
+`PUBLISH_ENABLED=true` enables long/Short uploads, and `AUTOMATION_ENABLED=true` enables daily generation at 03:00 Asia/Dhaka. Uploaded videos use the reference automatic scheduling policy: first 06:00 America/New_York slot at least 72 hours after upload completion. These are repository Actions variables, not secrets. Explicit false disables the corresponding behavior. Existing token and Drive secrets are reused.
+
+## Shorts preview recovery and publication preflight
+
+Preview generation (`PUBLISH_ENABLED` unset or false) does not require YouTube credentials. Reusable Shorts workflow secrets are optional at dispatch time; enabling publication requires all four existing repository secrets, checked before model generation and before Shorts rendering. Missing values produce a diagnostic listing names only. No credentials or publication variables are changed automatically.
+
+If long video/music/portrait jobs completed but Shorts orchestration failed, run **Create and publish a rhyme Short** on the current main branch with `source_run=40902873254`, `run_id=kids-rhyme-20261029-2134`, `prepared_music=true`, `prepared_portraits=true`, start 0, duration 40. This reuses the saved music/portrait artifacts instead of running the models again. Artifacts expire after seven days. Rerunning an old workflow uses its old workflow definition, so dispatch the corrected workflow for this recovery.
+
+## Repository account compatibility fix
+
+This repository uses its existing `DRIVE_TOKEN_JSON`, `DRIVE_FOLDER_ID`, `YOUTUBE_TOKEN_JSON` and `EXPECTED_CHANNEL_ID` secrets, not the reference project's hardcoded account/channel. The authenticated Drive user must own the configured active private folder; shared/foreign/trashed folders are rejected. A private `Kids Rhymes - YouTube Automation` child folder marked `youtube_kids_rhymes_root=v1` is created once and reused. Kids history/checkpoints and cleanup stay inside that child, leaving Ancient Humans data untouched. Connection verification may initialize this child folder; it never uploads videos. YouTube continues to require an exact match with `EXPECTED_CHANNEL_ID`. Account setup requires an explicitly supplied channel ID, without requiring the reference channel handle. Older reference-specific account/folder instructions below are superseded by this section.
+
+# YouTube Motivation Automation — kids rhymes migration
+
+This repository now runs the kids rhymes pipeline copied from [dudi_dam_tv](https://github.com/Asif-Rezan/dudi_dam_tv/tree/6add42d9d315c4f73ec0d40c51c128fb2be76c15) at commit `6add42d9d315c4f73ec0d40c51c128fb2be76c15`.
+The active reference files are unchanged except this README and `setup_accounts.py`, whose GitHub secret destination is this repository.
+
+## Preserved Ancient Humans project
+
+Previous main commit: `1db8f8262ff00570a4496c919511491357fbabe3` ([view original](https://github.com/Asif-Rezan/youtube-motivation-automation/tree/1db8f8262ff00570a4496c919511491357fbabe3)).
+Every tracked file from that commit is preserved byte-for-byte under `legacy/ancient-humans/`, including its README, tests, assets and workflows. This directory is an inactive archive: the former workflows are outside `.github/workflows/` and the active pipeline never imports it. The old files are preserved as working source rather than adding comment markers that would damage Python/YAML/assets. Do not run old scripts from this archive against production credentials.
+
+To inspect the original project without changing the kids pipeline:
+
+```sh
+git fetch origin
+git worktree add ../ancient-humans-restored 1db8f8262ff00570a4496c919511491357fbabe3
+```
+
+To prepare a reversible restoration of the original project as a new branch:
+
+```sh
+git fetch origin
+git switch -c restore-ancient-humans origin/main
+git restore --source=1db8f8262ff00570a4496c919511491357fbabe3 --staged --worktree -- .
+git commit -m "Restore Ancient Humans pipeline"
+git push -u origin restore-ancient-humans
+```
+
+Run these commands from a clean checkout. Review and merge that branch through a pull request to restore the old project. This preserves the kids migration in Git history; no reset or force push is needed. Review repository Actions variables/secrets before enabling old uploads again. Uncommitted work in other local checkouts is untouched and is not part of this remote snapshot.
+
+## Configure this repository
+
+- Run account setup in this repository: `setup_accounts.py` writes secrets to `Asif-Rezan/youtube-motivation-automation`.
+- Configure its own `YOUTUBE_TOKEN_JSON`, `EXPECTED_CHANNEL_ID`, `DRIVE_TOKEN_JSON`, and `DRIVE_FOLDER_ID` Actions secrets. Git cloning does not copy repository secrets or variables.
+- The copied setup retains the reference channel guard (`@dudi_dum_tv`), Drive account guard and `dudi_dam_tv_root=v1` folder lookup. It can reuse the reference folder for the same account. For isolated history/artifacts, configure a separate private folder with the required app property and set this repository's `DRIVE_FOLDER_ID` explicitly. Review `storage.py` and `setup_accounts.py` before using another channel/account.
+- Set `AUTOMATION_ENABLED=true` for daily generation and `PUBLISH_ENABLED=true` for uploads only when these repository credentials are ready. Existing repository variable values still apply after merging; they are not reset by this migration.
+- Use **Verify Google connections** first, then manually generate a fresh run ID and review the result. The same reference long-video/Shorts generation and publishing workflows are included. No live generation or YouTube upload is performed by this code migration.
+- Install `requirements.txt` and run `python -m unittest -v` for component verification. Full model inference additionally requires the pinned CPU dependencies, model downloads and FFmpeg documented below.
+
+The original reference README follows; its project names, channel branding and behavior are retained intentionally. Any reference to account setup targeting `Asif-Rezan/dudi_dam_tv` below is superseded by the destination above.
 
 ---
 
@@ -128,7 +245,7 @@ The default upload is private without a publication timestamp. After YouTube ret
 
 Every five-second lyric scene now has continuous 25 fps camera motion: gentle alternating horizontal pan, a slow push-in, a small rhythmic pulse and vertical sway. Translucent bubbles drift independently along the edges for foreground depth. A 0.28-second dissolve uses the previous scene's actual final frame, so scene changes do not add time or shift the soundtrack. The original song is muxed once after the silent clips are joined.
 
-This gives still illustrations a lively storybook presentation; it does not rig character limbs or lip-sync mouths. New episodes request 120 BPM; animation follows that requested tempo, not measured audio beats. Full videos remain 1920×1080 and 8–12 minutes, with a new illustration every five seconds. Rendering is split into small clips to bound memory. `render-state.json` fingerprints the renderer version and inputs so an old static video is regenerated automatically.
+This gives still illustrations a lively storybook presentation; it does not rig character limbs or lip-sync mouths. Motion follows the requested tempo (130 BPM for new episodes, 100 for older ones) as a visual guide, not measured audio beats. Full videos remain 1920×1080 and 8–12 minutes, with a new illustration every five seconds. Rendering is split into small clips to bound memory. `render-state.json` fingerprints the renderer version and inputs so an old static video is regenerated automatically.
 
 For a local short preview without model inference or publishing, run `python preview_motion.py image1.png image2.png --audio song.wav --output output/motion-preview.mp4`. Preview images/audio are supplied locally and are never used as a production fallback.
 
@@ -169,15 +286,40 @@ Portrait publication checkpoints use `shorts/RUN_ID/music-portrait-clip-START-DU
 
 For a local export, supply `output/RUN_ID/song.json`, `short-audio/clip-START-DURATION/song.wav` and `portrait/scene-NNN-source.png` for the selected range, then run `python shorts.py --run-id RUN_ID --start 0 --seconds 40`. Source/output hashes and a full video/audio decode validate the export before upload. `rhyme-short-*` artifacts contain the finished Short; `short-publication-*` contain publication checkpoints; `short-artwork-*` contain native portrait images and generation manifests.
 
-## Fixed public title, description and blank tags
+## Story-based SEO metadata and matching thumbnails
 
-All new YouTube uploads, including Shorts, use the exact owner-supplied title and description in `upload_metadata.json`. Tags are always `[]`. The description is sent verbatim: no automatic credit line, extra hashtags, or `#Shorts` suffix is added. The fixed title is 97 characters and the description is 3213 characters. Internal story titles/descriptions remain available for lyric planning, novelty checks, and source identification; they are not selected as public metadata. This avoids breaking saved storyboards or treating every song as a duplicate because the public title is shared.
+New generation IDs run one additional local Qwen packaging pass after the lyrics.
+It writes three truthful title candidates, chooses one, and creates a unique
+story-specific description and 5–15 relevant tags. The topic/action and natural
+kids-rhyme search phrases lead the title and opening description. Tags are
+secondary discovery metadata, not a ranking guarantee. Title/description/tag
+limits, selected-title membership and a source fingerprint are checked before
+upload. Invalid output receives bounded retries, preserving the finished lyrics.
+No hosted packaging API, live keyword-volume lookup or paid vidIQ call is needed
+in production. The prompt uses qualitative title-thumbnail design guidance;
+it does not predict or promise CTR.
 
-The previous metadata selection is commented out in `pipeline.publish` and `shorts.short_metadata`. To restore story-based metadata, restore the two commented assignment lines in `pipeline.publish` instead of the fixed metadata assignments; in `shorts.short_metadata`, restore the commented return block instead of `fixed_metadata()`. Keep the existing settings, upload checkpointing, disclosures, and verification intact. The original `kids_rhymes.upload_description` and `metadata_tags` helpers remain available.
+The saved `song.json` contains `packaging.video`, `packaging.shorts`, three title
+candidates and the selected thumbnail scene/focus. Shorts metadata describes only
+the first 40 seconds; manually selected other clips derive metadata from their
+actual lyrics. Retries reuse this saved package. Existing uploaded/scheduled IDs
+retain their durable upload body and thumbnail receipt. `upload_metadata.json`
+and its old fixed-metadata helper remain as historical files, unused by new
+publication. Existing unpublished artifacts without a package fall back to their
+own story metadata, never the shared fixed text.
 
-This selection applies when starting a new upload. Existing uploaded/scheduled video IDs keep their checkpointed metadata, so resuming an upload does not silently change a live video's title or description. Updating existing YouTube videos requires a separate explicit metadata update. No existing video is edited by this code change.
+The thumbnail uses an actual generated scene from the same episode as its img2img
+reference (strength 0.35), emphasizing an existing baby-and-animal interaction
+with expressive faces, clear silhouettes and a simple mobile-readable composition.
+The scene's own image worker creates the thumbnail after the anchor exists,
+without generating another reference image or using the previous external pool.
+Source pixel checksums invalidate stale thumbnail caches. Native 1344×768
+inference and 1920×1080 JPEG export remain. Full-model image quality and CTR still
+need review after a real generation.
 
-Shorts title override: new Shorts use `shorts_title` in `upload_metadata.json`: `Dudi dudi dum dum 🍼😻#shorts #shortsfeed #dudidudidam`. Long videos retain the fixed `title`. Both formats keep the same fixed description and empty tags. The Shorts publisher explicitly selects the Shorts metadata variant before upload.
+Facebook uses the verified YouTube upload body's matching title/description.
+Account identities, language, music, animation, publishing schedule, disclosures
+and cleanup guards keep their current settings.
 
 ## Independent Shorts music
 
@@ -189,188 +331,28 @@ Parallel jobs reduce serial waiting, but runner limits can queue jobs and synthe
 
 ## Recover a Shorts scheduling failure
 
-New uploads wait for YouTube processing readiness before automatic scheduling, then confirm the exact frozen timestamp by readback. Temporary server/rate errors and a recent, owned private upload's generic 403 receive bounded readiness retries. Named permission/quota failures, wrong ownership, rejected processing, and changed visibility stop with the original video ID retained. Retries never insert another video or report an unconfirmed schedule as complete.
+New uploads allow up to 30 minutes (90 polls, 20 seconds apart) for YouTube processing readiness before automatic scheduling, within a shared 40-minute scheduling/HD-verification budget. Normal processing longer than two minutes no longer prematurely fails the upload. Pending checkpoints retain the same video ID and frozen release time for recovery. The uploader confirms the exact frozen timestamp by readback. Temporary server/rate errors and a recent, owned private upload's generic 403 receive bounded readiness retries. Named permission/quota failures, wrong ownership, rejected processing, and changed visibility stop with the original video ID retained. Retries never insert another video or report an unconfirmed schedule as complete.
 
 For an already uploaded Short whose schedule/verification failed, run **Recover existing Shorts publication** with the failed workflow's `source_run` and original song `run_id`. It loads `short-publication-SOURCE_RUN`, requires the same uploaded video ID and source fingerprint in private Drive, and resumes only that existing video. It does not generate images, audio or video. Checkpoints are saved even if recovery fails. YouTube permission changes or service failures cannot be guaranteed away; permanent failures require resolving the reported account/service condition.
 
+## Higher-resolution thumbnails
 
-## Reference thumbnails, character motion and continuous music
+Thumbnails generate at 1344×768 with the same SSD-1B storybook model, using an actual scene from their own episode as the image reference. Export removes six source pixels from the top and bottom to produce a 1344×756 crop, then scales to a 1920×1080 JPEG using Lanczos. JPEG quality starts at 95 and is reduced only when needed to stay under a conservative 2 MB byte budget. Scene and portrait generation dimensions stay unchanged. Thumbnail-specific settings are `THUMBNAIL_IMAGE_WIDTH`, `THUMBNAIL_IMAGE_HEIGHT`, and `THUMBNAIL_IMAGE_STEPS`; the defaults are 1344, 768, and 20. The image manifest includes these settings so old low-resolution thumbnails are regenerated when a job resumes with this code. Export resolution is 1920×1080; this is not native 1920×1080 diffusion generation.
 
-New generations use the same generation pipeline upgrades as
-`Asif-Rezan/youtube-motivation-automation` at `73533e7`:
+## Cute animal scenes and continuous upbeat music
 
-- Five bundled thumbnail references are selected with equal probability using a
-  stable generation seed. A retry or another shard reuses the same reference.
-  Consecutive generations may select the same picture. Strength defaults to
-  `0.50`; `THUMBNAIL_REFERENCE_IMAGE` remains an explicit single-file override.
-  Only thumbnails use references. SSD-1B generates at 1344×768, then crops six
-  pixels from the top and bottom and exports a 1920×1080 JPEG below 2 MB.
-- New lyric outlines keep one or two cute baby animals as the main characters,
-  with a small child companion in a dreamy natural setting. The soft, rounded
-  3D storybook style and five-second image changes remain.
-- Landscape and portrait image shards prepare foreground masks, inpainted
-  backgrounds and validated five-second clips. Actors get varied gentle waves,
-  waist/leg motion, sways or hops, with conservative blinking where faces are
-  detected confidently. Camera/background motion adds depth. This is image
-  deformation, not generative video or full skeletal animation. Invalid masks
-  use a logged camera-motion recovery; unrelated errors still stop the job.
-- New music requests 120 BPM in the prompt and the model parameters, with
-  continuous instrumental backing. Mastering targets -14 LUFS / -1.5 dBTP and
-  80 ms joins. Bounded edge-silence repair preserves duration without pitch
-  shifts; excessive gaps retry only the affected part. Native Shorts audio is
-  recovered from valid checkpoints before synthesizing again. These checks
-  detect substantial silence; they do not guarantee flawless musical phrasing.
-- CPU music workers reserve runner resources, retain failure diagnostics and
-  save completed parts. Lyrics retain accepted lines during bounded repairs.
-  Cleanup preserves media on metadata mismatches and reports API failures.
+New episodes restore the original rounded, expressive pastel 3D animal-story look, with a small child playmate alongside the animal leads in dreamy natural scenery. The same image model and resolution settings remain. Original lyrics use a 120 BPM generation request (previously 100), with the same sweet female vocal style and a continuous instrumental backing caption. Refrain animation uses the requested tempo while retaining per-scene movement variety.
 
-Both long videos and Shorts receive the animation and music upgrades. The
-existing dedicated Drive folder, channel secrets, fixed public metadata,
-72-hour / 6 AM New York scheduling, and bounded package installer are retained.
-Use a new run ID on updated main; a retry of an old Actions run uses its old
-commit. Existing published videos are not modified. Full model inference is
-not part of component checks; a newly generated video still needs visual and
-listening review.
+New long and Short mixes use -14 LUFS loudness normalization with a -1.5 dB true-peak target. Natural silent onset/outro is trimmed before mastering. Long parts receive 80 ms crossfades; a bounded pitch-preserving adjustment restores the planned duration without looping or silent padding. Edge trimming plus overlap may consume at most 10 percent of the duration; larger deficits require a new generation. This can slightly change the resulting tempo, while the synthesis request remains 120 BPM. A real FFmpeg silence check distinguishes repairable silent edges from internal quiet gaps of at least 0.65 seconds below -45 dB. Finished masters are checked again, allowing only a short onset (150 ms) or natural outro release (350 ms). Only the affected generated part is retried (up to three attempts); repeated failure keeps completed parts and stops publication rather than shipping a silent gap. This checks mixed-audio silence, not vocal breathing or accompaniment pauses while a vocal is still audible. Already generated/published episodes are not remastered automatically.
+
+Generation uses the pinned [ACE-Step BPM parameter](https://github.com/ace-step/ACE-Step-1.5/blob/ca1e85fe9430179831e6bc6be790c332190a3866/acestep/inference.py) and [FFmpeg loudnorm](https://ffmpeg.org/ffmpeg-filters.html#loudnorm). Caption/BPM requests guide the model; exact musical tempo and the new visual appearance still need review on an actual new episode.
+
+Failed Shorts retain per-attempt reason codes and rejected candidates. On resume, valid saved native syntheses are inspected and reused before any model call; legacy v1 checkpoints are supported. `audio-continuity-regression.yml` is a manual diagnostic for a recent failed run whose input/Shorts artifacts still exist. It restores the real checkpoint and proves recovery without AI inference or publication. Self-contained synthetic boundary/internal-gap regressions remain in the normal test suite after those temporary artifacts expire.
 
 
-## Bounded internal-silence recovery
-
-Music quality checks now distinguish repairable short silence from excessive
-missing audio. Internal gaps up to 3.5 seconds are removed only when their total
-is at most 5% of that part and combined edge/internal trimming stays within 10%.
-Five-millisecond fades soften each edit; pitch-preserving tempo compensation
-restores the planned duration, without looping or silent padding. The finished
-mix must pass strict silence and duration checks. Larger gaps still regenerate
-only the affected part, with at most three quality attempts.
-
-Previously rejected candidates from the same run/part are checked before starting
-another CPU synthesis. Valid earlier parts are retained. Checkpoints record the
-repair windows, candidate recovery and final mastering settings; each failed
-attempt keeps a separate audio candidate. Failure artifacts include `failure.json`
-and an explicit `audio_internal_gap` diagnostic instead of a generic error.
-The 120-second part failure at 91.61–94.57 seconds is covered by a real FFmpeg
-regression including pitch and output-duration checks. Generative audio quality
-is still not guaranteed; excessive missing audio remains a visible failure.
-
-
-### Destination channel configuration repair — 2026-11-04
-
-Connection run `41877276827` failed with an empty `EXPECTED_CHANNEL_ID` binding.
-The reference migration had dropped the destination workflow fallback. Restored
-secret → repository variable → existing channel `UCYjz7d66SsshimfpxZahlhQ` lookup
-in connections, long-video publication/cleanup, Shorts and recovery workflows.
-Tokens and other secrets are unchanged. Verification now checks channel
-configuration before token refresh and reports allowlisted local errors safely.
-Regression checks cover every destination channel binding.
-
-
-### Facebook publishing restored for English episodes — 2026-11-04
-
-Restored the existing Facebook publisher, regression tests and reusable/manual
-`facebook.yml` workflow from `hindi-before-english-2026-11-04`. New English
-landscape episodes and portrait Reels reuse their original rendered MP4 and
-verified YouTube schedule. The Page remains Grow with Rezan
-(`301624356367343`), using the existing `FACEBOOK_PAGE_ACCESS_TOKEN`.
-`FACEBOOK_PUBLISH_ENABLED=true` and `PUBLISH_ENABLED=true` enable automatic
-Facebook jobs. English lyrics/audio, the reference model setup, and the
-03:00 Asia/Dhaka generation schedule remain unchanged.
-
-Facebook checkpoints stay in the existing private kids Drive folder and retain
-video IDs across retries. API errors leave YouTube publication independent.
-Manual Facebook-only recovery accepts the original GitHub `source_run`, song
-`run_id`, and `kind` (`video` or `short`), without generating or uploading to
-YouTube again. Shorts use the existing 0–40-second portrait identity. A verified
-future YouTube schedule is required; public-mode runs without a schedule stop.
-Already-started Actions runs keep their original workflow; automatic Facebook
-jobs are added only to newly started runs. No existing post is edited.
-
-Restoration validation: all 169 unit/regression tests passed, including Page
-identity, both upload formats, frozen schedule readback, chunk resumption,
-duplicate prevention and English destination-channel configuration. Workflow
-YAML parsed and both automatic Facebook callers were checked. Existing
-`FACEBOOK_PUBLISH_ENABLED` and `PUBLISH_ENABLED` variables were confirmed true.
-No live Facebook upload was performed during these checks.
-
-
-### Publishing validation — 2026-11-05
-
-All 169 local tests passed again; GitHub component checks on restoration commit
-`ec48cbe` also passed. Google verification run `41880051656` succeeded with the
-existing tokens and destination-channel fallback. The manual **Verify Google
-connections** workflow now additionally checks the existing Facebook Page token
-when Facebook publishing is enabled. That step performs only an identity GET;
-it never creates an upload or publishes a post.
-
-Live connection validation succeeded:
-[run 41887612814](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/41887612814)
-verified Grow with Rezan channel `UCYjz7d66SsshimfpxZahlhQ`, the private kids
-Drive folder, both Google refresh tokens, and Facebook Page `301624356367343`
-using the existing secret. No media was uploaded. Actual Facebook transfer and
-schedule acceptance remain dependent on a future episode publication.
-
-
-### Early publication validation and safe diagnostics — 2026-11-05
-
-Run `41877430990` rendered the 600-second episode successfully but its old
-`d6da97d` workflow passed an empty `EXPECTED_CHANNEL_ID` into publication.
-It stopped during account verification before upload; the old generic error
-hid the missing configuration. The destination fallback was already restored
-in `7cc735f`, and live Google/Facebook validation subsequently passed.
-
-Publication now checks all required configuration before storage/network calls
-or local output creation. Missing known keys produce a safe actionable
-`configuration_missing` message; arbitrary API errors remain private. New
-publishing runs validate settings and live Google identities in the lyrics
-job before costly generation, and again before final rendering. Preview-only
-runs remain available when publishing is disabled. Preflight and publication
-use the same channel fallback and credentials. External API failures can still
-occur after preflight; existing upload IDs and frozen schedules remain durable.
-
-To recover the existing finished episode with current code, use **Recover
-finished video publication** on `main`, source run `41877430990`, song ID
-`english-reference-20261104`. Do not re-run the original failed job: GitHub
-reuses its old commit. Recovery verifies the existing render and reuses saved
-publication identities rather than regenerating or duplicating uploads.
-
-Finished-video recovery now runs account preflight before artifact downloads,
-then invokes the existing Facebook publisher and a separate guarded Drive
-cleanup job after successful recovery. Cleanup saves a downloadable report.
-Scheduled/private or non-HD YouTube media are retained until verified public
-HD publication; a successful cleanup check does not imply immediate deletion.
-
-Validation: all 174 local tests passed, including missing configuration before
-network/storage/output writes, private diagnostics, preflight binding parity,
-and recovery Facebook/cleanup dependencies. Recovery was dispatched on current
-main as [run 41957340330](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/41957340330).
-It is waiting for scheduled generation `41947277047` to release the shared
-publication lock; the running generation was left intact. Source video, music,
-artwork and manifest artifacts were confirmed unexpired. Publication and cleanup
-outcomes are pending; scheduled/private media must remain until public-HD checks pass.
-
-
-Manual storage maintenance is available through `manual-drive-cleanup.yml`.
-It sweeps this project's existing publication checkpoints, permanently deletes
-only media belonging to verified public HD episodes, preserves scheduled/private
-and unverified media, and saves quota plus a read-only project-folder inventory.
-It does not alter generation/publication settings or empty unrelated Drive Trash.
-
-
-## YouTube resumable upload transport fix (2026-11-08)
-
-Run `42428450610` rendered successfully but publication failed with
-`RedirectMissingLocation`. The custom bare `httplib2.Http` introduced for longer
-upload timeouts interpreted YouTube's `308 Resume Incomplete` as a redirect.
-YouTube intentionally sends this upload progress response without `Location`.
-`youtube_http_transport()` now uses Google's `build_http()` factory, which
-excludes 308 from redirect handling, and retains the 300-second timeout.
-The shared client covers episode and Shorts publication and recovery.
-
-Regression tests exercise the real httplib2/googleapiclient multi-chunk state
-machine with a 308 response without Location, verify authenticated client wiring,
-and retain bounded timeout retries on the same upload request. Run
-`python -m unittest -v test_upload_resume`; these tests also run in Component checks.
-Existing duplicate-upload guards remain active. This prevents the transport bug,
-not unrelated quota, credential or network failures. The failed run used older
-code: rerunning that job alone will not load this fix. Its saved upload_started
-checkpoint requires reconciliation before attempting publication again; never
-clear it blindly or create a duplicate video.
+Cleanup verification requires the saved video/channel identity, matching title and
+description, public visibility, completed HD processing and exact private Drive
+file IDs/hashes. Changed YouTube tags are reported as a notice and do not prevent
+cleanup. Scheduled/private media remains available for recovery until publication;
+the hourly sweep revisits it. Cleanup permanently deletes only the verified
+automation media and never empties the account's unrelated Trash.

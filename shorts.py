@@ -109,14 +109,19 @@ def render_short(source_root, target, start=0, seconds=40):
 
 
 def short_metadata(song, start, seconds):
-    # Previous story-based Shorts packaging; retained for easy restoration:
-    #     return dict(title=song['title'][:90].rstrip() + ' #Shorts',
-    #         description=f"{seconds} seconds of {song['title']}! Sing and dance with Dudi Dam TV.\n#Shorts",
-    #         tags=list(dict.fromkeys(song.get('tags', []) + ['Shorts', 'kids rhymes'])),
-    #         source_title=song['title'], clip_start=start, clip_seconds=seconds)
-    from upload_metadata import fixed_metadata
-    return dict(fixed_metadata('shorts'), source_title=song['title'],
-                clip_start=start, clip_seconds=seconds)
+    from episode_packaging import public_metadata
+    if start == 0 and seconds == 40:
+        metadata=public_metadata(song,'shorts')
+    else:
+        # Manual clips are grounded in their selected lyrics, not later story events.
+        lines=[s['lyric'] for s in song['scenes'][start//5:(start+seconds)//5]
+               if s['lyric'] != song.get('hook','dudi dudi dam dam dudi dudi dam')]
+        hook=(lines[0] if lines else song['title']).strip().rstrip('.!?')
+        metadata=dict(title=hook[:65]+' | Kids Dance Song #Shorts',
+            description=f"{seconds}-second sing-along with the episode's baby and animal friends.\n"+
+                        '\n'.join(lines)+'\nOriginal AI-generated music and illustrations. #Shorts #KidsRhymes',
+            tags=list(dict.fromkeys([*song.get('tags',[]),'kids dance song','nursery rhyme','Shorts'])))
+    return dict(metadata,public_metadata_version='episode-seo-packaging-v1',source_title=song['title'],clip_start=start,clip_seconds=seconds)
 
 
 def run(run_id, start=0, seconds=40, publish=False):

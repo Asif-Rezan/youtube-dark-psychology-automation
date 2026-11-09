@@ -1,0 +1,10 @@
+{
+  "source_run": 41316394479,
+  "purpose": "Saved generated episode layers for repeatable renderer regression checks",
+  "sha256": {
+    "scene-000-source/foreground.png": "60478bfe9208055c3f9131b77e72b7f318ff7099b3a8562daba47981f0c37c34",
+    "scene-000-source/background.png": "090020f2fbf5b932de84ff764693f3b7ca936b590d7fe666e9caa732675e1c4d",
+    "scene-112-source/foreground.png": "a910ae011a533a9545178ffb70fe3e17c46829a37519fb04d289332ce1319e2d",
+    "scene-112-source/background.png": "fcd40c8f135ce17694f8a25d91ddc702dbc23acec469232d6e351ef0f6ef3970"
+  }
+}

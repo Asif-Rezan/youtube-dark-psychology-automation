@@ -4,11 +4,13 @@ import unittest
 from unittest.mock import Mock, patch
 
 from pipeline import publish
-from upload_metadata import fixed_metadata
+from episode_packaging import public_metadata
+from test_episode_packaging import fixture_package
+from test_prepare_original_lyrics import fixture_song
 
 
-class FixedUploadMetadataTests(unittest.TestCase):
-    def test_new_upload_uses_exact_fixed_metadata_with_empty_tags(self):
+class EpisodeUploadMetadataTests(unittest.TestCase):
+    def test_new_upload_uses_saved_episode_metadata_with_relevant_tags(self):
         client, state = Mock(), {}
         client.videos.return_value.insert.return_value.next_chunk.return_value = (None, {'id':'new-video'})
         def readback():
@@ -20,7 +22,7 @@ class FixedUploadMetadataTests(unittest.TestCase):
             video['processingDetails'] = {'processingStatus':'succeeded'}
             return {'items':[video]}
         client.videos.return_value.list.return_value.execute.side_effect = readback
-        song = dict(title='AI story title', description='AI description', tags=['AI tag'])
+        song=fixture_song();song['packaging']=fixture_package(song)
         self._check_upload(client, state, song, 'video')
         self._check_upload(client, state, song, 'shorts')
 
@@ -33,11 +35,18 @@ class FixedUploadMetadataTests(unittest.TestCase):
                 patch('pipeline.metadata_tags') as ai_tags:
             publish(client, Path('/unused'), song, state, Mock(), upload_thumbnail=False, metadata_kind=kind)
         actual = client.videos.return_value.insert.call_args.kwargs['body']['snippet']
-        expected = fixed_metadata(kind)
+        expected = public_metadata(song,kind)
         for field in ('title','description','tags'):
             self.assertEqual(actual[field],expected[field])
-        self.assertEqual(actual['tags'],[])
+        self.assertTrue(actual['tags'])
         self.assertNotIn('Original kids rhyme arrangement',actual['description'])
         self.assertEqual(state['phase'],'published')
         ai_description.assert_not_called()
         ai_tags.assert_not_called()
+        original=copy.deepcopy(state['upload_body'])
+        inserts=client.videos.return_value.insert.call_count
+        with patch('episode_packaging.public_metadata',side_effect=AssertionError('Existing metadata changed')), \
+             patch('pipeline.required',return_value='channel'):
+            publish(client,Path('/unused'),song,state,Mock(),upload_thumbnail=False,metadata_kind=kind)
+        self.assertEqual(state['upload_body'],original)
+        self.assertEqual(client.videos.return_value.insert.call_count,inserts)

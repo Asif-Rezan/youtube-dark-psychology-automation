@@ -1,5 +1,12 @@
-name: Manually clean verified project Drive media
+name: Verify public episodes and clean temporary Drive media
 on:
+  schedule:
+    - cron: '23 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - cleanup_drive.py
+      - .github/workflows/drive-cleanup.yml
   workflow_dispatch:
     inputs:
       dry_run:

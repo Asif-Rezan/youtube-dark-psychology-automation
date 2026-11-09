@@ -1,0 +1,38 @@
+name: Dudi Dam original graphics motion demo
+on:
+  push:
+    branches: [demo/dudi-character-motion]
+    paths: [demos/dudi-motion/**, .github/workflows/dudi-motion-demo.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU renderer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          pip install pillow==11.3.0
+      - name: Restore actual Dudi Dam rhyme audio
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '41254581826'
+          name: short-music-41254581826
+          path: output/source-music
+      - name: Animate original-style rabbit scene on CPU
+        run: python demos/dudi-motion/render.py --audio-dir output/source-music
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dudi-original-graphics-motion-demo
+          path: output/dudi-motion-demo/
+          if-no-files-found: error
+          retention-days: 7

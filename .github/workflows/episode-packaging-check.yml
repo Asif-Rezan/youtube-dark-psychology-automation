@@ -1,0 +1,67 @@
+name: Qwen episode packaging regression
+# Real-model check for the lyrics stage: writes a full rhyme and its
+# title/tags/thumbnail package with the pinned local Qwen, without any
+# Drive/YouTube secrets and without publishing anything.
+on:
+  pull_request:
+    paths:
+      - episode_packaging.py
+      - rhyme_writer.py
+      - lyrics_cpu.py
+      - prepare_music.py
+      - kids_rhymes.py
+      - .github/workflows/episode-packaging-check.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: episode-packaging-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  actual-qwen-packaging:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      LYRICS_MODEL: Qwen/Qwen3-4B-Instruct-2507
+      OMP_NUM_THREADS: '4'
+      HF_HUB_DISABLE_XET: '1'
+      HF_HUB_DISABLE_IMPLICIT_TOKEN: '1'
+      RUN_ID: packaging-check-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt -r requirements-lyrics.txt
+      - name: Full lyrics stage with the real CPU model (no history, no publishing)
+        run: python -u prepare_music.py --run-id "$RUN_ID" --stage lyrics
+      - name: Packaging stays valid across stage-retry seeds
+        run: |
+          python -u - <<'PY'
+          import json, os
+          from pathlib import Path
+          from episode_packaging import generate_package, validate_package
+          root = Path('output') / os.environ['RUN_ID']
+          song = json.loads((root / 'song.json').read_text())
+          validate_package(song['packaging'], song)
+          titles = {song['packaging']['video']['title']}
+          for offset in (1, 2, 3):
+              package = generate_package(song, [], seed_offset=offset)
+              validate_package(package, song)
+              titles.add(package['video']['title'])
+          summary = {'passed': True, 'stage_retry_seeds_checked': 3, 'distinct_titles': len(titles)}
+          (root / 'packaging-validation.json').write_text(json.dumps(summary))
+          print(json.dumps(summary), flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: packaging-regression-${{ github.run_id }}
+          path: |
+            output/*/packaging-validation.json
+            output/*/failure.json
+          if-no-files-found: ignore
+          retention-days: 7

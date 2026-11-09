@@ -2,14 +2,6 @@ name: Create and publish a rhyme Short
 on:
   workflow_dispatch:
     inputs:
-      prepared_music:
-        description: Reuse independent Shorts music from source_run
-        type: boolean
-        default: false
-      prepared_portraits:
-        description: Reuse portrait artwork from source_run
-        type: boolean
-        default: false
       source_run:
         description: GitHub run containing the finished kids-video artifact
         type: string
@@ -18,6 +10,14 @@ on:
         description: Original song run ID inside that artifact
         type: string
         required: true
+      prepared_music:
+        description: Reuse independent Shorts music from source_run
+        type: boolean
+        default: false
+      prepared_portraits:
+        description: Reuse native portrait illustrations from source_run
+        type: boolean
+        default: false
       clip_start:
         description: Start in seconds (0, 10, 20, etc.)
         type: number
@@ -49,18 +49,18 @@ on:
       upload_mode:
         type: string
         default: scheduled
+    # Preview rendering needs artifacts only; publication validates secrets at runtime.
     secrets:
       FACEBOOK_PAGE_ACCESS_TOKEN:
         required: false
       YOUTUBE_TOKEN_JSON:
-        required: true
-      # Destination identity also resolves from repository variables or the pinned default.
+        required: false
       EXPECTED_CHANNEL_ID:
         required: false
       DRIVE_TOKEN_JSON:
-        required: true
+        required: false
       DRIVE_FOLDER_ID:
-        required: true
+        required: false
 permissions:
   contents: read
   actions: read
@@ -70,6 +70,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   short_music:
+    name: Generate Shorts music only when not already prepared
     if: ${{ !inputs.prepared_music }}
     runs-on: ubuntu-24.04
     timeout-minutes: 350
@@ -83,8 +84,8 @@ jobs:
       ACESTEP_INIT_LLM: 'false'
       ACESTEP_GENERATION_TIMEOUT: '18000'
       CUDA_VISIBLE_DEVICES: ''
-      OMP_NUM_THREADS: '3'
-      MKL_NUM_THREADS: '3'
+      OMP_NUM_THREADS: '4'
+      MKL_NUM_THREADS: '4'
       HF_HUB_DISABLE_XET: '1'
       HF_HUB_DISABLE_IMPLICIT_TOKEN: '1'
     steps:
@@ -100,12 +101,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          # Installs use --no-cache-dir; no pip cache exists to save at job teardown.
+          cache: pip
       - name: Prepare CPU runner memory and audio tools
-        timeout-minutes: 10
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
-          bash scripts/install-runner-packages.sh ffmpeg libsndfile1
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libsndfile1
           sudo fallocate -l 16G /swapfile-music
           sudo chmod 600 /swapfile-music
           sudo mkswap /swapfile-music
@@ -141,7 +142,6 @@ jobs:
           path: |
             output/*/short-audio/**/*.wav
             output/*/short-audio/**/*.json
-            output/*/short-audio/**/worker-resources.txt
           retention-days: 7
   short_images:
     name: Generate portraits only when not already prepared
@@ -160,7 +160,7 @@ jobs:
       CLIP_SECONDS: ${{ inputs.clip_seconds || '40' }}
       SONG_RUN_ID: ${{ inputs.run_id }}
       CUDA_VISIBLE_DEVICES: ''
-      OMP_NUM_THREADS: '3'
+      OMP_NUM_THREADS: '4'
       HF_HUB_DISABLE_XET: '1'
       HF_HUB_DISABLE_IMPLICIT_TOKEN: '1'
       CPU_IMAGE_WIDTH: '576'
@@ -173,7 +173,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          # Installs use --no-cache-dir; no pip cache exists to save at job teardown.
+          cache: pip
       - name: Prepare CPU image memory
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
@@ -205,7 +205,8 @@ jobs:
           PY
       - name: Prepare automatic character layers and animated scene clips
         run: |
-          bash scripts/install-runner-packages.sh ffmpeg
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
           pip install --no-cache-dir -r requirements-motion-cpu.txt
           python -u character_motion.py --root "output/$SONG_RUN_ID"
       - uses: actions/upload-artifact@v4
@@ -241,6 +242,20 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
+      - name: Validate publication credentials
+        env:
+          FACEBOOK_PUBLISH_ENABLED: ${{ vars.FACEBOOK_PUBLISH_ENABLED }}
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          PUBLISH_ENABLED: ${{ vars.PUBLISH_ENABLED }}
+        run: python validate_publication_config.py
+      - name: Explain prepared asset reuse
+        env:
+          PREPARED_MUSIC: ${{ inputs.prepared_music }}
+          PREPARED_PORTRAITS: ${{ inputs.prepared_portraits }}
+        run: |
+          echo "### Shorts asset reuse" >> "$GITHUB_STEP_SUMMARY"
+          echo "Prepared music: $PREPARED_MUSIC; prepared portraits: $PREPARED_PORTRAITS." >> "$GITHUB_STEP_SUMMARY"
+          echo "When true, the extra generation jobs are intentionally skipped; the Short uses the already-generated artifacts." >> "$GITHUB_STEP_SUMMARY"
       - name: Validate source and clip identity
         run: |
           python - <<'PY'
@@ -253,9 +268,9 @@ jobs:
           validate_clip(int(os.environ['CLIP_START']), int(os.environ['CLIP_SECONDS']))
           PY
       - name: Install video tools
-        timeout-minutes: 10
         run: |
-          bash scripts/install-runner-packages.sh ffmpeg
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
           pip install -r requirements.txt
       - uses: actions/download-artifact@v4
         with:
@@ -294,9 +309,8 @@ jobs:
           name: short-publication-${{ github.run_id }}
           path: output/shorts/**/*.json
           retention-days: 7
-
   facebook:
-    name: Schedule Facebook Reel
+    name: Optional Facebook Reel publication
     needs: short
     if: ${{ always() && !cancelled() && needs.short.result == 'success' && vars.FACEBOOK_PUBLISH_ENABLED == 'true' && vars.PUBLISH_ENABLED == 'true' }}
     uses: ./.github/workflows/facebook.yml

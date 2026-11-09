@@ -43,17 +43,17 @@ def run_ffmpeg(args):
     subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y',*args],check=True,capture_output=True)
 
 
-def render_scenes(root, scenes, width=1920, height=1080):
+def render_scenes(root, scenes, width=1920, height=1080, song=None):
     """Render sequentially to bound RAM; each clip covers exactly five seconds."""
     root=Path(root)
     work=root/'motion'
     work.mkdir(exist_ok=True)
-    from character_motion import cached_clip, verify_clip
+    from character_motion import cached_clip, verify_clip, clip_source
     from scene_actions import motion_prompt
     clips=[]
     for scene in scenes:
         index=scene['index']
-        source=root/f'scene-{index:03d}-source.png'
+        source=clip_source(root,song or {},index)
         target=work/f'clip-{index:03d}.mp4'
         with Image.open(source) as image:
             image.verify()
@@ -70,7 +70,7 @@ def render_animated(root, song):
     from pipeline import duration,validate_duration
     root=Path(root)
     identity=render_identity(root)
-    listing=render_scenes(root,song['scenes'])
+    listing=render_scenes(root,song['scenes'],song=song)
     from thumbnail_export import export_thumbnail
     export_thumbnail(root/'thumbnail-source.png',root/'thumbnail.jpg')
     temp=root/'video.tmp.mp4'

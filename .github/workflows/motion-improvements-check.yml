@@ -1,0 +1,42 @@
+name: Camera background and multiple-character render checks
+on:
+  push:
+    branches: [main]
+    paths:
+      - scene_actions.py
+      - character_motion.py
+      - test_scene_actions.py
+      - test_character_motion.py
+      - demos/motion-improvements/**
+      - .github/workflows/motion-improvements-check.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  render-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install video test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          pip install -r requirements.txt
+      - name: Run component and motion regression tests
+        run: python -m unittest -v
+      - name: Render and decode-check landscape and portrait scenes
+        run: python demos/motion-improvements/render.py --assets demos/motion-improvements/assets
+      - uses: actions/upload-artifact@v4
+        with:
+          name: motion-improvements-review-${{ github.run_id }}
+          path: output/motion-improvements/review/
+          if-no-files-found: error
+          retention-days: 7

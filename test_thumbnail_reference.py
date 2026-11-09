@@ -7,76 +7,55 @@ import unittest
 from unittest.mock import Mock, patch
 from PIL import Image
 import image_cpu
-from song_images import thumbnail_reference
 import test_kids_rhymes
-from song_images import image_plan, generate_song_images
+from song_images import image_plan,generate_song_images,plan_shard
+from test_episode_packaging import fixture_package
 
 
 class ThumbnailReferenceTests(unittest.TestCase):
     def song(self):
-        fixture=test_kids_rhymes.KidsTests()
-        fixture.setUp()
-        try:
-            return fixture.song(480)
-        finally:
-            fixture.doCleanups()
+        fixture=test_kids_rhymes.KidsTests();fixture.setUp()
+        try:return fixture.song(240)
+        finally:fixture.doCleanups()
 
-    def test_only_thumbnail_uses_reference_and_strength_changes_only_its_cache(self):
-        song=self.song()
-        with patch.dict(os.environ,THUMBNAIL_DENOISE_STRENGTH='0.50'):
-            first=image_plan(song)
-        with patch.dict(os.environ,THUMBNAIL_DENOISE_STRENGTH='0.6'):
-            second=image_plan(song)
-        self.assertEqual(first[:-1],second[:-1])
-        self.assertNotEqual(first[-1],second[-1])
-        self.assertTrue(all('reference_image' not in p for p in first[:-1]))
-        self.assertEqual(first[-1]['kind'],'thumbnail')
-        self.assertIn('3D storybook',first[-1]['prompt'][:80])
+    def test_thumbnail_references_its_own_episode_scene_not_external_pool(self):
+        song=self.song();song.pop('song_form');song['packaging']=fixture_package(song,anchor=18)
+        plans=image_plan(song);thumbnail=plans[-1]
+        self.assertEqual(thumbnail['reference_scene'],'scene-018')
+        self.assertNotIn('reference_image',thumbnail)
+        self.assertIn(song['scenes'][18]['prompt'],thumbnail['prompt'])
+        self.assertEqual(plan_shard(thumbnail,len(plans)-1,16),18%16)
+        self.assertTrue(all('reference_scene' not in p for p in plans[:-1]))
+        with patch.dict(os.environ,IMAGE_VARIANT='portrait'):
+            self.assertTrue(all('reference_scene' not in p for p in image_plan(song)))
 
-    def test_pool_selection_is_stable_for_retry_and_varies_across_generations(self):
-        from song_images import THUMBNAIL_REFERENCES
-        expected = {str(p.relative_to(Path(__file__).resolve().parent)) for p in THUMBNAIL_REFERENCES}
-        selected = set()
-        with patch.dict(os.environ, clear=True):
-            for index in range(100):
-                with patch.dict(os.environ, SONG_RUN_ID=f'kids-{index}'):
-                    first = thumbnail_reference('same-song')
-                    self.assertEqual(first, thumbnail_reference('same-song'))
-                    self.assertEqual(first['strength'], .50)
-                    selected.add(first['reference_image'])
-            self.assertEqual(selected, expected)
-            self.assertEqual(len(expected), 5)
-
-    def test_changed_reference_content_changes_cache_identity(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            path=Path(tmp)/'reference.png'
-            with patch.dict(os.environ,THUMBNAIL_REFERENCE_IMAGE=str(path)):
-                Image.new('RGB',(32,18),'red').save(path)
-                first=thumbnail_reference()
-                Image.new('RGB',(32,18),'blue').save(path)
-                self.assertNotEqual(first['reference_sha256'],thumbnail_reference()['reference_sha256'])
-
-    def test_invalid_or_missing_reference_fails_explicitly(self):
-        for value in ('0','-1','1.1','nan'):
-            with patch.dict(os.environ,THUMBNAIL_DENOISE_STRENGTH=value):
-                with self.assertRaises(ValueError):
-                    thumbnail_reference()
-        with patch.dict(os.environ,THUMBNAIL_REFERENCE_IMAGE='/missing/thumbnail-reference.png'):
-            with self.assertRaises(FileNotFoundError):
-                thumbnail_reference()
-
-    def test_generator_routes_reference_without_changing_scene_calls(self):
-        song=self.song()
+    def test_sharded_thumbnail_waits_for_local_anchor_and_retries_use_cache(self):
+        song=self.song();song.pop('song_form');song['packaging']=fixture_package(song,anchor=18)
         def worker(prompt,target,**kwargs):
+            if 'reference_image' in kwargs:
+                self.assertEqual(kwargs['reference_image'].name,'scene-018-source.png')
+                self.assertTrue(kwargs['reference_image'].exists())
             Image.new('RGB',(32,18),'pink').save(target)
         with tempfile.TemporaryDirectory() as tmp,patch('image_cpu.generate',side_effect=worker) as generate:
+            for shard in range(16):
+                with patch.dict(os.environ,IMAGE_SHARD=str(shard),IMAGE_SHARDS='16'):
+                    generate_song_images(tmp,song)
+                    before=generate.call_count
+                    generate_song_images(tmp,song)
+                    self.assertEqual(before,generate.call_count)
+            self.assertEqual(generate.call_count,len(song['scenes'])+1)
+            refs=[c for c in generate.call_args_list if 'reference_image' in c.kwargs]
+            self.assertEqual(len(refs),1)
+
+    def test_changed_anchor_pixels_invalidate_only_thumbnail_cache(self):
+        song=self.song()
+        def worker(prompt,target,**kwargs):Image.new('RGB',(32,18),'pink').save(target)
+        with tempfile.TemporaryDirectory() as tmp,patch('image_cpu.generate',side_effect=worker) as generate:
+            generate_song_images(tmp,song);before=generate.call_count
+            Image.new('RGB',(32,18),'blue').save(Path(tmp)/'scene-000-source.png')
             generate_song_images(tmp,song)
-            calls=generate.call_args_list
-            self.assertTrue(all('reference_image' not in call.kwargs for call in calls[:-1]))
-            self.assertTrue(calls[-1].kwargs['reference_image'].exists())
-            self.assertEqual(calls[-1].kwargs['strength'],.50)
-            generate_song_images(tmp,song)
-            self.assertEqual(generate.call_count,len(calls))
+            self.assertEqual(generate.call_count,before+1)
+            self.assertIn('reference_image',generate.call_args.kwargs)
 
     def test_img2img_shares_weights_resizes_reference_and_checks_safety(self):
         torch=types.SimpleNamespace(set_num_threads=Mock(),Generator=Mock())

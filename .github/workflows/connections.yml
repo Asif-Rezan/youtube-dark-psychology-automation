@@ -22,18 +22,3 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - run: python verify_connections.py
-      - name: Verify Facebook Page connection without publishing
-        if: vars.FACEBOOK_PUBLISH_ENABLED == 'true'
-        env:
-          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
-        run: |
-          python - <<'PYFB'
-          import os
-          from facebook_publish import Facebook, FacebookError, PAGE_ID
-          try:
-              Facebook(os.getenv('FACEBOOK_PAGE_ACCESS_TOKEN')).verify_page()
-          except FacebookError as error:
-              print(str(error))
-              raise SystemExit(1)
-          print('Facebook Page verified: ' + PAGE_ID + '; uploads performed: false')
-          PYFB

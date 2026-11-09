@@ -1,0 +1,39 @@
+name: Toddlers and animals dance preview
+on:
+  push:
+    branches: [demo/dudi-character-motion]
+    paths: [demos/toddler-dance/**, .github/workflows/toddler-dance-preview.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dance-preview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      OMP_NUM_THREADS: '4'
+      CUDA_VISIBLE_DEVICES: ''
+      HF_HUB_DISABLE_XET: '1'
+      HF_HUB_DISABLE_IMPLICIT_TOKEN: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install production CPU artwork and motion runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          pip install torch==2.10.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt -r requirements-images-cpu.txt -r requirements-motion-cpu.txt
+      - name: Generate unchanged-style artwork and render dance
+        run: python -u demos/toddler-dance/preview.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: toddler-animal-dance-preview
+          path: output/toddler-dance-preview/
+          if-no-files-found: error
+          retention-days: 7

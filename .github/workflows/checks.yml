@@ -11,8 +11,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install audio tools for regression tests
-        timeout-minutes: 10
-        run: bash scripts/install-runner-packages.sh ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: pip install -r requirements.txt
       - run: python -m unittest -v
       - name: Verify bounded CPU worker on real Linux cgroups

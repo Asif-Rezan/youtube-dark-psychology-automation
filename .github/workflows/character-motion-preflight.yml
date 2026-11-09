@@ -1,0 +1,62 @@
+name: Automatic character motion preflight
+on:
+  push:
+    branches: [demo/dudi-character-motion]
+    paths: [character_motion.py, requirements-motion-cpu.txt, .github/workflows/character-motion-preflight.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  automatic-motion:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      OMP_NUM_THREADS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          pip install torch==2.10.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements-motion-cpu.txt pillow numpy
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '41254581826'
+          name: generated-artwork-41254581826-0
+          path: output/source-scenes
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: '41254581826'
+          name: short-artwork-41254581826-0
+          path: output/source-portraits
+      - name: Test automatic extraction, inpainting and motion on the actual source
+        run: |
+          python -u - <<'PY'
+          from pathlib import Path
+          from character_motion import render_clip
+          root=Path('output/automatic-character-preflight')
+          root.mkdir(parents=True,exist_ok=True)
+          source=Path('demos/dudi-motion/assets/original-scene.png')
+          render_clip(source,root/'automatic-rabbit.mp4',1280,720,0,'A fluffy rabbit hops in a flower garden')
+          source=next(Path('output/source-scenes').rglob('scene-016-source.png'))
+          render_clip(source,root/'automatic-second-scene.mp4',1280,720,16,'A bunny moves in a sunny meadow')
+          source=next(Path('output/source-portraits').rglob('scene-000-source.png'))
+          render_clip(source,root/'automatic-portrait.mp4',540,960,0,'A hare dances in a storybook scene')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: automatic-character-preflight
+          path: |
+            output/automatic-character-preflight/
+            demos/dudi-motion/assets/characters/
+            output/source-scenes/**/characters/
+            output/source-portraits/**/characters/
+          if-no-files-found: error
+          retention-days: 7

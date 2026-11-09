@@ -2,38 +2,14 @@
 import hashlib
 import json
 import os
-import random
 from pathlib import Path
 from PIL import Image
 from image_cpu import MODEL, REVISION
 
 
-THUMBNAIL_REFERENCE = Path(__file__).resolve().parent/'assets/thumbnail/kids-dance-reference.png'
-
-THUMBNAIL_REFERENCES = (
-    THUMBNAIL_REFERENCE,
-    THUMBNAIL_REFERENCE.parent/'rose-garden.jpg',
-    THUMBNAIL_REFERENCE.parent/'flower-dance.jpg',
-    THUMBNAIL_REFERENCE.parent/'animal-costumes.jpg',
-    THUMBNAIL_REFERENCE.parent/'rainbow-party.jpg',
-)
-
-
-def thumbnail_reference(identity='',design=None):
-    override = os.getenv('THUMBNAIL_REFERENCE_IMAGE')
-    # Stable pseudo-random selection: shards and retries of the same generation agree.
-    selection_seed = os.getenv('SONG_RUN_ID', '') + ':' + identity
-    path = Path(override) if override else (THUMBNAIL_REFERENCES[design['reference_index']] if design else random.Random(selection_seed).choice(THUMBNAIL_REFERENCES))
-    if not path.is_absolute():
-        path = Path(__file__).resolve().parent/path
-    strength = float(os.getenv('THUMBNAIL_DENOISE_STRENGTH', '0.50'))
-    if not 0 < strength <= 1:
-        raise ValueError('Thumbnail strength must be greater than zero and at most one')
-    with Image.open(path) as image:
-        image.verify()
-    root = Path(__file__).resolve().parent
-    return dict(reference_image=str(path.relative_to(root)) if path.is_relative_to(root) else str(path),
-                reference_sha256=hashlib.sha256(path.read_bytes()).hexdigest(), strength=strength)
+def plan_shard(plan, index, count):
+    # The thumbnail shares its anchor scene's worker, so its reference is local.
+    return int(plan['reference_scene'].split('-')[1]) % count if plan['kind']=='thumbnail' else index % count
 
 
 def image_plan(song):
@@ -57,9 +33,17 @@ def image_plan(song):
                     ' Keep characters and lyric props visible, no borders or panels.')
                    for kind, prompt in entries]
     else:
-        from thumbnail_variety import next_design, prompt_for, reference_prompt
-        design=song.get('thumbnail_design') or next_design(song,os.getenv('SONG_RUN_ID',identity),[])
-        entries.append(('thumbnail',reference_prompt(design) if song.get('thumbnail_design') else prompt_for(song,design)))
+        package=song.get('packaging')
+        if package:
+            from episode_packaging import validate_package
+            validate_package(package,song)
+        anchor=package['thumbnail']['scene_index'] if package else 0
+        focus=package['thumbnail']['focus'] if package else 'Emphasize the joyful interaction already shown in this scene.'
+        scene=song['scenes'][anchor]
+        entries.append(('thumbnail',
+            'Cute 3D storybook thumbnail. Two human toddlers and cute baby animals, expressive faces, '
+            'clear separate silhouettes. '+focus+' Same cast and natural setting: '+scene['prompt']+
+            ' Simple mobile-readable composition, no text, no borders.'))
     plans = [dict(kind=kind, prompt=prompt, seed=int(hashlib.sha256((identity+kind).encode()).hexdigest()[:8],16),
         model=MODEL, revision=REVISION, width=int(os.getenv('CPU_IMAGE_WIDTH','576' if portrait else '1024')),
         height=int(os.getenv('CPU_IMAGE_HEIGHT','1024' if portrait else '576')), steps=int(os.getenv('CPU_IMAGE_STEPS','16')),
@@ -69,10 +53,7 @@ def image_plan(song):
         thumbnail.update(width=int(os.getenv('THUMBNAIL_IMAGE_WIDTH','1344')),
                          height=int(os.getenv('THUMBNAIL_IMAGE_HEIGHT','768')),
                          steps=int(os.getenv('THUMBNAIL_IMAGE_STEPS','20')),
-                         visual_style='dudi-varied-thumbnail-v2', **thumbnail_reference(identity,song.get("thumbnail_design")))
-        if song.get('thumbnail_design'):
-            thumbnail['design']=song['thumbnail_design']
-            thumbnail['conditioning']='reference-image'
+                         visual_style='episode-scene-thumbnail-v2', reference_scene=f'scene-{anchor:03d}', strength=0.35)
         w,h,steps=thumbnail['width'],thumbnail['height'],thumbnail['steps']
         if (w%8 or h%8 or not 256<=w<=1536 or not 256<=h<=1536
                 or abs(w/h-16/9)>.1 or not 1<=steps<=50):
@@ -93,35 +74,30 @@ def generate_song_images(root, song):
     previous = json.loads(manifest.read_text()) if manifest.exists() else {}
     completed = {}
     for i, plan in enumerate(image_plan(song)):
-        if i % count != shard:
+        if plan_shard(plan,i,count) != shard:
             continue
         kind = plan['kind']
         target = root/f'{kind}-source.png'
+        if 'reference_scene' in plan:
+            reference=root/f"{plan['reference_scene']}-source.png"
+            with Image.open(reference) as image:
+                image.verify()
+            plan=dict(plan,reference_sha256=hashlib.sha256(reference.read_bytes()).hexdigest())
         valid = False
         if previous.get(kind) == plan and target.exists():
             try:
                 with Image.open(target) as im:
                     im.verify()
                 valid = True
-                if kind=='thumbnail' and song.get('thumbnail_design'):
-                    receipt=json.loads((root/'thumbnail-design.json').read_text())
-                    valid=receipt.get('source_sha256')==hashlib.sha256(target.read_bytes()).hexdigest()
             except (OSError,ValueError):
                 pass
         if not valid:
             temporary = target.with_suffix('.tmp.png')
             reference_options = {}
-            if 'reference_image' in plan:
-                reference = Path(plan['reference_image'])
-                if not reference.is_absolute():
-                    reference = Path(__file__).resolve().parent/reference
-                reference_options = dict(reference_image=reference, strength=plan['strength'])
-            if kind=='thumbnail' and song.get('thumbnail_design'):
-                from thumbnail_variety import generate_distinct
-                generate_distinct(temporary,plan,song,generate,reference_options)
-            else:
-                generate(plan['prompt'], temporary, seed=plan['seed'], allow_text=False,
-                         width=plan['width'], height=plan['height'], steps=plan['steps'], **reference_options)
+            if 'reference_scene' in plan:
+                reference_options=dict(reference_image=root/f"{plan['reference_scene']}-source.png",strength=plan['strength'])
+            generate(plan['prompt'], temporary, seed=plan['seed'], allow_text=False,
+                     width=plan['width'], height=plan['height'], steps=plan['steps'], **reference_options)
             with Image.open(temporary) as im:
                 im.verify()
             temporary.replace(target)

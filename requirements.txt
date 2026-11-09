@@ -3,13 +3,11 @@ huggingface-hub>=0.34,<2
 Pillow>=11,<13
 google-api-python-client>=2.170,<3
 google-auth>=2.40,<3
-google-auth-httplib2>=0.2,<1
 numpy>=1.26,<3
 google-auth-oauthlib>=1.2,<2
 
 cryptography>=44,<47
 jsonschema>=4.23,<5
-PyYAML>=6.0.2,<7
 
-# Character silhouettes and conservative facial landmarks.
+# Connected character silhouettes and conservative facial landmarks.
 scipy>=1.14,<2

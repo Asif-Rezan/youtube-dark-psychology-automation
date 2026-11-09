@@ -1,0 +1,57 @@
+name: Recover failed Shorts audio checkpoint
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Failed generation with saved input and native Shorts audio artifacts
+        type: string
+        default: '41435464795'
+        required: true
+      run_id:
+        description: Saved episode identity
+        type: string
+        default: kids-20261102-dce5adf7
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: music-input-${{ inputs.source_run }}
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: output/
+      - uses: actions/download-artifact@v4
+        with:
+          name: short-music-${{ inputs.source_run }}
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: output/
+      - name: Recover original checkpoint without AI inference or publication
+        env:
+          SONG_RUN_ID: ${{ inputs.run_id }}
+        run: python -u demos/audio-continuity/regression.py --run-id "$SONG_RUN_ID"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audio-continuity-regression-${{ github.run_id }}
+          path: |
+            output/audio-continuity-regression.json
+            output/*/short-audio/*/song.wav
+            output/*/short-audio/*/music-state.json
+          retention-days: 7

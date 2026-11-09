@@ -110,11 +110,11 @@ def synthesize(song, target, source, model_root):
         raise RuntimeError('ACE-Step CPU initialization failed')
     params = Params(caption=song['prompt'], lyrics=song['lyrics'],
         duration=song['duration'], bpm=song.get('bpm'), reference_audio=reference_audio(), vocal_language='en', instrumental=False,
-        inference_steps=8, thinking=False, use_cot_metas=False,
+        inference_steps=inference_steps(), thinking=False, use_cot_metas=False,
         use_cot_caption=False, use_cot_language=False)
     config = Config(batch_size=1, audio_format='wav', allow_lm_batch=False)
     print(json.dumps({'phase':'synthesizing music', 'device':'cpu',
-        'duration':song['duration'], 'steps':8}), flush=True)
+        'duration':song['duration'], 'steps':inference_steps()}), flush=True)
     with torch.inference_mode(), generation_progress():
         result = infer(handler, None, params, config, save_dir=str(target.parent/'cpu-audio'))
     if not result.success or not result.audios:
@@ -126,6 +126,14 @@ def synthesize(song, target, source, model_root):
     shutil.copyfile(audio, temporary)
     temporary.replace(target)
     print(json.dumps({'phase':'music ready', 'duration':duration(target), 'device':'cpu'}), flush=True)
+
+
+def inference_steps():
+    """The pinned turbo checkpoint is distilled for 8 steps; allow bounded tuning."""
+    steps = int(os.getenv('ACESTEP_INFERENCE_STEPS', '8'))
+    if not 1 <= steps <= 20:
+        raise ValueError('ACESTEP_INFERENCE_STEPS must be 1-20 for the turbo model')
+    return steps
 
 
 def reference_audio():

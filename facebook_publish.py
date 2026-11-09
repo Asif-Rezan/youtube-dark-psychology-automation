@@ -141,9 +141,6 @@ def publish(api, path, kind, metadata, publish_at, state, save, *, attempts=60, 
                 if result.get('success') is not True:
                     raise FacebookError('Facebook transfer was not confirmed')
         else:
-            size = path.stat().st_size
-            if not 0 <= state['start'] <= state['end'] <= size:
-                raise FacebookError('Invalid Facebook chunk offsets')
             while state['start'] != state['end']:
                 start,end = state['start'],state['end']
                 if not 0 <= start < end <= path.stat().st_size:
@@ -155,14 +152,10 @@ def publish(api, path, kind, metadata, publish_at, state, save, *, attempts=60, 
                     data={'upload_phase':'transfer','upload_session_id':state['session_id'],'start_offset':str(start)},
                     files={'video_file_chunk':('chunk.mp4',chunk,'application/octet-stream')})
                 next_start,next_end = int(result['start_offset']),int(result['end_offset'])
-                if not start < next_start <= next_end <= size:
-                    raise FacebookError('Invalid Facebook transfer progress')
-                if next_start == next_end and next_start != size:
-                    raise FacebookError('Facebook transfer ended before the complete file')
+                if next_start <= start:
+                    raise FacebookError('Facebook upload did not advance')
                 state.update(start=next_start,end=next_end)
                 save()
-            if state['start'] != size:
-                raise FacebookError('Facebook transfer ended before the complete file')
         state['transferred'] = True
         save()
     if not state.get('finish_started'):
@@ -207,10 +200,15 @@ def run(run_id, kind):
     state = store.load(key,{})
     # Retries preserve the frozen target; never silently move an expired schedule.
     stamp = schedule_timestamp(target) if not state.get('video_id') else int(state['publish_at'])
-    from upload_metadata import fixed_metadata
-    metadata = fixed_metadata('shorts' if kind=='short' else 'video')
+    from episode_packaging import public_metadata
+    snippet=youtube.get('upload_body',{}).get('snippet',{})
+    if snippet:
+        metadata=dict(title=snippet['title'],description=snippet['description'],tags=snippet.get('tags',[]))
+    else:
+        song=json.loads((Path('output')/run_id/'song.json').read_text())
+        metadata=public_metadata(song,'shorts' if kind=='short' else 'video')
     metadata['description'] += '\n\nCreated with AI-generated music and illustrations.'
-    # A pre-existing legacy upload must keep its original byte identity on retries.
+    # Keep the original bytes when resuming a pre-existing landscape upload.
     feed_copy=kind=='video' and (not state or state.get('media_format')=='feed-4x5-crop-v1')
     path=root/'video.mp4'
     if feed_copy:

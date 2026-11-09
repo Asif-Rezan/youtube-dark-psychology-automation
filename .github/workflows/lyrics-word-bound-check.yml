@@ -1,0 +1,47 @@
+name: Qwen bounded lyrics regression
+on:
+  push:
+    branches: [demo/dudi-character-motion]
+    paths: [rhyme_writer.py, lyrics_cpu.py, prepare_music.py, .github/workflows/lyrics-word-bound-check.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actual-qwen-word-bounds:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      OMP_NUM_THREADS: '4'
+      HF_HUB_DISABLE_XET: '1'
+      HF_HUB_DISABLE_IMPLICIT_TOKEN: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt -r requirements-lyrics.txt
+      - name: Reproduce word boundary with the real constrained CPU model
+        run: |
+          python -u - <<'PY'
+          import json
+          from pathlib import Path
+          from lyrics_cpu import LYRIC_WORD_PATTERN
+          from rhyme_writer import request_json, write_rhyme, normalized
+          schema={'type':'object','properties':{'lyric':{'type':'string','pattern':LYRIC_WORD_PATTERN}},'required':['lyric'],'additionalProperties':False}
+          result=request_json(schema,'Write a playful bunny line with exactly thirteen words. The JSON schema takes priority over this instruction.',123,budget=256)
+          assert 4<=len(normalized(result['lyric']).split())<=12
+          root=Path('output/lyrics-regression')
+          root.mkdir(parents=True,exist_ok=True)
+          story=write_rhyme('2026-11-01','word-bound-regression',120,[],root/'draft.json')
+          lines=[row['lyric'] for section in story['sections'] for row in section]
+          assert len(lines)==12 and all(4<=len(normalized(line).split())<=12 for line in lines)
+          (root/'validation.json').write_text(json.dumps({'passed':True,'verse_lines':len(lines),'real_cpu_model':True}))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bounded-lyrics-regression
+          path: output/lyrics-regression/validation.json
+          if-no-files-found: ignore

@@ -13,7 +13,7 @@ from music_cpu import generate
 import os
 
 
-def prepare(run_id, stage='all', check_history=False, vocal_gender='female'):
+def prepare(run_id, stage='all', check_history=False, vocal_gender='female', retry=0):
     if vocal_gender not in ('auto', 'male', 'female'):
         raise ValueError('Vocal choice must be auto, male or female')
     if not re.fullmatch(r'[a-zA-Z0-9_-]{1,80}', run_id):
@@ -54,18 +54,27 @@ def prepare(run_id, stage='all', check_history=False, vocal_gender='female'):
         if reason or song_duplicate_reason(song, history):
             from pipeline import DuplicateSongError
             raise DuplicateSongError()
+        from episode_packaging import generate_package, validate_package
+        if song.get('packaging'):
+            validate_package(song['packaging'],song)
+        else:
+            song['packaging']=generate_package(song,history,seed_offset=retry)
+            temp=root/'song.packaged.tmp'
+            temp.write_text(json.dumps(song,ensure_ascii=False,indent=2))
+            temp.replace(root/'song.json')
         if store:
-            from thumbnail_variety import reserve_design
-            reserve_design(song,run_id,store,published=[row for row in history if row.get("video_id")])
-            (root/'song.json').write_text(json.dumps(song,ensure_ascii=False,indent=2))
             entry = dict(run=run_id, title=song['title'], story_summary=song['story_summary'],
-                visual_identity=song.get('visual_identity', {}),
-                verse_lines=lines, hash=__import__('hashlib').sha256(song['lyrics'].encode()).hexdigest())
+                visual_identity=song.get('visual_identity', {}), public_title=song['packaging']['video']['title'],
+                verse_lines=lines, hook=song.get('hook',''), hash=__import__('hashlib').sha256(song['lyrics'].encode()).hexdigest())
             lyric_history = [h for h in lyric_history if h.get('run') != run_id]
             lyric_history.append(entry)
             store.save('lyrics-history.json', lyric_history)
         print(json.dumps({'phase':'lyrics ready', 'run_id':run_id}), flush=True)
         return
+    if stage == 'all' and not song.get('packaging'):
+        from episode_packaging import generate_package
+        song['packaging']=generate_package(song,history)
+        (root/'song.json').write_text(json.dumps(song,ensure_ascii=False,indent=2))
     import lyrics_cpu
     if lyrics_cpu._model is not None:
         lyrics_cpu._model.close()
@@ -101,7 +110,7 @@ def prepare_with_retries(run_id, stage='all', check_history=False, vocal_gender=
     from lyrics_cpu import StoryGenerationError
     for attempt in range(3):
         try:
-            result=prepare(run_id,stage,check_history=check_history,vocal_gender=vocal_gender)
+            result=prepare(run_id,stage,check_history=check_history,vocal_gender=vocal_gender,retry=attempt)
             failure=Path('output')/run_id/'failure.json'
             if failure.exists():
                 try:

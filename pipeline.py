@@ -21,7 +21,6 @@ PUBLICATION_CONFIGURATION = ('EXPECTED_CHANNEL_ID', 'YOUTUBE_TOKEN_JSON', 'DRIVE
 
 
 def validate_publication_configuration():
-    """Fail before network calls, local writes, inference or upload."""
     for name in PUBLICATION_CONFIGURATION:
         required(name)
 
@@ -30,21 +29,9 @@ def pipeline_failure_message(error):
     if isinstance(error, DuplicateSongError):
         return ('Pipeline failed [duplicate_song]: lyrics or title already published. '
                 'Create a fresh song with a new run ID; do not retry duplicate media.')
-    from thumbnail_variety import ThumbnailSimilarityError
-    if isinstance(error, ThumbnailSimilarityError):
-        return 'Pipeline failed [thumbnail_similarity]: ' + str(error)
-    from audio_mastering import AudioGapError
-    if isinstance(error,AudioGapError):
-        return f'Pipeline failed [audio_{error.code}]: {error}'
     from lyrics_cpu import StoryGenerationError
     if isinstance(error,StoryGenerationError):
         return 'Pipeline failed ['+error.code+']: '+str(error)+' Details: '+json.dumps(error.details,sort_keys=True)
-    if type(error) is RuntimeError and str(error) in {
-            'Missing configuration: ' + name for name in PUBLICATION_CONFIGURATION}:
-        name = str(error).split(': ', 1)[1]
-        return ('Pipeline failed [configuration_missing]: ' + name +
-                ' is empty. Check repository secrets/variables and workflow bindings. '
-                'Start recovery on current main with the original run ID; rerunning an old job uses its old code.')
     # Only expose exact, locally authored messages; API bodies may contain secrets.
     safe_errors = {
         'Wrong YouTube channel; select Dudi Dam TV',
@@ -55,6 +42,9 @@ def pipeline_failure_message(error):
         'Paid placement disclosure mismatch', 'Scheduled time mismatch',
         'YouTube did not retain requested visibility',
         'Wrong Drive account',
+        'DRIVE_FOLDER_ID must identify an accessible active folder',
+        'Configured Drive folder must belong to the authenticated account',
+        'Multiple kids rhyme folders require reconciliation',
         'DRIVE_FOLDER_ID is required for this separate channel',
         'DRIVE_FOLDER_ID must identify the dedicated Dudi Dam TV folder',
         'Workflow storage must be private to its owner',
@@ -119,10 +109,12 @@ def validate_song(song):
     if len(song['title']) > 100 or len(song['description']) > 4400:
         raise ValueError('YouTube metadata too long')
     song['lyrics'] = normalize_lyrics(song['lyrics'])
-    if 'dudi dudi dam dam dudi dudi dam' not in song['lyrics'].lower():
-        raise ValueError('Dudi refrain required')
-    if not 480 <= song.get('duration', 0) <= 720:
-        raise ValueError('Song must be 480-720 seconds')
+    hook = song.get('hook') or 'dudi dudi dam dam dudi dudi dam'
+    if hook.lower() not in song['lyrics'].lower():
+        raise ValueError('Episode chorus hook required')
+    from kids_rhymes import MIN_SECONDS, MAX_SECONDS
+    if not MIN_SECONDS <= song.get('duration', 0) <= MAX_SECONDS:
+        raise ValueError('Song must be 180-300 seconds')
     if 'tags' in song and (not isinstance(song['tags'], list) or
             not all(isinstance(tag, str) and 0 < len(tag.strip()) <= 40 for tag in song['tags'])):
         raise ValueError('Invalid song tags')
@@ -147,8 +139,9 @@ def duration(path):
 
 
 def validate_duration(seconds):
-    if not 480 <= seconds <= 720:
-        raise ValueError('Measured song/video duration outside 8-12 minutes')
+    from kids_rhymes import MIN_SECONDS, MAX_SECONDS
+    if not MIN_SECONDS <= seconds <= MAX_SECONDS:
+        raise ValueError('Measured song/video duration outside 3-5 minutes')
 
 
 def render(root):
@@ -159,56 +152,13 @@ def render(root):
 def youtube_client():
     from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
-    from google_auth_httplib2 import AuthorizedHttp
-    expected = required('EXPECTED_CHANNEL_ID')
-    credentials = Credentials.from_authorized_user_info(json.loads(required('YOUTUBE_TOKEN_JSON')))
-    # httplib2's default socket timeout is too short for 8 MiB upload chunks on
-    # shared Actions runners; a slow response must not abort the whole publish.
-    http = AuthorizedHttp(credentials, http=youtube_http_transport())
-    client = build('youtube', 'v3', http=http, cache_discovery=False)
+    client = build('youtube', 'v3', credentials=Credentials.from_authorized_user_info(
+        json.loads(required('YOUTUBE_TOKEN_JSON'))), cache_discovery=False)
     items = client.channels().list(part='id,snippet', mine=True).execute().get('items', [])
+    expected = required('EXPECTED_CHANNEL_ID')
     if len(items) != 1 or items[0]['id'] != expected:
         raise RuntimeError('Wrong YouTube channel; select Dudi Dam TV')
     return client
-
-
-YOUTUBE_HTTP_TIMEOUT = 300
-UPLOAD_CHUNK_ATTEMPTS = 8
-
-
-def youtube_http_transport():
-    """Keep Google's resumable-upload response handling with our longer timeout."""
-    from googleapiclient.http import build_http
-    # Google's factory excludes 308 from httplib2 redirects: YouTube uses it
-    # for Resume Incomplete, without a Location header. A bare Http() breaks
-    # every multi-chunk upload with RedirectMissingLocation.
-    http = build_http()
-    http.timeout = YOUTUBE_HTTP_TIMEOUT
-    return http
-
-
-def upload_resumable(request, attempts=UPLOAD_CHUNK_ATTEMPTS, sleep=time.sleep):
-    """Finish a resumable upload, resuming the same session after transient failures.
-
-    googleapiclient's own num_retries does not cover a raw socket read timeout,
-    which previously killed the job mid-upload. The request object keeps its
-    resumable session URI, so retrying next_chunk() continues the same upload
-    and cannot create a duplicate video.
-    """
-    from storage import drive_transient
-    result, failures = None, 0
-    while result is None:
-        try:
-            _, result = request.next_chunk(num_retries=5)
-            failures = 0
-        except Exception as error:
-            failures += 1
-            if not drive_transient(error) or failures >= attempts:
-                raise
-            print(json.dumps({'check': 'YouTube upload chunk', 'retry': failures,
-                'error_type': type(error).__name__}), flush=True)
-            sleep(min(2 ** failures, 60))
-    return result
 
 
 def publish(client, root, song, state, save, upload_thumbnail=True, metadata_kind="video"):
@@ -218,11 +168,8 @@ def publish(client, root, song, state, save, upload_thumbnail=True, metadata_kin
             raise RuntimeError('Ambiguous upload; reconcile YouTube before retry to avoid duplicates')
         from upload_settings import load_settings, upload_body
         settings = load_settings()
-        from upload_metadata import fixed_metadata
-        metadata = fixed_metadata(metadata_kind)
-        # Previous AI/story-based upload metadata (restore both lines to revert):
-        # state['upload_description'] = upload_description(song)
-        # state['upload_body'] = upload_body(song, state['upload_description'], metadata_tags(song), settings)
+        from episode_packaging import public_metadata
+        metadata = public_metadata(song,metadata_kind)
         state['upload_description'] = metadata['description']
         state['upload_settings'] = settings
         state['upload_body'] = upload_body(metadata, metadata['description'], metadata['tags'], settings)
@@ -231,11 +178,15 @@ def publish(client, root, song, state, save, upload_thumbnail=True, metadata_kin
         request = client.videos().insert(part='snippet,status,paidProductPlacementDetails',
             body=state['upload_body'], notifySubscribers=state['upload_settings']['notify_subscribers'],
             media_body=MediaFileUpload(str(root/'video.mp4'), resumable=True, chunksize=8*1024*1024))
-        result = upload_resumable(request)
+        result = None
+        while result is None:
+            _, result = request.next_chunk(num_retries=5)
         state['video_id'] = result['id']
         state['upload_completed_at'] = dt.datetime.now(dt.timezone.utc).isoformat()
         save()
     from upload_settings import schedule_uploaded_video
+    # One shared forty-minute processing budget leaves time for checkpoint
+    # artifacts within the 45-minute recovery job, including slow scheduling.
     deadline = time.monotonic() + 2400
     schedule_uploaded_video(client, state, save, deadline=deadline)
     if upload_thumbnail and not state.get('thumbnail_uploaded'):
@@ -272,7 +223,6 @@ def publish(client, root, song, state, save, upload_thumbnail=True, metadata_kin
 def run(run_id, defer_drive_cleanup=False):
     if not re.fullmatch(r'[a-zA-Z0-9_-]{1,80}', run_id):
         raise ValueError('Invalid run ID')
-    validate_publication_configuration()
     root = Path('output')/run_id
     root.mkdir(parents=True, exist_ok=True)
     print(json.dumps({'phase':'verify publication accounts'}),flush=True)
@@ -325,14 +275,12 @@ def run(run_id, defer_drive_cleanup=False):
         with tarfile.open(root/'storyboard.tar.gz', 'w:gz') as archive:
             for path in sorted(root.glob('scene-*-source.png')) + sorted(root.glob('image-manifest-*.json')):
                 archive.add(path, arcname=path.name)
-        for name in ('render-state.json', 'storyboard.tar.gz', 'song.json', 'video.mp4', 'thumbnail.jpg', 'thumbnail-design.json', 'background-source.png', 'thumbnail-source.png', 'image-manifest.json'):
+        for name in ('render-state.json', 'storyboard.tar.gz', 'song.json', 'video.mp4', 'thumbnail.jpg', 'background-source.png', 'thumbnail-source.png', 'image-manifest.json'):
             if (root/name).exists():
                 print(json.dumps({'phase':'back up media','file':name}),flush=True)
                 store.upload(root/name, f'runs/{run_id}/{name}')
     elif not (root/'thumbnail.jpg').exists():
         store.download(store.find(f'runs/{run_id}/thumbnail.jpg'), root/'thumbnail.jpg')
-    from thumbnail_variety import record_thumbnail
-    record_thumbnail(store,root,run_id)
     print(json.dumps({'phase':'upload or verify YouTube video'}),flush=True)
     publish(client, root, song, state, save)
     if not any(h['run'] == run_id for h in history):

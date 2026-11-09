@@ -17,7 +17,8 @@ def fake_model(schema,prompt,seed,budget=2600):
             'visual_world':'A peach-colored seaside garden with shell paths and coral flowers.',
             'story_summary':'Duck and bunny discover a shiny seed and grow a magical garden together.',
             'description':'A playful English rhyme about duck and bunny planting a seed, caring for flowers and sharing kindness.',
-            'chapters':[f'Chapter {i}: find a friendly surprise in the garden' for i in range(count)]}
+            'chapters':[f'Chapter {i}: find a friendly surprise in the garden' for i in range(count)],
+            'chorus':['trumpa trumpa trumpa toot','stomp your feet and wave hello','trumpa trumpa trumpa toot','swing your trunk and turn around']}
     count=schema['properties']['verses']['minItems']
     # Distinct fixture words, varying with the model request seed.
     signature=''.join(chr(97+int(c,16)) for c in format(seed,'x'))

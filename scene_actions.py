@@ -9,7 +9,10 @@ import re
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-VERSION = 'scene-stories-v9-face-safe-effects'
+VERSION = 'scene-stories-v10-opening-hook-two-moves'
+OPENING_SCENES = 3  # first 15 seconds
+BODY_VARIANTS = ('wave', 'waist', 'step', 'hop', 'tummy', 'jelly', 'clap', 'penguin')
+SWITCH_AT = 2.5
 DANCE_VARIANTS = ('wave', 'waist', 'step', 'sway', 'hop', 'tummy', 'jelly', 'clap', 'penguin', 'balloons', 'fireflies', 'ripple_hop')
 
 
@@ -47,7 +50,10 @@ def plan_scene(prompt, index=0):
     tempo=re.search(r'\b(\d{2,3})\s*bpm\b',prompt,re.I)
     bpm=int(tempo.group(1)) if tempo else 100
     bpm=bpm if 30<=bpm<=300 else 100
+    # A second move halfway through gives every dance scene two distinct poses.
+    second=[v for v in BODY_VARIANTS if v!=variant][(seed>>8) % (len(BODY_VARIANTS)-1)]
     return dict(version=VERSION, kind=kind, prop=prop, action=action, dance_variant=variant,beat_seconds=60/bpm,
+                second_variant=second, opening=index<OPENING_SCENES,
                 direction=1 if index % 2 == 0 else -1,
                 beats=[dict(at=0., action='original_expression'), dict(at=.65, action='prop_enters'),
                        dict(at=1.35, action='look'), dict(at=2.1, action=action),
@@ -179,9 +185,15 @@ def camera_viewport(size, bounds, plan, t):
     mx,my=w*.025,h*.025
     # Limit zoom for edge-to-edge/tall/portrait compositions.
     desired=1+.035*smooth(t/5)+.045*state_at(plan,t)['reaction']
+    sway=w*.004*math.sin(t*.55)
+    if plan.get('opening'):
+        # Hook: a wide shot, then a hard punch-in cut at the half beat, with a livelier pan.
+        local=t-SWITCH_AT if t>=SWITCH_AT else t
+        desired=(1.18 if t>=SWITCH_AT else 1.0)+.06*smooth(local/SWITCH_AT)
+        sway=w*.02*math.sin(t*2.4)*(1 if t<SWITCH_AT else -1)
     zoom=max(1,min(desired,w/max(1,right-left+2*mx),h/max(1,bottom-top+2*my)))
     cw,ch=w/zoom,h/zoom
-    wanted_x=(left+right)/2-cw/2+w*.004*math.sin(t*.55)
+    wanted_x=(left+right)/2-cw/2+sway
     wanted_y=(top+bottom)/2-ch/2
     low_x=max(0,right+mx-cw);high_x=min(w-cw,left-mx)
     low_y=max(0,bottom+my-ch);high_y=min(h-ch,top-my)
@@ -210,7 +222,15 @@ def actor_profile(plan, ordinal, count):
     return dict(movement=movement,delay=ordinal*.22,phase=ordinal*1.7)
 
 
-def dance_body_motion(subject, t, phase=0., variant='hop', beat_seconds=.6):
+GAINS = {
+    'wave':(1.4,.15,.3),'waist':(.25,.15,1.5),
+    'step':(.3,1.4,.4),'sway':(.25,.15,.7),
+    'hop':(.7,.7,.6), 'tummy':(.45,.25,2.1), 'jelly':(.7,.6,1.),
+    'clap':(1.2,1.,.45), 'penguin':(.8,1.3,.6),
+}
+
+
+def dance_body_motion(subject, t, phase=0., variant='hop', beat_seconds=.6, second=None, energy=1.):
     """Small continuous image deformations, preserving the head and artwork.
 
     This is deliberately a gentle dance, not inferred joints: side regions wave,
@@ -222,12 +242,12 @@ def dance_body_motion(subject, t, phase=0., variant='hop', beat_seconds=.6):
     if ramp==0:
         return subject.copy()
     w,h=subject.size
-    arm_gain,leg_gain,waist_gain={
-        'wave':(1.4,.15,.3),'waist':(.25,.15,1.5),
-        'step':(.3,1.4,.4),'sway':(.25,.15,.7),
-        'hop':(.7,.7,.6), 'tummy':(.45,.25,2.1), 'jelly':(.7,.6,1.),
-        'clap':(1.2,1.,.45), 'penguin':(.8,1.3,.6),
-    }.get(variant,(.7,.7,.6))
+    first_gains=GAINS.get(variant,(.7,.7,.6))
+    mix=smooth((t-SWITCH_AT+.15)/.3) if second in GAINS else 0.
+    second_gains=GAINS.get(second,first_gains)
+    arm_gain,leg_gain,waist_gain=(energy*((1-mix)*a+mix*b) for a,b in zip(first_gains,second_gains))
+    if mix>.5:
+        variant=second
     beat=2*math.pi*t/beat_seconds+phase
     mesh=[]
     def point(x,y):
@@ -322,7 +342,8 @@ def compose_frame(bg, subject, bbox, plan, t, rig=None, camera=True, prop=True, 
     if movement=='dance':
         beat=2*math.pi*local_t/local_plan.get('beat_seconds',.6)+profile['phase']
         pulse=math.sin(beat)*smooth(local_t/.4)
-        lift+=min(h*.012,max(0,bbox[1]*.15))*(.5-.5*math.cos(beat))*smooth(local_t/.4)
+        bounce=2.2 if plan.get('opening') else 1.
+        lift+=min(h*.012*bounce,max(0,bbox[1]*.15))*(.5-.5*math.cos(beat))*smooth(local_t/.4)
         if local_plan['dance_variant']=='penguin':
             travel=min(w*.018,room_left,room_right)*pulse
     elif movement=='sway':
@@ -330,7 +351,8 @@ def compose_frame(bg, subject, bbox, plan, t, rig=None, camera=True, prop=True, 
     # Keep original sprite proportions: never squeeze, stretch or rotate dancers.
     actor=face_motion(subject,rig,state)
     if movement=='dance':
-        actor=dance_body_motion(actor,local_t,profile['phase'],local_plan['dance_variant'],local_plan.get('beat_seconds',.6))
+        actor=dance_body_motion(actor,local_t,profile['phase'],local_plan['dance_variant'],local_plan.get('beat_seconds',.6),
+                                second=plan.get('second_variant'),energy=1.5 if plan.get('opening') else 1.)
     if angle:
         actor=actor.rotate(angle,Image.Resampling.BICUBIC,expand=True)
     actor.thumbnail((w,h),Image.Resampling.BICUBIC)

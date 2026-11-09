@@ -41,7 +41,7 @@ class DriveCleanupTests(unittest.TestCase):
         cases = [('status', 'privacyStatus', 'private'), ('status', 'uploadStatus', 'failed'),
                  ('contentDetails', 'definition', 'sd'), ('processingDetails', 'processingStatus', 'processing'),
                  ('snippet', 'title', 'Wrong title'), ('snippet', 'channelId', 'other'),
-                 ('snippet', 'description', 'changed'), ('snippet', 'tags', ['other'])]
+                 ('snippet', 'description', 'changed')]
         for section, field, value in cases:
             self.video.clear()
             self.video.update(copy.deepcopy(original))
@@ -179,6 +179,26 @@ class DriveCleanupTests(unittest.TestCase):
         self.assertEqual(report['review'],[dict(run=self.run_id,reason='video_verification_mismatch',fields=['title'])])
         self.assertNotIn('An edited private title value',str(report))
         self.store.save.assert_not_called()
+        self.store.client.files().delete.assert_not_called()
+
+    def test_changed_or_missing_tags_do_not_retain_verified_public_media(self):
+        for tags in ([], ['other']):
+            with self.subTest(tags=tags):
+                self.video['snippet']['tags'] = tags
+                self.journal['deleted'] = []
+                self.store.client.files().delete.reset_mock()
+                cleanup(self.store, self.client, self.run_id, self.state)
+                self.store.client.files().delete.assert_called_once_with(fileId='file')
+
+    def test_changed_tags_never_bypass_private_or_foreign_video_checks(self):
+        self.video['snippet']['tags'] = []
+        self.video['status']['privacyStatus'] = 'private'
+        with self.assertRaises(CleanupNotEligible):
+            cleanup(self.store, self.client, self.run_id, self.state)
+        self.video['status']['privacyStatus'] = 'public'
+        self.video['snippet']['channelId'] = 'another-channel'
+        with self.assertRaises(CleanupNotEligible):
+            cleanup(self.store, self.client, self.run_id, self.state)
         self.store.client.files().delete.assert_not_called()
 
     def test_cleanup_uses_the_same_tag_normalization_as_upload_verification(self):

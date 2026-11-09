@@ -11,13 +11,13 @@ from rhyme_writer import VERSION
 
 def fixture_song():
     scenes=[]
-    for i in range(96):
+    for i in range(48):
         # Test data only; each original line remains distinguishable after normalization.
         suffix=chr(97+(i//2)//26)+chr(97+(i//2)%26)
         scenes.append(dict(index=i,start=i*5,end=(i+1)*5,
             lyric=REFRAIN if i%2 else f'Little {suffix} ducklings gather purple daisies',prompt='Friendly duckling and bunny exploring a bright flower garden'))
     return dict(title='A Brand New Daisy Adventure',description='Friendly ducklings discover bright flowers and learn to care for a gentle garden.',
-        prompt='Female nursery rhyme',duration=480,vocal_gender='female',story_summary='A duck and bunny plant daisies together.',
+        prompt='Female nursery rhyme',duration=240,vocal_gender='female',story_summary='A duck and bunny plant daisies together.',
         lyric_writer={'version':VERSION},scenes=scenes,lyrics='\n'.join(s['lyric'] for s in scenes))
 
 class PrepareOriginalTests(unittest.TestCase):
@@ -26,13 +26,15 @@ class PrepareOriginalTests(unittest.TestCase):
             old=os.getcwd();os.chdir(tmp)
             self.addCleanup(os.chdir,old)
             store=Mock(); store.load.return_value=[]
-            with patch('storage.Store',return_value=store),patch('prepare_music.make_song',return_value=fixture_song()) as writer,patch('prepare_music.generate') as music:
+            with patch('storage.Store',return_value=store),patch('prepare_music.make_song',return_value=fixture_song()) as writer,patch('prepare_music.generate') as music, patch('episode_packaging.generate_package', side_effect=lambda song,history,**_: __import__('test_episode_packaging').fixture_package(song)) as packager:
                 prepare('original-test',stage='lyrics',check_history=True)
+                prepare('original-test',stage='lyrics',check_history=True)
+                packager.assert_called_once()
                 music.assert_not_called()
                 writer.assert_called_once()
                 key,entries=store.save.call_args.args
                 self.assertEqual(key,'lyrics-history.json')
-                self.assertEqual(len(entries[0]['verse_lines']),48)
+                self.assertEqual(len(entries[0]['verse_lines']),24)
                 self.assertEqual(entries[0]['run'],'original-test')
                 saved=json.loads(Path('output/original-test/song.json').read_text())
                 self.assertEqual(saved['lyric_writer']['version'],VERSION)
@@ -54,7 +56,11 @@ class PrepareOriginalTests(unittest.TestCase):
              patch('prepare_music.record_failure') as failure, patch('prepare_music.time.sleep'):
             prepare_with_retries('same-id','lyrics',True,'female')
         self.assertEqual(run.call_count,2)
-        self.assertEqual(run.call_args_list[0],run.call_args_list[1])
+        first,second=run.call_args_list
+        self.assertEqual(first.args,second.args)
+        self.assertEqual({k:v for k,v in first.kwargs.items() if k!='retry'},
+                         {k:v for k,v in second.kwargs.items() if k!='retry'})
+        self.assertEqual((first.kwargs['retry'],second.kwargs['retry']),(0,1))
         failure.assert_called_once()
         with patch('prepare_music.prepare',side_effect=error) as run, \
              patch('prepare_music.record_failure'), patch('prepare_music.time.sleep'):

@@ -1,4 +1,4 @@
-name: Schedule existing episode on Facebook
+name: Publish existing episode to Facebook
 on:
   workflow_call:
     inputs:
@@ -64,7 +64,8 @@ jobs:
           cache: pip
       - name: Install publication and feed export tools
         run: |
-          bash scripts/install-runner-packages.sh ffmpeg
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
           pip install -r requirements.txt
       - name: Download original video
         uses: actions/download-artifact@v4
@@ -79,7 +80,7 @@ jobs:
       - name: Report optional Facebook failure
         if: failure() && inputs.non_blocking == true
         run: |
-          echo "::warning::Facebook publication failed. YouTube publication is independent; retry using Schedule existing episode on Facebook."
+          echo "::warning::Facebook publication failed. YouTube publication is independent; retry using Publish existing episode to Facebook."
           echo "### Facebook publication needs retry" >> "$GITHUB_STEP_SUMMARY"
           echo "YouTube publication is unaffected. Inspect this job and retry the existing episode through the Facebook-only recovery workflow." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4

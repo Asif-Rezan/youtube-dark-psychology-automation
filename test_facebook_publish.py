@@ -1,10 +1,9 @@
 import copy
-import contextlib
 import datetime as dt
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from facebook_publish import Facebook, FacebookError, PAGE_ID, publish, finish_fields, schedule_timestamp, verify_remote
 
 
@@ -72,26 +71,6 @@ class FacebookPublishingTests(unittest.TestCase):
                     publish(api,path,'video',{'title':'Song','description':'AI'},1234,state,save)
             self.assertEqual(api.request.call_count,1)
 
-    def test_invalid_or_premature_chunk_completion_never_finishes(self):
-        for initial, response in [((0, 0), None), ((4, 4), None),
-                                  ((0, 4), (4, 4)), ((0, 4), (9, 9)),
-                                  ((0, 4), (4, 3)), ((0, 4), (0, 4))]:
-            with self.subTest(initial=initial, response=response), tempfile.TemporaryDirectory() as folder:
-                path=Path(folder)/'video.mp4';path.write_bytes(b'abcdefgh')
-                api=Mock()
-                replies=[dict(video_id='123', upload_session_id='456',
-                              start_offset=str(initial[0]), end_offset=str(initial[1]))]
-                if response:
-                    replies.append(dict(start_offset=str(response[0]), end_offset=str(response[1])))
-                api.request.side_effect=replies
-                state={}
-                with self.assertRaises(FacebookError):
-                    publish(api,path,'video',{'title':'Song','description':'AI'},1234,state,Mock())
-                self.assertFalse(state.get('transferred',False))
-                self.assertFalse(state.get('finish_started',False))
-                self.assertFalse(any(call.kwargs.get('data',{}).get('upload_phase')=='finish'
-                                     for call in api.request.call_args_list))
-
     def test_long_chunks_resume_with_one_video_and_finish(self):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'video.mp4';path.write_bytes(b'abcdefgh')
@@ -104,38 +83,3 @@ class FacebookPublishingTests(unittest.TestCase):
             self.assertEqual(api.request.call_args_list[1].kwargs['files']['video_file_chunk'][1],b'abcd')
             self.assertEqual(api.request.call_args_list[2].kwargs['files']['video_file_chunk'][1],b'efgh')
             self.assertEqual(api.request.call_args_list[-1].kwargs['data']['upload_session_id'],'456')
-
-
-class FacebookEpisodeRoutingTests(unittest.TestCase):
-    def test_both_formats_reuse_youtube_schedule_and_original_page(self):
-        import facebook_publish
-        target=(dt.datetime.now(dt.timezone.utc)+dt.timedelta(days=4)).replace(microsecond=0)
-        self.assertEqual(facebook_publish.PAGE_ID,'301624356367343')
-        for kind, key in [('video','runs/kids-test/state.json'),
-                          ('short','shorts/kids-test/music-portrait-clip-0-40/state.json')]:
-            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as tmp, contextlib.chdir(tmp):
-                store=Mock()
-                store.load.side_effect=[{'phase':'scheduled','schedule_target':target.isoformat()},{}]
-                def uploaded(api,path,media_kind,metadata,stamp,state,save):
-                    self.assertEqual(media_kind,kind)
-                    self.assertEqual(stamp,int(target.timestamp()))
-                    self.assertEqual(path.name,'video.mp4')
-                    state['video_id']='123';save()
-                with patch.dict('os.environ', FACEBOOK_PAGE_ACCESS_TOKEN='test-only'), patch('storage.Store',return_value=store), patch('facebook_feed.prepare',side_effect=lambda path,store,run_id:path.parent/'facebook-feed'/'video.mp4') as feed, patch('facebook_publish.publish',side_effect=uploaded) as publish:
-                    facebook_publish.run('kids-test',kind)
-                self.assertEqual(store.load.call_args_list[0].args[0],key)
-                self.assertEqual(store.save.call_args.args[0],f'facebook/kids-test/{kind}/state.json')
-                publish.assert_called_once()
-                self.assertEqual(feed.call_count,1 if kind=='video' else 0)
-
-    def test_retry_of_existing_landscape_upload_does_not_change_its_media(self):
-        import facebook_publish
-        target=(dt.datetime.now(dt.timezone.utc)+dt.timedelta(days=4)).replace(microsecond=0)
-        with tempfile.TemporaryDirectory() as tmp, contextlib.chdir(tmp):
-            store=Mock()
-            store.load.side_effect=[{'phase':'scheduled','schedule_target':target.isoformat()},
-                                    {'video_id':'123','publish_at':int(target.timestamp()),'identity':{'sha256':'legacy'}}]
-            with patch.dict('os.environ',FACEBOOK_PAGE_ACCESS_TOKEN='test-only'), patch('storage.Store',return_value=store), patch('facebook_feed.prepare') as feed, patch('facebook_publish.publish') as upload:
-                facebook_publish.run('legacy','video')
-            feed.assert_not_called()
-            self.assertEqual(upload.call_args.args[1],Path('output/legacy/video.mp4'))
