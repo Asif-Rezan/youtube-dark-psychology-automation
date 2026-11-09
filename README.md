@@ -1,3 +1,21 @@
+# Shorts silence recovery — 2026-11-09
+
+Run `42569653557`, job `129009037582`, failed after three Shorts syntheses with
+`excessive_edge_silence`. Bounded retries now request 40, 45, then 50 seconds
+for a 40-second Short, retaining the same lyrics and storyboard. Mastering
+uses bounded native overrun, removes natural silence and verifies the exact
+40-second continuous output without padding or looping. Saved native/rejected
+candidates can be recovered; persistent failures retain actionable diagnostics.
+The v3 mastering cache also retains bounded internal-gap repair and saved long
+music part recovery from the destination's earlier implementation. The 130 BPM
+reference arrangement, 240-second episode and public packaging stay unchanged.
+
+Validation: 210 tests pass, including real FFmpeg overrun/edge repair, unchanged
+40-second output, bounded retry exhaustion and rejected-candidate recovery.
+The old workflow is superseded by a fresh generation request on corrected code.
+
+---
+
 # Reference migration — 2026-11-09
 
 - Destination: `Asif-Rezan/youtube-dark-psychology-automation`.

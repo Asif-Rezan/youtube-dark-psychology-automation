@@ -50,7 +50,7 @@ def prepare(run_id, start=0, seconds=40):
     recovered=False
     recovery_rejections=[]
     if continuous:
-        candidates=([raw] if raw.exists() else [])+sorted((target/'cpu-audio').glob('*.wav'))
+        candidates=([raw] if raw.exists() else [])+sorted((target/'cpu-audio').glob('*.wav'))+sorted(target.glob('rejected-*.wav'))
         for candidate in candidates:
             try:
                 window=verify_continuity(candidate,seconds)
@@ -71,7 +71,16 @@ def prepare(run_id, start=0, seconds=40):
         save()
     last_error=None
     for attempt in range(0 if recovered else 3):
-        generate_segment(request,raw,state,save)
+        generation_request=request
+        if raw.exists() and state.get('synthesis_seconds'):
+            generation_request=dict(request,duration=state['synthesis_seconds'])
+        if continuous and last_error is not None and last_error.code=='excessive_edge_silence':
+            # Give the model bounded room for natural edges, then master only
+            # the requested duration. Keep lyrics and storyboard unchanged.
+            generation_request=dict(request,duration=seconds+min(10,seconds*.25,attempt*5))
+        state['synthesis_seconds']=generation_request['duration']
+        save()
+        generate_segment(generation_request,raw,state,save)
         try:
             measured=float(probe(raw)['format']['duration'])
             if measured<seconds-.1:
@@ -89,7 +98,10 @@ def prepare(run_id, start=0, seconds=40):
             save()
             print(json.dumps({'phase':'retry Shorts audio quality',**detail}),flush=True)
     if not recovered and last_error is not None and not raw.exists():
-        raise ValueError(f'Shorts audio failed three quality attempts ({last_error.code}); candidates and music-state.json retained')
+        state.update(audio_ready=False,generation_started=False,
+            quality_failure=dict(code=last_error.code,detail=str(last_error),attempts=3))
+        save()
+        raise ValueError(f'Shorts audio failed three quality attempts ({last_error.code}); candidates and music-state.json retained') from last_error
     temporary = target/'song.tmp.wav'
     try:
         from audio_mastering import master_parts
@@ -103,6 +115,7 @@ def prepare(run_id, start=0, seconds=40):
     finally:
         temporary.unlink(missing_ok=True)
     state['output_sha256'] = digest(output)
+    state.pop('quality_failure',None)
     state['audio_ready'] = True
     state['generation_started'] = False
     save()
