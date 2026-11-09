@@ -1,3 +1,21 @@
+# Reference migration backup — 2026-11-09
+
+Current implementation baseline: `9768a2b`. Rollback tag:
+`before-motivation-reference-2026-11-09`.
+[Original README and previous version history](docs/archive/before-motivation-reference-2026-11-09-README.md).
+
+Restore on a branch without rewriting history:
+
+```sh
+git switch -c codex/restore-before-reference
+git restore --source before-motivation-reference-2026-11-09 -- .
+git commit -m "Restore generator before reference migration"
+```
+
+This restores tracked code only; credentials, cloud settings and published media are separate.
+
+---
+
 # English pipeline migration log — 2026-11-04
 
 - Hindi baseline: `43cdb83`; documented snapshot: `1ddcc6b`.
