@@ -32,7 +32,11 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-      - run: pip install -r requirements.txt -r requirements-lyrics.txt
+      - name: Install pinned lyrics runtime with download fallback
+        run: python install_lyrics_dependencies.py
+      - uses: ./.github/actions/model-cache
+        with:
+          family: lyrics
       - run: python -m unittest -v
       - name: Write lyrics, storyboard and SEO package with the real CPU model
         run: python -u prepare_music.py --run-id "$SONG_RUN_ID" --stage lyrics
@@ -93,7 +97,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
       - name: Prepare CPU runner memory and audio tools
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
@@ -111,6 +114,9 @@ jobs:
         with:
           name: preview-input-${{ github.run_id }}
           path: output/
+      - uses: ./.github/actions/model-cache
+        with:
+          family: music
       - name: Generate chorus-first music with ACE-Step on GitHub CPU
         run: python -u prepare_music.py --run-id "$SONG_RUN_ID" --stage music
       - uses: actions/upload-artifact@v4
@@ -150,7 +156,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
       - name: Prepare CPU image memory
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
@@ -166,6 +171,12 @@ jobs:
         with:
           name: preview-input-${{ github.run_id }}
           path: output/
+      - uses: ./.github/actions/model-cache
+        with:
+          family: images
+      - uses: ./.github/actions/model-cache
+        with:
+          family: motion
       - name: Generate scenes and the opening thumbnail
         run: python -u prepare_music.py --run-id "$SONG_RUN_ID" --stage images
       - name: Animate scene clips

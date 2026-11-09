@@ -1,0 +1,57 @@
+name: Verify and warm pinned model caches
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - model_assets.py
+      - .github/actions/model-cache/action.yml
+      - .github/workflows/model-cache.yml
+permissions:
+  contents: read
+concurrency:
+  group: pinned-model-cache-warmup
+  cancel-in-progress: false
+jobs:
+  models:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        family: [lyrics, music, images, motion]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --retries 3 --timeout 45 -r requirements.txt
+      - name: Free disk space for model archives
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+      - uses: ./.github/actions/model-cache
+        with:
+          family: ${{ matrix.family }}
+      - name: Verify motion models load and perform CPU inference
+        if: matrix.family == 'motion'
+        run: |
+          pip install --retries 3 --timeout 45 torch==2.10.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install --retries 3 --timeout 45 -r requirements-motion-cpu.txt
+          python -u - <<'PY'
+          import os
+          import torch
+          from PIL import Image
+          from rembg import new_session, remove
+          from model_assets import ensure_motion_models
+          from character_motion import clean_plate
+          os.environ['U2NET_HOME'] = str(ensure_motion_models())
+          session = new_session('birefnet-general-lite', providers=['CPUExecutionProvider'])
+          image = Image.new('RGB', (64, 64), 'skyblue')
+          mask = remove(image, session=session, only_mask=True)
+          assert mask.size == image.size
+          hole = Image.new('L', image.size, 0)
+          hole.paste(255, (24, 24, 40, 40))
+          assert clean_plate(image, hole).size == image.size
+          print('Verified BiRefNet segmentation and LaMa CPU inference from cached weights')
+          PY

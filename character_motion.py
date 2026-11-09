@@ -41,6 +41,8 @@ def mask_for(image):
     global _SESSION
     from rembg import new_session, remove
     if _SESSION is None:
+        from model_assets import ensure_motion_models
+        os.environ['U2NET_HOME'] = str(ensure_motion_models())
         _SESSION=new_session('birefnet-general-lite',providers=['CPUExecutionProvider'])
     mask=remove(image,session=_SESSION,only_mask=True).convert('L')
     mask=mask.point(lambda value:0 if value<12 else value)
@@ -66,12 +68,8 @@ def clean_plate(image,mask):
     import torch.nn.functional as functional
     torch.set_num_threads(min(os.cpu_count() or 2,4))
     if _LAMA is None:
-        model=Path.home()/'.cache/torch/hub/checkpoints/dudi-big-lama-v0.1.0.pt'
-        model.parent.mkdir(parents=True,exist_ok=True)
-        if not model.exists():
-            temp=model.with_suffix('.download')
-            torch.hub.download_url_to_file(LAMA_URL,str(temp))
-            temp.replace(model)
+        from model_assets import ensure_motion_models
+        model = ensure_motion_models() / 'big-lama.pt'
         _LAMA=torch.jit.load(str(model),map_location='cpu').eval()
     small=ImageOps.contain(image,(768,768))
     # A dilated binary mask removes antialiased character edges and old shadows.

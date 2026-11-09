@@ -82,7 +82,8 @@ def generate(prompt, path, seed, allow_text=False, width=None, height=None, step
         print('Loading public image-model weights on CPU', flush=True)
         # Pinned public SSD-1B safetensors on CPU. Keep the model's safety checker.
         _pipeline = DiffusionPipeline.from_pretrained(model, revision=revision,
-            torch_dtype=torch.float32, use_safetensors=True, trust_remote_code=False, token=False)
+            torch_dtype=torch.float32, use_safetensors=True, trust_remote_code=False, token=False,
+            cache_dir=os.getenv('IMAGE_MODEL_CACHE', '.models/images'))
         _pipeline.scheduler = DPMSolverMultistepScheduler.from_config(
             _pipeline.scheduler.config, algorithm_type='dpmsolver++', use_karras_sigmas=True)
         _pipeline.to('cpu')

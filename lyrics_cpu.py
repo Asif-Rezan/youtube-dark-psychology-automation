@@ -82,7 +82,8 @@ def load_model():
     for attempt in range(3):
         try:
             path = hf_hub_download(repo_id=GGUF_REPO, filename=GGUF_FILE,
-                revision=GGUF_REVISION, token=False, force_download=attempt > 0)
+                revision=GGUF_REVISION, token=False, force_download=attempt > 0,
+                cache_dir=os.getenv('LYRICS_MODEL_CACHE', '.models/lyrics'))
             if not verify_model(path):
                 raise StoryGenerationError('Qwen model checksum verification failed')
             break

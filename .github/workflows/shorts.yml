@@ -101,12 +101,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
       - name: Prepare CPU runner memory and audio tools
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg libsndfile1
+          bash scripts/install-runner-packages.sh ffmpeg libsndfile1
           sudo fallocate -l 16G /swapfile-music
           sudo chmod 600 /swapfile-music
           sudo mkswap /swapfile-music
@@ -133,6 +131,9 @@ jobs:
           run-id: ${{ inputs.source_run }}
           github-token: ${{ github.token }}
           path: output/
+      - uses: ./.github/actions/model-cache
+        with:
+          family: music
       - name: Generate independent Shorts music
         run: python -u short_music.py --run-id "$SONG_RUN_ID" --start "$CLIP_START" --seconds "$CLIP_SECONDS"
       - uses: actions/upload-artifact@v4
@@ -173,7 +174,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
       - name: Prepare CPU image memory
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
@@ -191,6 +191,12 @@ jobs:
           run-id: ${{ inputs.source_run }}
           github-token: ${{ github.token }}
           path: output/
+      - uses: ./.github/actions/model-cache
+        with:
+          family: images
+      - uses: ./.github/actions/model-cache
+        with:
+          family: motion
       - name: Generate native 9:16 Shorts illustrations
         run: |
           python -u - <<'PY'
@@ -205,8 +211,7 @@ jobs:
           PY
       - name: Prepare automatic character layers and animated scene clips
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          bash scripts/install-runner-packages.sh ffmpeg
           pip install --no-cache-dir -r requirements-motion-cpu.txt
           python -u character_motion.py --root "output/$SONG_RUN_ID"
       - uses: actions/upload-artifact@v4
@@ -269,8 +274,7 @@ jobs:
           PY
       - name: Install video tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          bash scripts/install-runner-packages.sh ffmpeg
           pip install -r requirements.txt
       - uses: actions/download-artifact@v4
         with:

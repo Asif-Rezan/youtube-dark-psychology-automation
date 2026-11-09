@@ -1,3 +1,27 @@
+# Verified model download and cache recovery — 2026-11-09
+
+Run `42574913015` completed both music jobs but seven animation shards failed on
+HTTP 504 downloading BiRefNet or LaMa. Verified atomic downloads now retry via
+the publishers' release and official asset API endpoints. Qwen, ACE-Step,
+SSD-1B and motion weights have separate revision-keyed GitHub Actions caches,
+shared across runs and shards and saved before inference. Production prewarms
+the caches before expensive generation; the standalone model-cache workflow
+also performs real motion-model CPU inference. Preview and manual Shorts jobs
+use the same caches. Credential and generated-media storage are unchanged.
+
+[Failure investigation, cache design, quota limits and primary sources](docs/model-cache-recovery.md).
+The default cache quota is 10 GB; all raw weights total about 18 GB. Cache
+retention depends on actual compressed size and available quota. Paid storage
+has not been enabled. Both real motion assets were downloaded/verified locally;
+220 tests, workflow actionlint and `git diff --check` pass. Full finished-video
+cloud generation is separate from these checks.
+
+Rollback baseline: `18c7fc3`, tag `before-model-cache-2026-11-09`. To restore
+without rewriting history, create a branch, restore tracked files from this tag
+and commit that restoration. Cloud caches/settings are separate from code.
+
+---
+
 # Shorts silence recovery — 2026-11-09
 
 Run `42569653557`, job `129009037582`, failed after three Shorts syntheses with

@@ -112,7 +112,7 @@ class QwenTests(unittest.TestCase):
             model = s.load_model()
             self.assertIs(s.load_model(), model)
         download.assert_called_once_with(repo_id=s.GGUF_REPO, filename=s.GGUF_FILE,
-            revision=s.GGUF_REVISION, token=False, force_download=False)
+            revision=s.GGUF_REVISION, token=False, force_download=False, cache_dir='.models/lyrics')
         self.assertEqual(llama.call_args.kwargs['n_gpu_layers'], 0)
         self.assertFalse(llama.call_args.kwargs['verbose'])
         llama.assert_called_once()

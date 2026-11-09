@@ -23,6 +23,9 @@ jobs:
           sudo apt-get install -y ffmpeg
           pip install torch==2.10.0 --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements-motion-cpu.txt pillow numpy
+      - uses: ./.github/actions/model-cache
+        with:
+          family: motion
       - uses: actions/download-artifact@v4
         with:
           github-token: ${{ github.token }}

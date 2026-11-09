@@ -1,0 +1,32 @@
+name: Restore and prepare pinned model cache
+description: Share verified public model files across workers and workflow runs
+inputs:
+  family:
+    description: Model family (lyrics, music, images, motion)
+    required: true
+runs:
+  using: composite
+  steps:
+    - id: model
+      shell: bash
+      env:
+        MODEL_FAMILY: ${{ inputs.family }}
+      run: python model_assets.py "$MODEL_FAMILY" --settings
+    - id: restore
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.model.outputs.path }}
+        key: ${{ runner.os }}-${{ steps.model.outputs.key }}
+    - name: Verify and prepare weights before inference
+      shell: bash
+      env:
+        MODEL_FAMILY: ${{ inputs.family }}
+        HF_HUB_DISABLE_XET: '1'
+        HF_HUB_DISABLE_IMPLICIT_TOKEN: '1'
+      run: python -u model_assets.py "$MODEL_FAMILY"
+    - name: Save weights before rendering can fail
+      if: steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.model.outputs.path }}
+        key: ${{ runner.os }}-${{ steps.model.outputs.key }}
