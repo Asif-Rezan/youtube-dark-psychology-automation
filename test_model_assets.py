@@ -96,3 +96,16 @@ class CacheContractTests(unittest.TestCase):
         self.assertIn('unet/diffusion_pytorch_model.safetensors', options['allow_patterns'])
         self.assertNotIn('*', options['allow_patterns'])
         self.assertFalse(any('fp16' in pattern for pattern in options['allow_patterns']))
+
+
+class StageRecoveryTests(unittest.TestCase):
+    def test_resume_restores_matching_shards_before_regenerating(self):
+        jobs = yaml.safe_load(Path('.github/workflows/music.yml').read_text())['jobs']
+        for job in ('images', 'short_images', 'short_music'):
+            steps = jobs[job]['steps']
+            restore = next(s for s in steps if s.get('name') == 'Restore saved stage assets when resuming')
+            self.assertIn("inputs.prepared_run != ''", restore['if'])
+            self.assertIn('needs.lyrics.outputs.restore_artifacts', restore['if'])
+            self.assertEqual(restore['with']['run-id'], '${{ inputs.prepared_run }}')
+            generate = next(s for s in steps if s.get('name', '').startswith('Generate '))
+            self.assertLess(steps.index(restore), steps.index(generate))

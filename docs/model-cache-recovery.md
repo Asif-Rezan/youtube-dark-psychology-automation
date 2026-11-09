@@ -46,6 +46,15 @@ llama-cpp-python wheel also avoids the earlier GitHub release outage. Existing
 bounded runner package installation and the pip no-cache teardown fix are
 retained to prevent unrelated setup failures.
 
+## Resume failed episodes
+
+Supply the original `run_id` and `prepared_run=42574913015` to recover that
+episode on current code. Besides lyrics/music, image and portrait workers now
+restore their exact saved shard artifacts, and the Shorts music job restores its
+saved audio. Existing manifest/hash checks reuse valid files and regenerate only
+missing or invalid work. Missing/expired optional stage artifacts are skipped;
+recovery still requires the original matching lyrics or music checkpoint.
+
 ## Storage limits
 
 The required uncompressed weights total approximately 18 GB: SSD-1B about 8.9 GB,

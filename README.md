@@ -7,13 +7,13 @@ SSD-1B and motion weights have separate revision-keyed GitHub Actions caches,
 shared across runs and shards and saved before inference. Production prewarms
 the caches before expensive generation; the standalone model-cache workflow
 also performs real motion-model CPU inference. Preview and manual Shorts jobs
-use the same caches. Credential and generated-media storage are unchanged.
+use the same caches. Recovery also restores matching image shards and Shorts audio from `prepared_run`, so valid saved work is reused. Credential and generated-media storage are unchanged.
 
 [Failure investigation, cache design, quota limits and primary sources](docs/model-cache-recovery.md).
 The default cache quota is 10 GB; all raw weights total about 18 GB. Cache
 retention depends on actual compressed size and available quota. Paid storage
 has not been enabled. Both real motion assets were downloaded/verified locally;
-220 tests, workflow actionlint and `git diff --check` pass. Full finished-video
+221 tests, workflow actionlint and `git diff --check` pass. Full finished-video
 cloud generation is separate from these checks.
 
 Rollback baseline: `18c7fc3`, tag `before-model-cache-2026-11-09`. To restore

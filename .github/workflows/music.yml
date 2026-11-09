@@ -299,6 +299,14 @@ jobs:
       - uses: ./.github/actions/model-cache
         with:
           family: music
+      - name: Restore saved stage assets when resuming
+        if: inputs.prepared_run != '' && contains(fromJSON(needs.lyrics.outputs.restore_artifacts), format('short-music-{0}', inputs.prepared_run))
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ format('short-music-{0}', inputs.prepared_run) }}
+          run-id: ${{ inputs.prepared_run }}
+          github-token: ${{ github.token }}
+          path: output/
       - name: Generate independent Shorts music
         run: python -u short_music.py --run-id "$SONG_RUN_ID"
       - uses: actions/upload-artifact@v4
@@ -360,6 +368,14 @@ jobs:
       - uses: ./.github/actions/model-cache
         with:
           family: motion
+      - name: Restore saved stage assets when resuming
+        if: inputs.prepared_run != '' && contains(fromJSON(needs.lyrics.outputs.restore_artifacts), format('generated-artwork-{0}-{1}', inputs.prepared_run, matrix.shard))
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ format('generated-artwork-{0}-{1}', inputs.prepared_run, matrix.shard) }}
+          run-id: ${{ inputs.prepared_run }}
+          github-token: ${{ github.token }}
+          path: output/
       - name: Generate lyric-matched five-second scenes
         run: python -u prepare_music.py --run-id "$SONG_RUN_ID" --stage images
       - name: Prepare automatic character layers and animated scene clips
@@ -426,6 +442,14 @@ jobs:
       - uses: ./.github/actions/model-cache
         with:
           family: motion
+      - name: Restore saved stage assets when resuming
+        if: inputs.prepared_run != '' && contains(fromJSON(needs.lyrics.outputs.restore_artifacts), format('short-artwork-{0}-{1}', inputs.prepared_run, matrix.shard))
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ format('short-artwork-{0}-{1}', inputs.prepared_run, matrix.shard) }}
+          run-id: ${{ inputs.prepared_run }}
+          github-token: ${{ github.token }}
+          path: output/
       - name: Generate native 9:16 Shorts illustrations
         run: python -u prepare_music.py --run-id "$SONG_RUN_ID" --stage images
       - name: Prepare automatic character layers and animated scene clips
