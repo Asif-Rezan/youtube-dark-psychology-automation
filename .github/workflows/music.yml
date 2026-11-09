@@ -61,7 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        family: [lyrics, music, images, motion]
+        family: [lyrics, images, motion]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -97,7 +97,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
       - id: identity
         shell: bash
         run: |
@@ -489,7 +488,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
       - run: |
           bash scripts/install-runner-packages.sh ffmpeg fonts-dejavu-core
           pip install -r requirements.txt
@@ -568,7 +566,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
       - run: pip install -r requirements.txt
       - name: Clean eligible public HD episodes and record pending schedules
         run: python -u cleanup_drive.py --sweep

@@ -2,8 +2,7 @@
 
 Run `42574913015` completed both music jobs but seven animation shards failed on
 HTTP 504 downloading BiRefNet or LaMa. Verified atomic downloads now retry via
-the publishers' release and official asset API endpoints. Qwen, ACE-Step,
-SSD-1B and motion weights have separate revision-keyed GitHub Actions caches,
+the publishers' release and official asset API endpoints. Qwen, SSD-1B and motion weights have separate revision-keyed GitHub Actions caches,
 shared across runs and shards and saved before inference. Production prewarms
 the caches before expensive generation; the standalone model-cache workflow
 also performs real motion-model CPU inference. Preview and manual Shorts jobs
@@ -15,9 +14,10 @@ retention depends on actual compressed size and available quota. Paid storage
 has not been enabled. Both real motion assets were downloaded/verified locally;
 221 tests, workflow actionlint and `git diff --check` pass. [Cloud cache/model verification passed](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/42595090306),
 as did [final component checks](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/42595416386).
-Measured model archives total 13.76 GiB; the current quota evicted three families
-after successful creation. Retaining all four needs at least 20 GB capacity;
-paid-setting approval is pending. Full finished-video cloud generation is
+The owner chose the existing 10 GB quota. The final cache policy retains
+SSD-1B, Qwen and motion archives (about 9.15 GiB total), disables competing pip
+caches and leaves ACE-Step downloads runner-local. This prevents the 4.6 GiB
+music archive from evicting the more widely shared models. Full finished-video cloud generation is
 separate from these checks.
 
 Rollback baseline: `18c7fc3`, tag `before-model-cache-2026-11-09`. To restore

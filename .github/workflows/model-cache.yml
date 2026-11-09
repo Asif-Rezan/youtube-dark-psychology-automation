@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        family: [lyrics, music, images, motion]
+        family: [lyrics, images, motion]
     steps:
       - uses: actions/checkout@v4
         with:

@@ -31,7 +31,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
       - name: Install pinned lyrics runtime with download fallback
         run: python install_lyrics_dependencies.py
       - uses: ./.github/actions/model-cache
@@ -206,7 +205,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
       - run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-dejavu-core

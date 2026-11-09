@@ -34,7 +34,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
       - name: Install pinned lyrics runtime with download fallback
         run: python install_lyrics_dependencies.py
       - uses: ./.github/actions/model-cache

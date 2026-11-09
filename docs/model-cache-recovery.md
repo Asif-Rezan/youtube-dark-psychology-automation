@@ -23,10 +23,12 @@ No model substitution or animation downgrade is used for network failures.
 
 ## Persistent caches
 
-The production workflow prepares four model-family caches before launching
+The production workflow prepares image, lyric and motion caches before launching
 inference. Each worker restores only its own families, sharing one image cache
-between all landscape and portrait shards and one music cache between long and
-Shorts music. The cache is explicitly saved immediately after download, before
+between all landscape and portrait shards across runs. Under the owner-approved
+10 GB policy, music weights remain runner-local and download when needed rather
+than evicting those shared caches. The cache is explicitly saved immediately
+after download, before
 subsequent image generation, animation or publication can fail.
 
 Keys contain the model family and the exact pinned repository revision, component
@@ -86,7 +88,10 @@ also passed on the model-cache implementation commit.
 Measured compressed archives: image 6.54 GiB, music 4.605 GiB, lyrics 2.28 GiB,
 motion 0.33 GiB (about 13.76 GiB total). GitHub's cache listing subsequently
 contained only the image cache: quota eviction removed the other three.
-A 20 GB repository cache limit is needed to retain this set with working room.
-Paid-capacity approval was requested; no billing setting was changed by the code
-commits. Cache eviction does not invalidate the fix, but it prevents the promised
-cross-run download savings for evicted families until capacity is sufficient.
+The owner explicitly chose to keep the free/default 10 GB quota. The final
+policy therefore persists only image, lyric and motion archives (about 9.15 GiB
+combined), omits the music archive and disables competing pip caches. The main
+warmup matrix excludes music to avoid a redundant download before music workers.
+Music still downloads on its runner and reuses local files across its segments.
+No billing setting was changed. GitHub can still expire caches after inactivity;
+cache misses remain recoverable by the verified downloader.

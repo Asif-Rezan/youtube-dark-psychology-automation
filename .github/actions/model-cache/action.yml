@@ -12,7 +12,10 @@ runs:
       env:
         MODEL_FAMILY: ${{ inputs.family }}
       run: python model_assets.py "$MODEL_FAMILY" --settings
+    # Keep the three most reused families within the owner-approved 10 GB quota.
+    # The 4.6 GiB music archive would evict image/lyrics/motion caches.
     - id: restore
+      if: inputs.family != 'music'
       uses: actions/cache/restore@v4
       with:
         path: ${{ steps.model.outputs.path }}
@@ -25,7 +28,7 @@ runs:
         HF_HUB_DISABLE_IMPLICIT_TOKEN: '1'
       run: python -u model_assets.py "$MODEL_FAMILY"
     - name: Save weights before rendering can fail
-      if: steps.restore.outputs.cache-hit != 'true'
+      if: inputs.family != 'music' && steps.restore.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       with:
         path: ${{ steps.model.outputs.path }}

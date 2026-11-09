@@ -68,6 +68,8 @@ class CacheContractTests(unittest.TestCase):
         self.assertEqual(restore['with'], save['with'])
         self.assertNotIn('restore-keys', restore['with'])
         self.assertIn('cache-hit', save['if'])
+        self.assertIn("inputs.family != 'music'", restore['if'])
+        self.assertIn("inputs.family != 'music'", save['if'])
         self.assertTrue(any('model_assets.py' in s.get('run', '') for s in steps))
 
     def test_production_and_manual_shorts_restore_each_required_model(self):
@@ -86,7 +88,7 @@ class CacheContractTests(unittest.TestCase):
                     self.assertFalse(any(s.get('with', {}).get('cache') == 'pip' for s in steps))
         workflow = yaml.safe_load(Path('.github/workflows/music.yml').read_text())
         self.assertEqual(workflow['jobs']['lyrics']['needs'], 'models')
-        self.assertEqual(workflow['jobs']['models']['strategy']['matrix']['family'], ['lyrics','music','images','motion'])
+        self.assertEqual(workflow['jobs']['models']['strategy']['matrix']['family'], ['lyrics','images','motion'])
 
     def test_image_prefetch_excludes_unused_weight_variants(self):
         with patch('huggingface_hub.snapshot_download') as download:
