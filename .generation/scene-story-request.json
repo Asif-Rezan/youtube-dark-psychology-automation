@@ -1,9 +1,10 @@
 {
   "requested": "2026-11-09",
-  "reason": "Fresh generation after bounded Shorts edge-silence recovery fix",
+  "reason": "User requested fresh video after verified model-download and 10 GB cache fixes",
   "reference_commit": "44f8a3384a4e4e02d4f67e94929195cbe225c637",
   "duration_seconds": 240,
   "publication": "existing scheduled workflow",
-  "revision": 2,
-  "supersedes_run": "42569653557"
+  "revision": 3,
+  "supersedes_run": "42574913015",
+  "generator_commit": "e7e95a9"
 }
