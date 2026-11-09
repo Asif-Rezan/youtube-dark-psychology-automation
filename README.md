@@ -13,8 +13,12 @@ use the same caches. Recovery also restores matching image shards and Shorts aud
 The default cache quota is 10 GB; all raw weights total about 18 GB. Cache
 retention depends on actual compressed size and available quota. Paid storage
 has not been enabled. Both real motion assets were downloaded/verified locally;
-221 tests, workflow actionlint and `git diff --check` pass. Full finished-video
-cloud generation is separate from these checks.
+221 tests, workflow actionlint and `git diff --check` pass. [Cloud cache/model verification passed](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/42595090306),
+as did [final component checks](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/42595416386).
+Measured model archives total 13.76 GiB; the current quota evicted three families
+after successful creation. Retaining all four needs at least 20 GB capacity;
+paid-setting approval is pending. Full finished-video cloud generation is
+separate from these checks.
 
 Rollback baseline: `18c7fc3`, tag `before-model-cache-2026-11-09`. To restore
 without rewriting history, create a branch, restore tracked files from this tag

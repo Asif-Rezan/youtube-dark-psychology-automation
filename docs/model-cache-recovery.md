@@ -74,3 +74,19 @@ can incur charges; this change does not enable paid storage or change billing.
 - [GitHub cache restore/save semantics and quota](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching)
 - [GitHub explicit cache-save action](https://github.com/actions/cache/blob/main/save/README.md)
 - [Hugging Face download/cache behavior](https://huggingface.co/docs/huggingface_hub/main/guides/download)
+
+## Cloud validation results
+
+[Warmup run 42595090306](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/42595090306)
+passed all four model families and real BiRefNet/LaMa CPU inference.
+[Final component checks 42595416386](https://github.com/Asif-Rezan/youtube-dark-psychology-automation/actions/runs/42595416386)
+passed tests, Linux worker limits and workflow lint. The separate render check
+also passed on the model-cache implementation commit.
+
+Measured compressed archives: image 6.54 GiB, music 4.605 GiB, lyrics 2.28 GiB,
+motion 0.33 GiB (about 13.76 GiB total). GitHub's cache listing subsequently
+contained only the image cache: quota eviction removed the other three.
+A 20 GB repository cache limit is needed to retain this set with working room.
+Paid-capacity approval was requested; no billing setting was changed by the code
+commits. Cache eviction does not invalidate the fix, but it prevents the promised
+cross-run download savings for evicted families until capacity is sufficient.
