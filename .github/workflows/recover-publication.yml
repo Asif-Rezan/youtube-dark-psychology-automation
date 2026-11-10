@@ -23,7 +23,7 @@ jobs:
     env:
       SONG_RUN_ID: ${{ inputs.run_id }}
       SOURCE_RUN: ${{ inputs.source_run }}
-      UPLOAD_MODE: scheduled
+      UPLOAD_MODE: public
       YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
       EXPECTED_CHANNEL_ID: ${{ secrets.EXPECTED_CHANNEL_ID || vars.EXPECTED_CHANNEL_ID || 'UCYjz7d66SsshimfpxZahlhQ' }}
       DRIVE_TOKEN_JSON: ${{ secrets.DRIVE_TOKEN_JSON }}

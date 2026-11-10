@@ -6,6 +6,20 @@ from unittest.mock import patch, Mock
 from upload_settings import load_settings, upload_body, verified_phase, new_york_publish_time, schedule_uploaded_video
 
 class UploadSettingsTests(unittest.TestCase):
+    def setUp(self):
+        # Scheduling tests explicitly opt in; the default/public tests clear it.
+        scope=patch.dict(os.environ,{'UPLOAD_MODE':'scheduled','PUBLISH_AT':''},clear=True)
+        scope.start();self.addCleanup(scope.stop)
+
+    def test_default_public_upload_never_calls_scheduling_api(self):
+        with patch.dict(os.environ,{},clear=True): settings=load_settings()
+        client,save=Mock(),Mock()
+        state={'video_id':'video','upload_settings':settings}
+        schedule_uploaded_video(client,state,save)
+        client.videos.assert_not_called()
+        save.assert_not_called()
+        self.assertNotIn('schedule_target',state)
+
     def test_public_and_disclosures(self):
         with patch.dict(os.environ,{'UPLOAD_MODE':'public'},clear=True):
             settings=load_settings()
@@ -55,13 +69,13 @@ class UploadSettingsTests(unittest.TestCase):
         video['contentDetails']={'definition':'hd'}
         self.assertEqual(verified_phase(video,body,'channel'),'published')
 
-    def test_automatic_schedule_is_default_and_initial_upload_is_private(self):
+    def test_default_upload_is_public_without_a_schedule(self):
         with patch.dict(os.environ,{},clear=True):
             settings=load_settings()
-        self.assertEqual(settings['mode'],'scheduled')
+        self.assertEqual(settings['mode'],'public')
         self.assertIsNone(settings['publish_at'])
         body=upload_body({'title':'Dudi'},'description',[],settings)
-        self.assertEqual(body['status']['privacyStatus'],'private')
+        self.assertEqual(body['status']['privacyStatus'],'public')
         self.assertNotIn('publishAt',body['status'])
 
     def test_new_york_time_boundaries_and_daylight_saving(self):
@@ -81,7 +95,7 @@ class UploadSettingsTests(unittest.TestCase):
             self.assertEqual(when.astimezone(ZoneInfo('America/New_York')).hour,6)
 
     def test_schedule_after_upload_freezes_target_across_update_retry(self):
-        with patch.dict(os.environ,{},clear=True): settings=load_settings()
+        with patch.dict(os.environ,{'UPLOAD_MODE':'scheduled'},clear=True): settings=load_settings()
         state={'video_id':'video','upload_settings':settings,
             'upload_completed_at':'2026-10-28T12:00:00Z',
             'upload_body':upload_body({'title':'Dudi'},'description',[],settings)}
@@ -157,7 +171,7 @@ class UploadSettingsTests(unittest.TestCase):
     def test_schedule_waits_for_processing_then_recovers_recent_owned_403(self):
         from googleapiclient.errors import HttpError
         import httplib2
-        with patch.dict(os.environ, {'EXPECTED_CHANNEL_ID':'channel'},clear=True):
+        with patch.dict(os.environ, {'EXPECTED_CHANNEL_ID':'channel','UPLOAD_MODE':'scheduled'},clear=True):
             settings=load_settings()
             state={'video_id':'video','upload_settings':settings,
                 'upload_completed_at':'2026-10-29T12:00:00Z',
@@ -239,7 +253,7 @@ class UploadSettingsTests(unittest.TestCase):
         client.videos.return_value.update.assert_not_called()
 
     def test_processing_longer_than_old_two_minute_window_schedules_same_video(self):
-        with patch.dict(os.environ, {'EXPECTED_CHANNEL_ID':'channel'}, clear=True):
+        with patch.dict(os.environ, {'EXPECTED_CHANNEL_ID':'channel','UPLOAD_MODE':'scheduled'}, clear=True):
             settings=load_settings()
             state={'video_id':'existing-short','upload_settings':settings,
                 'upload_completed_at':'2026-10-29T12:00:00Z',

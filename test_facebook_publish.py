@@ -83,3 +83,59 @@ class FacebookPublishingTests(unittest.TestCase):
             self.assertEqual(api.request.call_args_list[1].kwargs['files']['video_file_chunk'][1],b'abcd')
             self.assertEqual(api.request.call_args_list[2].kwargs['files']['video_file_chunk'][1],b'efgh')
             self.assertEqual(api.request.call_args_list[-1].kwargs['data']['upload_session_id'],'456')
+
+
+    def test_public_finish_has_no_schedule_for_feed_or_reel(self):
+        for kind in ('video','short'):
+            fields=finish_fields(kind,'123','456',{'title':'Song','description':'AI'},None)
+            self.assertNotIn('scheduled_publish_time',fields)
+            self.assertNotIn('unpublished_content_type',fields)
+            if kind=='short': self.assertEqual(fields['video_state'],'PUBLISHED')
+            else: self.assertEqual(fields['published'],'true')
+
+    def test_public_readback_requires_publication_not_only_ready_processing(self):
+        state={'video_id':'123','publish_at':None}
+        remote={'id':'123','from':{'id':PAGE_ID},'status':{'video_status':'ready'}}
+        self.assertFalse(verify_remote(remote,state))
+        remote['published']=False
+        self.assertFalse(verify_remote(remote,state))
+        remote['published']=True
+        self.assertTrue(verify_remote(remote,state))
+        remote['scheduled_publish_time']=9999
+        self.assertFalse(verify_remote(remote,state))
+        del remote['scheduled_publish_time'];del remote['published']
+        remote['status']['publishing_phase']={'publish_status':'published'}
+        self.assertTrue(verify_remote(remote,state))
+
+    def test_public_reel_retry_preserves_one_video_and_does_not_finish_twice(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'video.mp4';path.write_bytes(b'video-bytes')
+            api=Mock();api.status.return_value={'id':'123','from':{'id':PAGE_ID},
+                'status':{'video_status':'ready','uploading_phase':{'status':'complete'},
+                          'publishing_phase':{'publish_status':'published'}}}
+            api.request.side_effect=[{'video_id':'123','upload_url':'https://rupload.facebook.com/video-upload/v26.0/123'}, {'success':True}]
+            state={}
+            publish(api,path,'short',{'title':'Song','description':'AI'},None,state,Mock(),sleep=lambda _:None)
+            self.assertEqual(state['phase'],'published')
+            self.assertIsNone(state['identity']['publish_at'])
+            self.assertEqual(api.request.call_args.kwargs['data']['video_state'],'PUBLISHED')
+            api.request.reset_mock()
+            publish(api,path,'short',{'title':'Song','description':'AI'},None,state,Mock(),sleep=lambda _:None)
+            api.request.assert_not_called()
+
+
+    def test_public_feed_upload_finishes_public_and_reuses_saved_id(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'video.mp4';path.write_bytes(b'abcdefgh')
+            api=Mock();api.request.side_effect=[{'video_id':'123','upload_session_id':'456','start_offset':'0','end_offset':'8'},
+                {'start_offset':'8','end_offset':'8'},{'success':True}]
+            api.status.return_value={'id':'123','from':{'id':PAGE_ID},'published':True,'status':{'video_status':'ready'}}
+            state={}
+            publish(api,path,'video',{'title':'Song','description':'AI'},None,state,Mock(),sleep=lambda _:None)
+            self.assertEqual(state['phase'],'published')
+            fields=api.request.call_args.kwargs['data']
+            self.assertEqual(fields['published'],'true')
+            self.assertNotIn('scheduled_publish_time',fields)
+            api.request.reset_mock()
+            publish(api,path,'video',{'title':'Song','description':'AI'},None,state,Mock(),sleep=lambda _:None)
+            api.request.assert_not_called()

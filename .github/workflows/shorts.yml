@@ -30,8 +30,8 @@ on:
       upload_mode:
         description: Publication mode (requires PUBLISH_ENABLED)
         type: choice
-        options: [scheduled, public]
-        default: scheduled
+        options: [public, scheduled]
+        default: public
   workflow_call:
     inputs:
       prepared_music:
@@ -48,7 +48,7 @@ on:
         required: true
       upload_mode:
         type: string
-        default: scheduled
+        default: public
     # Preview rendering needs artifacts only; publication validates secrets at runtime.
     secrets:
       FACEBOOK_PAGE_ACCESS_TOKEN:
@@ -234,7 +234,7 @@ jobs:
       SOURCE_RUN: ${{ inputs.source_run }}
       CLIP_START: ${{ inputs.clip_start || 0 }}
       CLIP_SECONDS: ${{ inputs.clip_seconds || '40' }}
-      UPLOAD_MODE: ${{ inputs.upload_mode }}
+      UPLOAD_MODE: ${{ inputs.upload_mode || 'public' }}
       YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
       EXPECTED_CHANNEL_ID: ${{ secrets.EXPECTED_CHANNEL_ID || vars.EXPECTED_CHANNEL_ID || 'UCYjz7d66SsshimfpxZahlhQ' }}
       DRIVE_TOKEN_JSON: ${{ secrets.DRIVE_TOKEN_JSON }}

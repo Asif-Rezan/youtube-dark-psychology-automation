@@ -280,12 +280,24 @@ The workflow dispatch form exposes `upload_mode` (`public` or `scheduled`), `pub
 Scheduled media is retained on Drive. After its release, rerun the same publishing identity to verify public HD status before cleanup. OAuth Production status removes testing-mode token expiry; it does not guarantee that Google will never revoke a refresh token. Actual upload acceptance/public visibility is always checked rather than assumed from OAuth status.
 
 
-## Daily 6 AM New York releases
+## Direct publication after upload
 
-Daily generation starts at 21:00 UTC (03:00 Asia/Dhaka). Once each video finishes uploading, it is scheduled for the first **06:00 America/New_York** slot at least **72 elapsed hours after upload completion**. New York daylight saving changes are handled by the IANA timezone database. The actual wait is 72 hours up to the next qualifying 6 AM slot (normally less than 96 hours). There is an initial three-plus-day buffer before the first release; generation failures/delays can leave gaps.
+Daily generation still starts at 21:00 UTC (03:00 Asia/Dhaka). New long videos and
+Shorts now default to `upload_mode=public`: YouTube receives `privacyStatus=public`
+without `publishAt`, and no 72-hour/New York release buffer is applied. Normal
+platform processing still has to finish before public visibility is verified.
+Manual dispatch, daily/push fallbacks and finished-video recovery share this default.
+`AUTOMATION_ENABLED=true` enables daily generation; `PUBLISH_ENABLED=true` enables uploading.
 
-The default upload is private without a publication timestamp. After YouTube returns its video ID, the pipeline records upload completion, computes and saves the target, then updates YouTube `status.publishAt`. Retry attempts reuse the saved target rather than delaying it again. This step needs `youtube.force-ssl` authorization in addition to the existing upload/read scopes. Default workflow mode is `scheduled` and `publish_at` is empty, so both daily and manual runs follow this policy unless explicitly overridden. `AUTOMATION_ENABLED=true` enables daily generation and `PUBLISH_ENABLED=true` enables uploading.
+Facebook feed videos and Reels follow a verified public YouTube checkpoint with
+direct publication too. Feed upload finishes with `published=true`; Reels use
+`video_state=PUBLISHED`, without a scheduled timestamp. A successful finish or
+ready processing alone is insufficient: Facebook publication evidence is checked.
+Facebook still requires its existing enable flag, Page token and destination guard.
 
+Explicit `scheduled` dispatch remains available when deliberately selected.
+Previously saved upload IDs and schedules retain their checkpoint identity on
+resume; this change does not mass-reschedule or duplicate existing uploads.
 
 ## Animated picture treatment
 
@@ -324,7 +336,7 @@ Every new generation starts **16 landscape image shards plus 4 separate portrait
 
 After the long-video, portrait and Shorts music jobs finish, the Shorts workflow animates those portrait images full-screen at 1080×1920 using the existing storybook motion renderer. It uses separately synthesized Shorts audio from `short-audio/clip-START-DURATION/song.wav`. No blurred landscape filler is used. Missing, corrupt or non-9:16 portrait illustrations stop export instead of silently restoring the old layout. Selected lyrics are reused; portrait images and Shorts music are generated separately.
 
-The Short follows the parent's public/scheduled mode. Scheduled remains the default: the existing first 6AM New York slot at least 72 hours after upload. `PUBLISH_ENABLED=true` is required to upload; otherwise a downloadable preview is saved. Kids/AI disclosures remain enabled. The long-video custom-thumbnail upload is skipped for Shorts.
+The Short follows the parent's public/scheduled mode. Public is now the default, with no artificial release delay. `PUBLISH_ENABLED=true` is required to upload; otherwise a downloadable preview is saved. Kids/AI disclosures remain enabled. The long-video custom-thumbnail upload is skipped for Shorts.
 
 For an older finished video, run **Create and publish a rhyme Short** with its GitHub `source_run` and original song `run_id`. Its `kids-video-SOURCE_RUN` artifact must still be available (seven-day retention). This standalone workflow starts four portrait image shards and one independent music job in parallel. Choose start 0, 10, 20, etc. and duration 20, 30, 40 or 50 seconds. Automatic calls reuse the already prepared portrait shards, avoiding a second generation.
 
@@ -402,3 +414,14 @@ file IDs/hashes. Changed YouTube tags are reported as a notice and do not preven
 cleanup. Scheduled/private media remains available for recovery until publication;
 the hourly sweep revisits it. Cleanup permanently deletes only the verified
 automation media and never empties the account's unrelated Trash.
+
+
+### 2026-11-10 — direct publication default
+
+Changed YouTube long-video/Short dispatch defaults, automatic fallbacks, shared
+upload settings and finished-video recovery to public. Facebook feed/Reel finish
+requests now support direct publication from public YouTube checkpoints; optional
+scheduled mode and existing durable IDs remain supported. No new video generation
+or existing scheduled-video visibility change is triggered by this code update.
+
+Validation: 227 local unit/regression tests passed, including default public upload with no scheduling API call, direct Facebook feed/Reel requests, publication read-back, and same-ID retry behavior. Active workflows passed actionlint; `git diff --check` passed. Meta request fields were checked against its official SDK and Reels API collection. Live publication is not claimed from these tests.

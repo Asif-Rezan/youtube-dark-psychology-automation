@@ -74,7 +74,7 @@ jobs:
           github-token: ${{ github.token }}
           path: ${{ inputs.kind == 'short' && 'output/shorts/' || 'output/' }}
       - id: publication
-        name: Export Facebook feed format and schedule existing media
+        name: Export Facebook feed format and publish or verify existing media
         run: python -u facebook_publish.py --run-id "$SONG_RUN_ID" --kind "$MEDIA_KIND"
       - name: Report optional Facebook failure
         if: failure() && inputs.non_blocking == true

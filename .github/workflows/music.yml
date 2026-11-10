@@ -17,12 +17,12 @@ on:
         options:
           - female
       upload_mode:
-        description: Default schedule is first 6AM New York slot at least 72h after upload
+        description: Publish publicly as soon as upload processing completes; scheduling is optional
         type: choice
-        default: scheduled
+        default: public
         options: [public, scheduled]
       publish_at:
-        description: Leave empty for automatic 72h wait then 6AM New York; optional ISO override
+        description: Leave empty for direct public publication; only use with scheduled mode
         required: false
         type: string
       video_language:
@@ -471,7 +471,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      UPLOAD_MODE: ${{ inputs.upload_mode || 'scheduled' }}
+      UPLOAD_MODE: ${{ inputs.upload_mode || 'public' }}
       PUBLISH_AT: ${{ inputs.publish_at }}
       VIDEO_LANGUAGE: ${{ inputs.video_language || 'en' }}
       AUDIO_LANGUAGE: ${{ inputs.audio_language || 'en' }}
@@ -530,7 +530,7 @@ jobs:
       prepared_music: true
       source_run: ${{ format('{0}', github.run_id) }}
       run_id: ${{ needs.lyrics.outputs.run_id }}
-      upload_mode: ${{ inputs.upload_mode || 'scheduled' }}
+      upload_mode: ${{ inputs.upload_mode || 'public' }}
     secrets: inherit
   facebook:
     name: Optional Facebook landscape publication

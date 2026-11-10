@@ -30,3 +30,12 @@ class FeedRoutingTests(unittest.TestCase):
                 self.assertEqual(export.call_count,int(expected_crop))
                 if expected_crop:self.assertEqual(store.save.call_args.args[1]['media_format'],'feed-4x5-crop-v1')
                 self.assertEqual(facebook_publish.PAGE_ID,'301624356367343')
+
+
+    def test_published_youtube_without_schedule_routes_to_direct_facebook(self):
+        with tempfile.TemporaryDirectory() as tmp,contextlib.chdir(tmp):
+            youtube=dict(phase='published',upload_body={'snippet':{'title':'Episode','description':'Original description'}})
+            store=Mock();store.load.side_effect=[youtube,{}]
+            with patch.dict('os.environ',FACEBOOK_PAGE_ACCESS_TOKEN='test-only'),patch('storage.Store',return_value=store),patch('facebook_feed.prepare',return_value=Path('feed.mp4')),patch('facebook_publish.publish') as publish:
+                facebook_publish.run('episode','video')
+            self.assertIsNone(publish.call_args.args[4])
