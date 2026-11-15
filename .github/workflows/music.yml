@@ -41,8 +41,6 @@ on:
         description: Optional previous GitHub run ID containing saved lyrics or music
         required: false
         type: string
-  schedule:
-    - cron: '0 21 * * *' # 03:00 Asia/Dhaka (next local day)
 env:
   VIDEO_DURATION_SECONDS: '240'
   REFERENCE_AUDIO_PATH: assets/reference/style-reference.mp3
@@ -55,7 +53,6 @@ concurrency:
 jobs:
   models:
     name: Prepare shared pinned model caches
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || vars.AUTOMATION_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
@@ -77,7 +74,6 @@ jobs:
           family: ${{ matrix.family }}
   lyrics:
     needs: models
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || vars.AUTOMATION_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     outputs:

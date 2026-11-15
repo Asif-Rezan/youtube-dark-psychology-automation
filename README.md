@@ -172,7 +172,7 @@ Facebook integration setup and recovery: [docs/facebook-publishing.md](docs/face
 
 The existing destination is `UCztvMrNCT34DO3DtzLPgWaw`, preserved from the archived Ancient Humans workflow. All active workflows resolve `EXPECTED_CHANNEL_ID` from an existing secret, then an optional repository variable, then that original channel ID. The uploader still verifies that OAuth belongs to this exact destination. No new OAuth token is required for this migration.
 
-`PUBLISH_ENABLED=true` enables long/Short uploads, and `AUTOMATION_ENABLED=true` enables daily generation at 03:00 Asia/Dhaka. Uploaded videos use the reference automatic scheduling policy: first 06:00 America/New_York slot at least 72 hours after upload completion. These are repository Actions variables, not secrets. Explicit false disables the corresponding behavior. Existing token and Drive secrets are reused.
+`PUBLISH_ENABLED=true` enables long/Short uploads. Daily video generation is disabled. Uploaded videos use the reference automatic scheduling policy: first 06:00 America/New_York slot at least 72 hours after upload completion. These are repository Actions variables, not secrets. Explicit false disables uploads. Existing token and Drive secrets are reused.
 
 ## Shorts preview recovery and publication preflight
 
@@ -218,7 +218,7 @@ Run these commands from a clean checkout. Review and merge that branch through a
 - Run account setup in this repository: `setup_accounts.py` writes secrets to `Asif-Rezan/youtube-motivation-automation`.
 - Configure its own `YOUTUBE_TOKEN_JSON`, `EXPECTED_CHANNEL_ID`, `DRIVE_TOKEN_JSON`, and `DRIVE_FOLDER_ID` Actions secrets. Git cloning does not copy repository secrets or variables.
 - The copied setup retains the reference channel guard (`@dudi_dum_tv`), Drive account guard and `dudi_dam_tv_root=v1` folder lookup. It can reuse the reference folder for the same account. For isolated history/artifacts, configure a separate private folder with the required app property and set this repository's `DRIVE_FOLDER_ID` explicitly. Review `storage.py` and `setup_accounts.py` before using another channel/account.
-- Set `AUTOMATION_ENABLED=true` for daily generation and `PUBLISH_ENABLED=true` for uploads only when these repository credentials are ready. Existing repository variable values still apply after merging; they are not reset by this migration.
+- Set `PUBLISH_ENABLED=true` for uploads only when these repository credentials are ready. Existing repository variable values still apply after merging; they are not reset by this migration.
 - Use **Verify Google connections** first, then manually generate a fresh run ID and review the result. The same reference long-video/Shorts generation and publishing workflows are included. No live generation or YouTube upload is performed by this code migration.
 - Install `requirements.txt` and run `python -m unittest -v` for component verification. Full model inference additionally requires the pinned CPU dependencies, model downloads and FFmpeg documented below.
 
@@ -244,7 +244,7 @@ Copied from [Heart-and-Mind](https://github.com/Asif-Rezan/Heart-and-Mind) at `0
 
 Run **Dudi Dam TV kids rhyme generation** from GitHub Actions with a new `run_id`. The lyrics job checks and reserves lyric originality in private Drive history; connected Drive credentials are required for the production workflow. Local generation without history can run without Google credentials. Download `kids-video-RUN_NUMBER` for the MP4, thumbnail and song/storyboard JSON. Generation is computationally expensive and has not yet been verified end to end on Actions. Existing model revisions and CPU dependencies come from the reference; 120-second sections reload the model for bounded worker isolation. Model memory/time limits may require a larger runner.
 
-Automatic scheduling is off unless repository variable `AUTOMATION_ENABLED=true`. Publishing requires `PUBLISH_ENABLED=true`. The scheduled time inherited from the reference is 03:00 Asia/Dhaka. The workflow defaults to 600 seconds; adjust `VIDEO_DURATION_SECONDS` in its workflow-level env for other durations.
+Daily video generation is disabled. Publishing requires `PUBLISH_ENABLED=true`. The workflow defaults to 600 seconds; adjust `VIDEO_DURATION_SECONDS` in its workflow-level env for other durations.
 
 For local AI lyric writing (downloads the pinned Qwen GGUF model):
 
@@ -282,12 +282,12 @@ Scheduled media is retained on Drive. After its release, rerun the same publishi
 
 ## Direct publication after upload
 
-Daily generation still starts at 21:00 UTC (03:00 Asia/Dhaka). New long videos and
+Daily video generation is disabled. New long videos and
 Shorts now default to `upload_mode=public`: YouTube receives `privacyStatus=public`
 without `publishAt`, and no 72-hour/New York release buffer is applied. Normal
 platform processing still has to finish before public visibility is verified.
-Manual dispatch, daily/push fallbacks and finished-video recovery share this default.
-`AUTOMATION_ENABLED=true` enables daily generation; `PUBLISH_ENABLED=true` enables uploading.
+Manual dispatch, request-file pushes and finished-video recovery share this default.
+`PUBLISH_ENABLED=true` enables uploading.
 
 Facebook feed videos and Reels follow a verified public YouTube checkpoint with
 direct publication too. Feed upload finishes with `published=true`; Reels use
