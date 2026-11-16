@@ -5,7 +5,7 @@ import math
 from pathlib import Path
 from random import Random
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from PIL.ImageColor import getrgb
 
 from .character_rig import character
@@ -57,10 +57,18 @@ def prop(draw, kind, x,y,scale,t,active):
             dx = (i-1)*30
             shape([(dx-25,-9),(dx-32,-40),(dx-10,-67),(dx+sway,-111+i*19),
                    (dx+15,-69),(dx+30,-42),(dx+21,-12)],('#f28a36','#ffbf44','#ec6837')[i])
+        shape([(-21,-10),(-10,-37),(7,-58),(15,-26),(29,-10)],'#ffed95')
+        for i in range(7):
+            travel = (t*(.75+i*.04)+i*.152)%1
+            px,py=x+math.sin(t*4+i)*27*scale,y-(38+travel*113)*scale
+            r=max(1,(1-travel)*3*scale)
+            draw.ellipse((px-r,py-r,px+r,py+r),fill='#d66837')
     elif kind == 'shelter':
         shape([(-160,6),(-142,-138),(-62,-222),(46,-229),(136,-167),(171,3)],'#a58675')
         shape([(-67,4),(-64,-60),(-12,-131),(56,-123),(90,-66),(96,4)],'#413746')
         shape([(-142,-137),(-62,-222),(46,-229),(26,-178),(-68,-161)],'#c2a489')
+        shape([(46,-229),(136,-167),(171,3),(114,3),(104,-117),(26,-178)],'#775d56')
+        shape([(-159,6),(-137,-57),(-101,-75),(-85,-39),(-86,7)],'#b39783')
     elif kind == 'map':
         shape([(-45,-208),(29,-194),(65,-172),(81,-121),(122,-111),(85,-74),(62,-40),
                (45,1),(18,20),(-10,-17),(-24,-69),(-69,-83),(-109,-104),(-108,-153),(-83,-193)],'#cbb579')
@@ -99,6 +107,55 @@ def actor(draw,x,y,*,t,action,female=False,facing=1,scale=1.55):
               expression='surprised' if action=='react' else 'curious' if work else 'calm')
 
 
+def lit_terrain(draw,kind,environment):
+    """Layer earth facets and vegetation with depth and a common light direction."""
+    _,_,earth,_,_ = PALETTES[kind][0]
+    base = getrgb(earth)
+    rng = Random(f'{kind}:{environment}')
+    for _ in range(35):
+        y = rng.randrange(574,652)
+        depth = (y-553)/105
+        spread = 535-abs(y-602)*3
+        x = rng.uniform(640-spread,640+spread)
+        width = rng.uniform(8,27)*depth
+        shade = rng.choice((.24,.33,.44))
+        color = tuple(round(c*shade+255*(1-shade)) for c in base)
+        draw.polygon([(x-width,y),(x+width*.65,y-4*depth),(x+width,y-1),
+                      (x+width*.45,y+4*depth)],fill=color)
+    grass = environment in ('food','fire','map')
+    for x,y,scale in ((164,621,.85),(244,649,1.13),(1050,634,1.14),
+                      (1127,595,.65),(940,576,.46),(349,573,.48)):
+        draw.ellipse((x-20*scale,y-3*scale,x+27*scale,y+8*scale),fill='#c8bfad')
+        if grass:
+            for angle in (-1.2,-.6,-.1,.5,.87):
+                tipx,tipy=x+angle*25*scale,y-(30-abs(angle)*9)*scale
+                fill = ('#7b9656' if angle>.1 else '#55764f')
+                draw.polygon([(x+angle*8*scale,y),(tipx,tipy),
+                              (x+(angle*8+5)*scale,y+1)],fill=fill)
+        else:
+            crest = y-16*scale
+            draw.polygon([(x-25*scale,y),(x-16*scale,crest),(x+8*scale,crest-3*scale),
+                          (x+23*scale,y-3*scale),(x+16*scale,y+4*scale)],fill='#9a8c80')
+            draw.polygon([(x-25*scale,y),(x-16*scale,crest),(x+8*scale,crest-3*scale),
+                          (x+4*scale,y-4*scale)],fill='#cdbba5')
+
+
+@lru_cache(maxsize=8)
+def cast_shadow(scale):
+    shadow = Image.new('RGBA',(300,78))
+    draw = ImageDraw.Draw(shadow)
+    draw.ellipse((24,18,270,57),fill=(66,48,37,55))
+    draw.ellipse((45,22,120,50),fill=(52,37,29,68))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(8))
+    return shadow.resize((round(300*scale),round(78*scale)),Image.Resampling.BILINEAR)
+
+
+def warm_light(draw,x,y,t):
+    for radius,color in ((109,'#f1d7ac'),(79,'#edc48f'),(52,'#e7ae72')):
+        flicker = math.sin(t*5)*3
+        draw.ellipse((x-radius-flicker,y-radius*.22,x+radius+flicker,y+radius*.20),fill=color)
+
+
 def terrain_detail(draw,kind):
     """Frame each narrated object with its own low-poly setting."""
     _,_,earth,peak,accent = PALETTES[kind][0]
@@ -107,7 +164,7 @@ def terrain_detail(draw,kind):
 
     ridge,face,light = tint(peak,.38),tint(earth,.36),tint(accent,.38)
     if kind in ('stone','shelter','art'):
-        for x,y,scale in ((78,510,1.25),(1086,503,1.5)):
+        for x,y,scale in ((93,607,1.34),(1076,587,1.58)):
             draw.polygon([(x-126*scale,y),(x-95*scale,y-120*scale),
                           (x-11*scale,y-219*scale),(x+80*scale,y-163*scale),
                           (x+150*scale,y+12*scale)],fill=ridge)
@@ -117,7 +174,7 @@ def terrain_detail(draw,kind):
             draw.polygon([(x-11*scale,y-219*scale),(x+10*scale,y-154*scale),
                           (x-41*scale,y-132*scale),(x-95*scale,y-120*scale)],fill=light)
     else:
-        for x,y,scale in ((132,521,1.16),(1120,509,1.29)):
+        for x,y,scale in ((132,598,1.30),(1120,587,1.43)):
             trunk = tint('#654131',.53)
             green = tint('#54854d',.55)
             draw.polygon([(x-7,y),(x-10,y-142*scale),(x-54*scale,y-192*scale),
@@ -156,9 +213,7 @@ def stage(kind,setting=None):
     for _ in range(35):
         x,y = rng.randrange(177,1110),rng.randrange(587,633)
         draw.line((x,y,x+rng.randrange(2,17),y-1),fill=tint,width=2)
-    for x,y in ((160,605),(262,636),(1065,615),(1136,595)):
-        for dx in (-14,0,12):
-            draw.polygon([(x+dx,y),(x+dx*1.45,y-18-abs(dx)),(x+dx+7,y)],fill=earth)
+    lit_terrain(draw,kind,environment)
     return image
 
 
@@ -197,7 +252,10 @@ def scene(beat,t,duration,shot,chapter_label=None):
     prop_y = 510 if active and kind in ('stone','food') else 592
     if beat.get('secondary_prop','none') not in ('none',kind):
         secondary = beat['secondary_prop']
-        prop(draw,secondary,1065 if prop_x < 740 else 175,575,.68,t,False)
+        secondary_x = 1065 if prop_x < 740 else 175
+        if secondary=='fire':
+            warm_light(draw,secondary_x,583,t)
+        prop(draw,secondary,secondary_x,575,.83,t,False)
     if kind in ('fire','map','art','shelter'):
         color = tuple(round(c*.30+255*.70) for c in getrgb(accent))
         draw.ellipse((prop_x-190,155,prop_x+190,570),fill=color)
@@ -206,6 +264,8 @@ def scene(beat,t,duration,shot,chapter_label=None):
                    (prop_x+74,502),(prop_x+91,597)],'#bfb4a7')
         poly(draw,[(prop_x-106,528),(prop_x-63,500),(prop_x+74,502),
                    (prop_x+42,526)],'#ded4c9')
+    if kind=='fire':
+        warm_light(draw,prop_x,prop_y,t)
     prop(draw,kind,prop_x,prop_y,1.28 if len(cast)>1 else 1.43,t,active)
     for index,member in enumerate(cast):
         action = member['action']
@@ -218,7 +278,8 @@ def scene(beat,t,duration,shot,chapter_label=None):
             x += facing*min(125,abs(prop_x-x)*.40)
         y = 610+index*4
         scale = 1.48 if len(cast)>1 else 1.71
-        draw.ellipse((x-79,y-7,x+78,y+17),fill='#ddd4c7')
+        shadow = cast_shadow(.59 if len(cast)>1 else .69)
+        image.paste(shadow,(round(x-shadow.width*.28),round(y-shadow.height*.45)),shadow)
         actor(draw,x,y,t=t+index*.29,action=action,female=member['sex']=='female',facing=facing,scale=scale)
         if kind=='stone' and action=='work' and member is lead:
             stone_contact(draw,x+facing*79,y-190,t)
