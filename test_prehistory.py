@@ -41,6 +41,16 @@ class PrehistoryTests(unittest.TestCase):
                 self.assertEqual(image.size,(1920,1080))
             self.assertLess(target.stat().st_size,2*1024**2)
 
+    def test_daylight_and_hearth_covers_use_different_scene_contrast(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            samples = {}
+            for topic, hook in (('food','WHAT WAS DINNER?'),('hearths','AFTER DARK?')):
+                path = Path(tmp)/f'{topic}.jpg'
+                cover({'topic':topic,'title':topic,'hook':hook},path)
+                with Image.open(path) as image:
+                    samples[topic] = image.getpixel((400,290))
+            self.assertGreater(sum(samples['food']),sum(samples['hearths'])+60)
+
     def test_documentary_upload_is_english_education_for_a_general_audience(self):
         body = upload_body({'title':'A History Episode'},'Description',['prehistory'],load_settings(prehistory=True))
         self.assertEqual(body['snippet']['categoryId'],'27')

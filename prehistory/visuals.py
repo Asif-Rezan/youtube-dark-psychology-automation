@@ -1,10 +1,12 @@
 """Procedural white-stage animation and colorful prehistoric cover artwork."""
 from functools import lru_cache
+import hashlib
 import math
 from pathlib import Path
 from random import Random
 
 from PIL import Image, ImageDraw, ImageFont
+from PIL.ImageColor import getrgb
 
 from .character_rig import character
 from .editorial import TOPICS
@@ -14,12 +16,29 @@ SIZE = (1280,720)
 FONT = Path(__file__).resolve().parents[1]/'assets/artwork/Oswald.ttf'
 INK = '#292222'
 PALETTES = {
-    'stone': ('#375d80','#a9cee0','#be945b','#755f59'),
-    'fire': ('#403351','#ee8a53','#ad794c','#785262'),
-    'map': ('#628cbe','#ffd09b','#bd9b55','#74688a'),
-    'food': ('#478db7','#c6e7e4','#b69d58','#657a69'),
-    'art': ('#553752','#e2aa78','#b0896e','#6d5260'),
-    'shelter': ('#476987','#c7e2df','#b8a777','#777997'),
+    # Sky, horizon, ground, distant silhouettes, and local terrain accents.
+    'stone': (('#238ad0','#a6e1fc','#d58a45','#675084','#f2bd69'),
+              ('#164c9a','#59c4ed','#b25f38','#384b76','#f3ad5e')),
+    'fire': (('#101f53','#405697','#1f594d','#232748','#4b875d'),
+             ('#39205d','#b14b75','#59466c','#412b6b','#88678b')),
+    'map': (('#733e94','#ff823e','#d59d43','#4c528c','#ecb769'),
+            ('#1670bd','#71d7e3','#749542','#304e83','#a5cf54')),
+    'food': (('#177fae','#a6ebec','#659d2f','#376d6b','#98d745'),
+             ('#1975bf','#85d4ef','#38925c','#2d5d73','#69c474')),
+    'art': (('#2e234e','#a44b67','#a96b54','#592f62','#e29172'),
+            ('#503348','#e78043','#a97a50','#564766','#ecab69')),
+    'shelter': (('#263874','#8bb9e4','#5f819f','#4a527e','#9fc8dc'),
+                ('#32294e','#66799d','#63776d','#364e68','#9cb28f')),
+}
+
+# Cast, scale and prop positions vary with the story rather than mirroring every cover.
+STAGING = {
+    'stone': (280,1.78,'work',835,1.46,'react',609,616,1.78),
+    'fire': (360,1.47,'carry',980,1.45,'react',690,603,2.05),
+    'map': (282,1.6,'show',942,1.4,'react',680,570,1.92),
+    'food': (306,1.61,'carry',939,1.61,'show',632,644,1.75),
+    'art': (235,1.57,'show',1050,1.20,'react',669,637,1.86),
+    'shelter': (265,1.53,'carry',1006,1.44,'react',664,638,1.48),
 }
 
 
@@ -117,45 +136,60 @@ def scene(beat,t,duration,shot):
 
 def cover(plan,target):
     kind = TOPICS[plan['topic']][3]
-    start,end,earth,peak = PALETTES[kind]
+    digest = hashlib.sha256(plan.get('title',plan['hook']).encode()).digest()
+    start,end,earth,peak,accent = PALETTES[kind][digest[0]%2]
     image = Image.new('RGB',SIZE)
     draw = ImageDraw.Draw(image)
-    from PIL.ImageColor import getrgb
     a,b = getrgb(start),getrgb(end)
-    for y in range(422):
-        draw.line((0,y,1280,y),fill=tuple(round(x+(z-x)*y/421) for x,z in zip(a,b)))
-    draw.ellipse((688,196,856,364),fill='#ffc970')
-    draw.polygon([(0,372),(162,302),(302,343),(461,272),(614,343),(792,285),
-                  (940,326),(1104,275),(1280,324),(1280,465),(0,465)],fill=peak)
-    draw.polygon([(0,374),(242,404),(525,381),(811,413),(1044,370),(1280,401),
-                  (1280,720),(0,720)],fill=earth)
-    rng = Random(plan['topic'])
-    for _ in range(90):
-        x,y=rng.randrange(1280),rng.randrange(426,720)
-        size=rng.randrange(6,37)
-        draw.polygon([(x,y),(x+size,y-5),(x+int(size*.7),y+3)],fill=rng.choice(('#93704e','#a88455','#b39864')))
-    for ax,ay,scale in ((74,467,1.0),(1163,473,.93)):
-        trunk = [(ax-8,ay),(ax-3,ay-92*scale),(ax-36,ay-126*scale),(ax-26,ay-131*scale),
-                 (ax+6,ay-108*scale),(ax+46,ay-139*scale),(ax+51,ay-130*scale),(ax+20,ay-94*scale),(ax+13,ay)]
-        poly(draw,trunk,'#6d513f')
-        poly(draw,[(ax-122*scale,ay-112*scale),(ax-95*scale,ay-151*scale),
-                   (ax-45*scale,ay-175*scale),(ax+41*scale,ay-178*scale),
-                   (ax+91*scale,ay-158*scale),(ax+122*scale,ay-123*scale),
-                   (ax+69*scale,ay-115*scale)],'#688052')
-    for x,y in ((81,688),(125,628),(1134,678),(1199,623),(1020,715),(352,714)):
-        for shift in (-13,0,14):
-            draw.polygon([(x+shift,y),(x+shift*2,y-26-abs(shift)),(x+shift+7,y)],fill='#677446')
-    prop(draw,kind,654,635,1.52,0,False)
-    actor(draw,283,651,t=0,action='show',female=False,scale=1.57)
-    actor(draw,984,640,t=.4,action='react',female=True,facing=-1,scale=1.53)
+    for y in range(445):
+        draw.line((0,y,1280,y),fill=tuple(round(x+(z-x)*y/444) for x,z in zip(a,b)))
+    rng = Random(digest)
+    if kind in ('fire','shelter'):
+        for _ in range(42):
+            x,y = rng.randrange(1280),rng.randrange(167,377)
+            draw.ellipse((x,y,x+3,y+3),fill='#deeeff')
+        draw.ellipse((1010,155,1122,265),fill='#ffefbe')
+    elif kind == 'map':
+        draw.ellipse((925,225,1069,369),fill='#ffe665')
+    else:
+        for x,y in ((82,199),(410,215),(969,187)):
+            poly(draw,[(x,y+23),(x+16,y+8),(x+49,y+9),(x+71,y-2),
+                       (x+114,y+8),(x+144,y+25),(x+103,y+33),(x+23,y+32)],'#ecf8ff')
+    ridgeline = [(x,rng.randrange(284,354)) for x in range(0,1281,160)]
+    poly(draw,[*ridgeline,(1280,463),(0,463)],peak)
+    ground = [(0,401),(240,388),(550,420),(820,389),(1280,405),(1280,720),(0,720)]
+    poly(draw,ground,earth)
+    draw.polygon([(0,490),(288,422),(639,441),(820,497),(1280,475),(1280,556),
+                  (779,573),(453,523),(0,579)],fill=accent)
+    if kind == 'art':
+        poly(draw,[(0,157),(258,162),(220,222),(130,335),(97,594),(0,720)],'#4c2941')
+        poly(draw,[(1280,143),(1050,163),(1140,294),(1180,557),(1280,720)],'#4c2941')
+    elif kind in ('food','map'):
+        for x,y in ((77,475),(1190,443)):
+            poly(draw,[(x-10,y),(x-3,y-88),(x-52,y-119),(x+7,y-100),
+                       (x+58,y-119),(x+14,y-80),(x+10,y)],'#704627')
+            poly(draw,[(x-123,y-116),(x-91,y-156),(x-31,y-167),(x+56,y-163),
+                       (x+113,y-142),(x+125,y-116),(x+60,y-105)],'#347842')
+    elif kind == 'fire':
+        for radius,color in ((250,'#9a533f'),(185,'#c36e3f'),(112,'#e79540')):
+            draw.ellipse((690-radius,596-radius*.37,690+radius,596+radius*.37),fill=color)
+    for _ in range(56):
+        x,y = rng.randrange(1280),rng.randrange(509,720)
+        size = rng.randrange(5,31)
+        draw.polygon([(x,y),(x+size,y-5),(x+int(size*.7),y+3)],fill=accent)
+    x,left_scale,left_pose,right,right_scale,right_pose,px,py,prop_scale = STAGING[kind]
+    prop(draw,kind,px,py,prop_scale,0,False)
+    actor(draw,x,652,t=.35,action=left_pose,female=False,scale=left_scale)
+    actor(draw,right,642,t=.4,action=right_pose,female=True,facing=-1,scale=right_scale)
     headline = plan['hook'].upper()
     for size in range(138,45,-3):
         face=ImageFont.truetype(str(FONT),size)
         face.set_variation_by_axes([700])
         if draw.textlength(headline,font=face)<1150:
             break
-    draw.text((643,32),headline,anchor='mt',font=face,fill='#211a20',stroke_width=11)
-    draw.text((640,25),headline,anchor='mt',font=face,fill='#fff055',stroke_width=8,stroke_fill='#1b171a')
+    text_color = '#fff9e8' if kind == 'shelter' else '#ffed33'
+    draw.text((645,34),headline,anchor='mt',font=face,fill='#11111b',stroke_width=12)
+    draw.text((640,25),headline,anchor='mt',font=face,fill=text_color,stroke_width=8,stroke_fill='#130f17')
     image=image.resize((1920,1080),Image.Resampling.LANCZOS)
     for quality in (93,85,75):
         image.save(target,quality=quality,optimize=True)
