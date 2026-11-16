@@ -1,5 +1,19 @@
 # Verified model download and cache recovery — 2026-11-09
 
+## Prehistoric human life documentaries
+
+Run **Prehistoric human life documentary** in GitHub Actions to generate a new
+episode. Qwen selects a topic and writes an evidence-led script. Python renders
+the white-background character scenes and 1920×1080 thumbnail. Chapter times
+come from the rendered narration. The workflow uses the existing YouTube,
+Facebook and Drive configuration. Its schedule is currently off.
+
+The nursery-rhyme workflow remains available by manual dispatch for older
+productions. To retry publishing a finished prehistoric video, use **Recover
+finished video publication** with its original `prehistory-…` run ID and source
+run number.
+
+
 Run `42574913015` completed both music jobs but seven animation shards failed on
 HTTP 504 downloading BiRefNet or LaMa. Verified atomic downloads now retry via
 the publishers' release and official asset API endpoints. Qwen, SSD-1B and motion weights have separate revision-keyed GitHub Actions caches,

@@ -25,7 +25,7 @@ class CleanupNotEligible(RuntimeError):
 
 
 def verify_public(client, state):
-    from pipeline import metadata_tags, upload_description
+    from episode_packaging import public_metadata
     from upload_settings import normalized_tags
     if state.get('phase') not in ('published','scheduled') or not state.get('video_id') or state.get('thumbnail_uploaded') is not True:
         raise CleanupNotEligible('publication_receipt_incomplete')
@@ -39,9 +39,10 @@ def verify_public(client, state):
     # Uploads use owner-supplied fixed metadata; verify the durable upload body,
     # not the generated story title/tags. Older checkpoints retain the fallback.
     expected=state.get('upload_body',{}).get('snippet',{})
-    title=expected.get('title',song['title'])
-    description=expected.get('description',state.get('upload_description',upload_description(song)))
-    tags=expected.get('tags',metadata_tags(song))
+    metadata = expected or public_metadata(song)
+    title = metadata['title']
+    description = expected['description'] if expected else state.get('upload_description',metadata['description'])
+    tags = metadata['tags']
     checks={'video_id':video.get('id')==state['video_id'],
             'channel_id':snippet.get('channelId')==required('EXPECTED_CHANNEL_ID'),
             'title':snippet.get('title')==title,

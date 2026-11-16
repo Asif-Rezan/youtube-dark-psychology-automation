@@ -221,9 +221,11 @@ def run(run_id, kind):
     else:
         song=json.loads((Path('output')/run_id/'song.json').read_text())
         metadata=public_metadata(song,'shorts' if kind=='short' else 'video')
-    metadata['description'] += '\n\nCreated with AI-generated music and illustrations.'
+    prehistoric = youtube.get('song',{}).get('genre') == 'prehistory'
+    if not prehistoric:
+        metadata['description'] += '\n\nCreated with AI-generated music and illustrations.'
     # Keep the original bytes when resuming a pre-existing landscape upload.
-    feed_copy=kind=='video' and (not state or state.get('media_format')=='feed-4x5-crop-v1')
+    feed_copy=kind=='video' and not prehistoric and (not state or state.get('media_format')=='feed-4x5-crop-v1')
     path=root/'video.mp4'
     if feed_copy:
         from facebook_feed import prepare

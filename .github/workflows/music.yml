@@ -2,7 +2,7 @@ name: Dudi Dam TV kids rhyme generation
 on:
   push:
     branches: [main]
-    paths: [.generation/scene-story-request.json]
+    paths: [.generation/legacy-rhyme-request.json]
   workflow_dispatch:
     inputs:
       run_id:

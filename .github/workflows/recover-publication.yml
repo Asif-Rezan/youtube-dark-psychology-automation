@@ -48,12 +48,14 @@ jobs:
       - name: Verify publication accounts before restoring media
         run: python verify_connections.py
       - uses: actions/download-artifact@v4
+        if: "!startsWith(inputs.run_id, 'prehistory-')"
         with:
           name: generated-music-${{ inputs.source_run }}
           run-id: ${{ inputs.source_run }}
           github-token: ${{ github.token }}
           path: output/
       - uses: actions/download-artifact@v4
+        if: "!startsWith(inputs.run_id, 'prehistory-')"
         with:
           pattern: generated-artwork-${{ inputs.source_run }}-*
           merge-multiple: true
@@ -67,6 +69,7 @@ jobs:
           github-token: ${{ github.token }}
           path: output/
       - uses: actions/download-artifact@v4
+        if: "!startsWith(inputs.run_id, 'prehistory-')"
         with:
           name: music-output-${{ inputs.source_run }}
           run-id: ${{ inputs.source_run }}
@@ -79,13 +82,21 @@ jobs:
           from pathlib import Path
           from motion_video import render_is_current
           root=Path('output')/os.environ['SONG_RUN_ID']
-          if not render_is_current(root):
+          if root.name.startswith('prehistory-'):
+              from prehistory.production import verify_render
+              verify_render(root)
+          elif not render_is_current(root):
               raise SystemExit('Recovery artifacts do not match the finished render; refusing regeneration')
           print('Finished video and original sources verified')
           PY
       - name: Resume backup and publication
         if: vars.PUBLISH_ENABLED == 'true'
-        run: python -u pipeline.py --run-id "$SONG_RUN_ID" --defer-drive-cleanup
+        run: |
+          if [[ "$SONG_RUN_ID" == prehistory-* ]]; then
+            python -u -m prehistory.production publish --run-id "$SONG_RUN_ID"
+          else
+            python -u pipeline.py --run-id "$SONG_RUN_ID" --defer-drive-cleanup
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:

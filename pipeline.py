@@ -167,7 +167,7 @@ def publish(client, root, song, state, save, upload_thumbnail=True, metadata_kin
         if state.get('upload_started'):
             raise RuntimeError('Ambiguous upload; reconcile YouTube before retry to avoid duplicates')
         from upload_settings import load_settings, upload_body
-        settings = load_settings()
+        settings = load_settings(prehistory=True) if song.get('genre') == 'prehistory' else load_settings()
         from episode_packaging import public_metadata
         metadata = public_metadata(song,metadata_kind)
         state['upload_description'] = metadata['description']
