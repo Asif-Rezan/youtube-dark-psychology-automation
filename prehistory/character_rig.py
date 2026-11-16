@@ -3,7 +3,7 @@ import math
 
 INK = '#211d19'
 
-def character(draw, x, y, *, female=False, facing=0, stride=0, wave=None, scale=1, walk_phase=None, blink=False, islamic=True, basket=False, point=False, work=None, expression="calm", breathing=0):
+def character(draw, x, y, *, female=False, facing=0, stride=0, wave=None, scale=1, walk_phase=None, blink=False, islamic=True, basket=False, point=False, work=None, expression="calm", breathing=0, variant=0):
     """Draw an original stick figure with articulated elbows and knees."""
     if facing not in (-1, 0, 1) or scale <= 0:
         raise ValueError('Use a positive scale and a front (0), left (-1), or right (1) view.')
@@ -29,7 +29,7 @@ def character(draw, x, y, *, female=False, facing=0, stride=0, wave=None, scale=
 
     robe = '#427875' if female else '#a3613c'
     if not islamic:
-        robe = '#bf8e60' if female else '#a67749'
+        robe = ('#bc8055','#9b614b','#ae8050')[variant%3] if female else '#a67749'
     if walk_phase is not None:
         stride = 32 * math.sin(walk_phase)
     for side in (-1, 1):
@@ -45,6 +45,13 @@ def character(draw, x, y, *, female=False, facing=0, stride=0, wave=None, scale=
     shape([(-23,-161),(-9,-167),(9,-167),(22,-159),(25,-123),(32,-80),
            (24,-76),(15,-82),(8,-73),(-2,-80),(-12,-74),(-18,-83),(-30,-77),(-26,-121)], robe)
     line([(-7,-156),(-10,-130),(-15,-105)], 2)
+    if female and not islamic:
+        # A small stone pendant and hand-stitched wrap distinguish the adult rig.
+        line([(-12,-163),(-3,-151),(7,-161)],2)
+        shape([(-6,-153),(0,-157),(6,-153),(3,-146),(-3,-147)],'#e9bd79')
+        line([(-17,-127),(15,-119),(25,-121)],2)
+        for dx in (-14,-2,10):
+            line([(dx,-125+dx*.19),(dx+2,-119+dx*.19)],1.4)
 
     for side in (-1, 1):
         shoulder = side * (12 if facing else 23)
@@ -88,10 +95,19 @@ def character(draw, x, y, *, female=False, facing=0, stride=0, wave=None, scale=
                (head_x+12,-260),(head_x+34,-248),(head_x+43,-226),(head_x+41,-190),
                (head_x+29,-153),(head_x+4,-147),(head_x-30,-155)], '#335954')
     if female and not islamic:
+        locks = (
+            ([(30,-246),(43,-235),(47,-211),(47,-183),(60,-164),(50,-158),
+              (34,-171),(26,-200)], '#543128'),
+            ([(28,-243),(44,-234),(47,-204),(44,-179),(52,-156),(45,-142),
+              (34,-155),(32,-180),(25,-201)], '#382528'),
+            ([(30,-241),(48,-231),(49,-207),(45,-180),(55,-168),(43,-158),
+              (32,-173),(23,-206)], '#695038'),
+        )
+        lock, pigment = locks[variant%3]
         for side in (-1, 1):
-            lock = [(33,-240),(44,-229),(48,-204),(45,-178),
-                    (53,-158),(39,-166),(29,-162),(27,-190)]
-            shape([(head_x + side * px, py) for px, py in lock], '#4a2c24')
+            shape([(head_x + side * px,py) for px,py in lock],pigment)
+            line([(head_x+side*39,-221),(head_x+side*40,-195),
+                  (head_x+side*43,-174)],1.6)
     oval([(head_x-38,-247),(head_x+38,-173)], '#ffffff')
     if facing:
         shape([(head_x+33*facing,-221),(head_x+43*facing,-214),(head_x+33*facing,-211)], '#ffffff')
@@ -100,25 +116,37 @@ def character(draw, x, y, *, female=False, facing=0, stride=0, wave=None, scale=
                (head_x+35,-248),(head_x+36,-230),(head_x+15,-233),(head_x-12,-231)], '#e5d5af')
         line([(head_x-28,-240),(head_x-10,-245),(head_x+15,-244),(head_x+28,-240)], 2)
     if not islamic:
-        hair = '#4a2c24' if female else '#493224'
+        hair = pigment if female else '#493224'
         fringe = [(-39,-218),(-40,-239),(-29,-251),(-15,-258),(-21,-263),(-4,-260),
                   (8,-263),(26,-257),(39,-243),(36,-230),(23,-239),(13,-248),
                   (6,-236),(-3,-246),(-15,-231),(-22,-238),(-32,-225),(-38,-207)]
         if female:
-            fringe = [(-41,-212),(-43,-235),(-34,-251),(-19,-260),(5,-262),
-                      (25,-256),(40,-241),(40,-223),(26,-233),(11,-248),
-                      (5,-253),(-6,-240),(-21,-233),(-33,-227),(-36,-207)]
+            fringe = [(-41,-209),(-43,-235),(-34,-251),(-18,-261),(5,-263),
+                      (27,-256),(42,-240),(40,-219),(33,-230),(26,-228),
+                      (15,-238),(7,-249),(-7,-239),(-21,-231),(-33,-227),(-36,-207)]
+            if variant%3 == 1:
+                fringe[2:5] = [(-36,-250),(-23,-264),(2,-269)]
+            elif variant%3 == 2:
+                fringe[8:12] = [(36,-226),(28,-222),(19,-225),(8,-247)]
         shape([(head_x + px, py) for px, py in fringe], hair)
     eyes = [head_x + 16*facing] if facing else [head_x-12, head_x+12]
+    if female and not islamic:
+        for eye in eyes:
+            lift = -3 if expression=='surprised' else 0
+            line([(eye-6,-227+lift),(eye,-230+lift),(eye+5,-228+lift)],1.7)
+        cheek = head_x+(-3 if facing else 19)
+        oval([(cheek-6,-207),(cheek+6,-201)],'#efb3a0',0)
     for eye in eyes:
         if blink:
             line([(eye-4,-218),(eye+4,-218)], 2)
         else:
             oval([(eye-3,-221),(eye+3,-215)], INK, 0)
+            if female and not islamic:
+                line([(eye+2,-219),(eye+5,-222)],1.35)
     smile = head_x + 19 * facing
     if expression == 'surprised':
         oval([(smile-5,-205),(smile+5,-196)],INK,0)
     elif expression == 'curious':
         line([(smile-7,-198),(smile+6,-201)],2)
     else:
-        line([(smile-6,-201),(smile,-198),(smile+6,-201)],2)
+        line([(smile-7,-201),(smile,-197 if female else -198),(smile+7,-202)],2)

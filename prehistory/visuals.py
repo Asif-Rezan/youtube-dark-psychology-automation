@@ -97,14 +97,14 @@ def prop(draw, kind, x,y,scale,t,active):
             shape([(dx-7,-15+wobble),(dx-24,-47+wobble),(dx+10,-35+wobble),(dx+16,-13+wobble)],'#e6d5b9')
 
 
-def actor(draw,x,y,*,t,action,female=False,facing=1,scale=1.55):
+def actor(draw,x,y,*,t,action,female=False,facing=1,scale=1.55,variant=0):
     work = action in ('work','gather','share')
     character(draw,x,y,scale=scale,female=female,facing=facing,islamic=False,
               walk_phase=t*8 if action in ('walk','carry') else None,
               basket=action=='carry',work=t*(3.4 if action=='share' else 7) if work else None,point=action=='show',
               wave=t*(2.7 if action=='watch' else 4) if action in ('react','show','watch') else None,
               blink=t%3.9>3.75,breathing=1.8*math.sin(t*2.2),
-              expression='surprised' if action=='react' else 'curious' if work else 'calm')
+              expression='surprised' if action=='react' else 'curious' if work else 'calm',variant=variant)
 
 
 def lit_terrain(draw,kind,environment):
@@ -280,7 +280,7 @@ def scene(beat,t,duration,shot,chapter_label=None):
         scale = 1.48 if len(cast)>1 else 1.71
         shadow = cast_shadow(.59 if len(cast)>1 else .69)
         image.paste(shadow,(round(x-shadow.width*.28),round(y-shadow.height*.45)),shadow)
-        actor(draw,x,y,t=t+index*.29,action=action,female=member['sex']=='female',facing=facing,scale=scale)
+        actor(draw,x,y,t=t+index*.29,action=action,female=member['sex']=='female',facing=facing,scale=scale,variant=index)
         if kind=='stone' and action=='work' and member is lead:
             stone_contact(draw,x+facing*79,y-190,t)
     framing = beat.get('framing','detail' if active else 'medium')
