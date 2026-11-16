@@ -7,7 +7,7 @@ from PIL import Image
 from episode_packaging import public_metadata
 from prehistory.editorial import (CHAPTER_COUNT, chapter_issues, expand_short_narration, generate,
                                   metadata, normalize_chapter_label, valid_chapters)
-from prehistory.production import FULL_RUNTIME, MASTER_GAIN, NARRATION_PAUSE, narration_filter, runtime_timing
+from prehistory.production import FULL_RUNTIME, MASTER_GAIN, NARRATION_PAUSE, calibrate_narration_speed, narration_filter, runtime_timing
 from prehistory.visuals import cover, scene
 from upload_settings import load_settings, upload_body
 
@@ -74,23 +74,36 @@ class PrehistoryTests(unittest.TestCase):
             self.assertAlmostEqual(int(filters['asetrate'])/rate*float(filters['atempo']),1.05,places=6)
         self.assertEqual(MASTER_GAIN,2.0)
 
+    def test_kokoro_calibration_slows_a_fast_voice_to_fit_the_documentary(self):
+        beats = [{'narration':'word '*40} for _ in range(60)]
+        with tempfile.TemporaryDirectory() as tmp, patch('builtins.print'):
+            measured = {}
+            def synthesize(text,path,*,speed):
+                measured[path] = len(text.split())*.29*.95/speed
+            speed = calibrate_narration_speed(synthesize,Path(tmp),beats,FULL_RUNTIME,measured.__getitem__)
+        self.assertLess(speed,.95)
+        lengths = [40*.29*.95/speed]*60
+        tempo = runtime_timing(lengths,FULL_RUNTIME,word_count=2400)
+        self.assertTrue(900<=sum(lengths)/tempo+60*NARRATION_PAUSE<=1500)
+        self.assertEqual(len(measured),3)
+
     def test_runtime_uses_modest_tempo_correction_and_rejects_impossible_lengths(self):
         self.assertEqual(runtime_timing([17]*60,FULL_RUNTIME),1)
         self.assertLess(runtime_timing([14]*60,FULL_RUNTIME),1)
-        self.assertGreater(runtime_timing([20]*60,FULL_RUNTIME),1)
+        self.assertGreater(runtime_timing([25]*60,FULL_RUNTIME),1)
         with self.assertRaisesRegex(RuntimeError,'natural speaking speed'):
             runtime_timing([8]*60,FULL_RUNTIME)
 
     def test_runtime_uses_measured_spoken_pace_for_larger_corrections(self):
-        for raw, words in ((700, 2160), (1400, 2721)):
+        for raw, words in ((700, 2160), (1800, 3300)):
             with self.subTest(raw=raw):
                 lengths = [raw / 60] * 60
                 tempo = runtime_timing(lengths, FULL_RUNTIME, word_count=words)
                 self.assertFalse(.85 <= tempo <= 1.15)
                 adjusted = raw / tempo + 60 * NARRATION_PAUSE
-                self.assertTrue(900 <= adjusted <= 1200)
+                self.assertTrue(900 <= adjusted <= 1500)
         with self.assertRaisesRegex(RuntimeError, 'required_tempo='):
-            runtime_timing([1400 / 60] * 60, FULL_RUNTIME, word_count=3900)
+            runtime_timing([1800 / 60] * 60, FULL_RUNTIME, word_count=5000)
         with self.assertRaisesRegex(RuntimeError, 'required_tempo='):
             runtime_timing([480 / 60] * 60, FULL_RUNTIME, word_count=2160)
 

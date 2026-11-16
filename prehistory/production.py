@@ -17,7 +17,8 @@ from .visuals import SIZE,cover,scene
 
 FPS = 24
 RATE = 24000
-FULL_RUNTIME = (900,1200)
+FULL_RUNTIME = (900,1500)
+DEFAULT_NARRATION_SPEED = .95
 NARRATION_PAUSE = .33
 NARRATION_WPM = (105,185)
 VOICE_PITCH_SEMITONES = -2
@@ -38,8 +39,8 @@ def speech_writer():
     from kokoro import KPipeline
     engine = KPipeline(lang_code='a',device='cpu',repo_id='hexgrad/Kokoro-82M')
 
-    def speak(text,target):
-        clips = [samples.numpy() for _,_,samples in engine(text,voice='am_michael',speed=.95) if samples is not None]
+    def speak(text,target,*,speed=DEFAULT_NARRATION_SPEED):
+        clips = [samples.numpy() for _,_,samples in engine(text,voice='am_michael',speed=speed) if samples is not None]
         if not clips:
             raise RuntimeError('Kokoro returned no narration')
         audio = np.clip(np.concatenate(clips),-1,1)
@@ -127,10 +128,33 @@ def runtime_timing(lengths,bounds=None,*,word_count=None):
             if (not .65 <= tempo <= 1.5 or adjusted_wpm is None
                     or not NARRATION_WPM[0] <= adjusted_wpm <= NARRATION_WPM[1]):
                 raise RuntimeError(
-                    'Narration is outside the 15–20 minute range at a natural speaking speed '
+                    'Narration is outside the 15–25 minute range at a natural speaking speed '
                     f'(raw={total:.1f}s, words={word_count}, required_tempo={tempo:.3f}, '
                     f'adjusted_wpm={adjusted_wpm})')
     return tempo
+
+
+def calibrate_narration_speed(speak,work,beats,bounds,measure):
+    """Measure representative lines before committing to an episode-length TTS pass."""
+    if not beats:
+        raise ValueError('Cannot calibrate narration without spoken beats')
+    words, measured = 0, 0
+    for index in sorted({0,len(beats)//2,len(beats)-1}):
+        text = beats[index]['narration']
+        target = work/f'calibration-{index}.wav'
+        speak(text,target,speed=DEFAULT_NARRATION_SPEED)
+        seconds = measure(target)
+        if not math.isfinite(seconds) or seconds<=0:
+            raise RuntimeError(f'Invalid narration calibration audio at beat {index+1}')
+        measured += seconds
+        words += len(text.split())
+    total_words = sum(len(beat['narration'].split()) for beat in beats)
+    estimate = measured*total_words/words
+    target = sum(bounds)/2-len(beats)*NARRATION_PAUSE
+    speed = round(max(.68,min(1.20,DEFAULT_NARRATION_SPEED*estimate/target)),3)
+    print(json.dumps({'stage':'Kokoro speed calibration','estimated_raw_seconds':round(estimate,2),
+                      'native_speed':speed,'target_seconds':round(target,2)}),flush=True)
+    return speed
 
 
 def narration_filter(tempo, source_rate):
@@ -143,6 +167,7 @@ def narration_filter(tempo, source_rate):
 
 def render(plan,root,speak=None,*, minimum=0,runtime_bounds=None):
     from pipeline import duration
+    native_voice = speak is None
     speak = speak or speech_writer()
     cover(plan,root/'thumbnail.jpg')
     with tempfile.TemporaryDirectory(dir=root) as directory:
@@ -150,12 +175,19 @@ def render(plan,root,speak=None,*, minimum=0,runtime_bounds=None):
         inputs = {'video':[],'audio':[]}
         sound_beats = []
         starts, total_frames = [], 0
+        voice_speed = DEFAULT_NARRATION_SPEED
+        if native_voice and runtime_bounds:
+            beats = [beat for chapter in plan['chapters'] for beat in chapter['beats']]
+            voice_speed = calibrate_narration_speed(speak,work,beats,runtime_bounds,duration)
         planned = []
         for chapter in plan['chapters']:
             for beat_index,beat in enumerate(chapter['beats']):
                 index = len(planned)
                 raw = work/f'raw-{index}.wav'
-                speak(beat['narration'],raw)
+                if native_voice:
+                    speak(beat['narration'],raw,speed=voice_speed)
+                else:
+                    speak(beat['narration'],raw)
                 planned.append((beat,raw,duration(raw),chapter['label'] if beat_index==0 else None))
         lengths = [entry[2] for entry in planned]
         word_count = sum(len(beat['narration'].split()) for beat, *_ in planned)
@@ -163,7 +195,7 @@ def render(plan,root,speak=None,*, minimum=0,runtime_bounds=None):
         frame_counts = [max(math.ceil(minimum*FPS),math.ceil((length/tempo+NARRATION_PAUSE)*FPS))
                         for _,_,length,_ in planned]
         if runtime_bounds and not runtime_bounds[0] <= sum(frame_counts)/FPS <= runtime_bounds[1]:
-            raise RuntimeError('Adjusted narration falls outside the 15–20 minute window')
+            raise RuntimeError('Adjusted narration falls outside the 15–25 minute window')
         print(json.dumps({'stage':'narration timing','planned_seconds':round(sum(frame_counts)/FPS,2),
                           'tempo':round(tempo,4),'raw_seconds':round(sum(lengths),2),
                           'words':word_count,'spoken_wpm':round(60*word_count*tempo/sum(lengths),1),
@@ -194,7 +226,7 @@ def render(plan,root,speak=None,*, minimum=0,runtime_bounds=None):
                '-metadata:s:a:0','language=eng','-movflags','+faststart','-shortest',root/'video.mp4')
     actual = duration(root/'video.mp4')
     if runtime_bounds and not runtime_bounds[0] <= actual <= runtime_bounds[1]:
-        raise RuntimeError('Finished documentary must run between 15 and 20 minutes')
+        raise RuntimeError('Finished documentary must run between 15 and 25 minutes')
     if abs(actual-total_frames/FPS)>.15:
         raise RuntimeError('Rendered video differs from the measured storyboard')
     write_json(root/'song.json',metadata(plan,starts))

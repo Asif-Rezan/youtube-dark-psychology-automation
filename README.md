@@ -5,7 +5,7 @@
 Run **Prehistoric human life documentary** in GitHub Actions to generate a new
 episode. Qwen selects a topic and writes an evidence-led script. Python renders
 the white-background character scenes and 1920×1080 thumbnail. Full episodes
-run 15–20 minutes, with chapter times measured from the rendered narration. The workflow uses the existing YouTube,
+run 15–25 minutes, with chapter times measured from the rendered narration. The workflow uses the existing YouTube,
 Facebook and Drive configuration. It runs daily at 03:00 Asia/Dhaka.
 
 The nursery-rhyme workflow remains available by manual dispatch for older
