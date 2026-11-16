@@ -17,6 +17,7 @@ from .visuals import SIZE,cover,scene
 
 FPS = 24
 RATE = 24000
+FULL_RUNTIME = (900,1200)
 
 
 def ffmpeg(*args):
@@ -100,7 +101,23 @@ def soundtrack(target,seconds,beats):
         file.writeframes((signal*32767).astype('<i2').tobytes())
 
 
-def render(plan,root,speak=None,*, minimum=0):
+def runtime_timing(lengths,bounds=None):
+    if not lengths or any(not math.isfinite(length) or length<=0 for length in lengths):
+        raise ValueError('Narration timings must be positive and finite')
+    tempo = 1.0
+    if bounds:
+        total = sum(lengths)
+        lower, upper = bounds
+        estimate = total+len(lengths)*.33
+        if estimate < lower+1 or estimate > upper-1:
+            target = lower+2 if estimate < lower+1 else upper-2
+            tempo = total/(target-len(lengths)*.33)
+        if not .85 <= tempo <= 1.15:
+            raise RuntimeError('Narration is outside the 15–20 minute range at a natural speaking speed')
+    return tempo
+
+
+def render(plan,root,speak=None,*, minimum=0,runtime_bounds=None):
     from pipeline import duration
     speak = speak or speech_writer()
     cover(plan,root/'thumbnail.jpg')
@@ -109,21 +126,32 @@ def render(plan,root,speak=None,*, minimum=0):
         inputs = {'video':[],'audio':[]}
         sound_beats = []
         starts, total_frames = [], 0
+        planned = []
         for chapter in plan['chapters']:
-            starts.append(total_frames/FPS)
             for beat_index,beat in enumerate(chapter['beats']):
-                index = len(inputs['video'])
+                index = len(planned)
                 raw = work/f'raw-{index}.wav'
                 speak(beat['narration'],raw)
-                frames = max(math.ceil(minimum*FPS),math.ceil((duration(raw)+.33)*FPS))
-                seconds = frames/FPS
-                video, audio = work/f'v-{index}.mp4',work/f'a-{index}.wav'
-                clip(beat,index,frames,video,chapter['label'] if beat_index==0 and index else None)
-                sound_beats.append((total_frames/FPS,seconds,beat))
-                ffmpeg('-i',raw,'-af','apad','-ar',RATE,'-ac',1,'-t',f'{seconds:.6f}',audio)
-                inputs['video'].append(video.name)
-                inputs['audio'].append(audio.name)
-                total_frames += frames
+                planned.append((beat,raw,duration(raw),chapter['label'] if beat_index==0 else None))
+        tempo = runtime_timing([entry[2] for entry in planned],runtime_bounds)
+        frame_counts = [max(math.ceil(minimum*FPS),math.ceil((length/tempo+.33)*FPS))
+                        for _,_,length,_ in planned]
+        if runtime_bounds and not runtime_bounds[0] <= sum(frame_counts)/FPS <= runtime_bounds[1]:
+            raise RuntimeError('Adjusted narration falls outside the 15–20 minute window')
+        print(json.dumps({'stage':'narration timing','planned_seconds':round(sum(frame_counts)/FPS,2),
+                          'tempo':round(tempo,4),'chapters':len(plan['chapters'])}),flush=True)
+        audio_filter = 'apad' if tempo==1 else f'atempo={tempo:.8f},apad'
+        for index,((beat,raw,_,label),frames) in enumerate(zip(planned,frame_counts)):
+            if label is not None:
+                starts.append(total_frames/FPS)
+            seconds = frames/FPS
+            video, audio = work/f'v-{index}.mp4',work/f'a-{index}.wav'
+            clip(beat,index,frames,video,label if index else None)
+            sound_beats.append((total_frames/FPS,seconds,beat))
+            ffmpeg('-i',raw,'-af',audio_filter,'-ar',RATE,'-ac',1,'-t',f'{seconds:.6f}',audio)
+            inputs['video'].append(video.name)
+            inputs['audio'].append(audio.name)
+            total_frames += frames
         for kind,paths in inputs.items():
             (work/f'{kind}.txt').write_text(''.join(f"file '{path}'\n" for path in paths))
         score = work/'score.wav'
@@ -135,7 +163,10 @@ def render(plan,root,speak=None,*, minimum=0):
                'alimiter=limit=0.90:level=0:latency=1[a]',
                '-map','0:v','-map','[a]','-c:v','copy','-c:a','aac','-b:a','160k',
                '-metadata:s:a:0','language=eng','-movflags','+faststart','-shortest',root/'video.mp4')
-    if abs(duration(root/'video.mp4')-total_frames/FPS)>.15:
+    actual = duration(root/'video.mp4')
+    if runtime_bounds and not runtime_bounds[0] <= actual <= runtime_bounds[1]:
+        raise RuntimeError('Finished documentary must run between 15 and 20 minutes')
+    if abs(actual-total_frames/FPS)>.15:
         raise RuntimeError('Rendered video differs from the measured storyboard')
     write_json(root/'song.json',metadata(plan,starts))
     if (root/'prehistory-plan.json').exists():
@@ -214,7 +245,7 @@ def main():
     if args.stage == 'plan':
         make_plan(args.run_id,root)
     elif args.stage == 'render':
-        render(json.loads((root/'prehistory-plan.json').read_text()),root)
+        render(json.loads((root/'prehistory-plan.json').read_text()),root,runtime_bounds=FULL_RUNTIME)
     else:
         publish_episode(args.run_id,root)
 

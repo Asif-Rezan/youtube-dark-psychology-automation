@@ -29,6 +29,8 @@ TOPICS = {
 ACTIONS = ('show','walk','carry','work','react','gather','share','watch')
 SETTINGS = ('workshop','camp','grassland','cave','journey')
 PROPS = ('stone','fire','map','food','art','shelter')
+CHAPTER_COUNT = 20
+BEAT_WORDS = (34, 48)
 STR = {'type':'string'}
 
 
@@ -94,16 +96,21 @@ def generate(run_id,history):
             and hook.casefold().rstrip('?') not in title.casefold()):
         hook = fallback
     chapters = []
-    for block in range(2):
+    phases = ('opening question and concrete evidence', 'how the behavior worked',
+              'what it changed in everyday life', 'limits and alternative interpretations',
+              'payoff and return to the opening evidence')
+    for block,phase in enumerate(phases):
         feedback = ''
         for attempt in range(4):
             batch = ask(
-                f'Write chapters {block*4+1}–{block*4+4} of a short documentary titled {title!r}. '
+                f'Write chapters {block*4+1}–{block*4+4} of a {CHAPTER_COUNT}-chapter documentary titled {title!r}. This section covers {phase}. '
                 f'Angle: {idea["angle"]}. Use only this evidence: {facts}. Earlier chapter labels: '
                 f'{[chapter["label"] for chapter in chapters]}. Each chapter has three consecutive visual beats '
-                'with 17–34 spoken English words per beat. Labels should be distinct, 2–6 words. '
-                'Start the episode in a concrete scene with a question before the first beat ends. '
-                'In the second half give a surprising clue and answer the question in the last beat. '
+                f'with {BEAT_WORDS[0]}–{BEAT_WORDS[1]} spoken English words per beat, aiming for 41–44. '
+                'Labels should be distinct, 2–6 words. In chapter 1 start with a concrete scene and an early question. '
+                'In later chapters continue the same story. Answer the opening question in chapter 20. '
+                'Use fresh scene actions, concrete comparisons and explanations of evidence limits to develop '
+                'the story across the chapters. Keep illustrative reconstructions clearly identified. '
                 'Use the first visual as a hook, then alternate a visible action, a close look at a piece of '
                 'evidence, and its consequence. Each chapter should add an observation or raise a new question. '
                 'Stage the actual event in each beat. Choose the setting, framing, primary and secondary '
@@ -116,7 +123,7 @@ def generate(run_id,history):
                 'Avoid invented dates, quotes, certainty, gore, greetings, or a request to subscribe. '+feedback,
                 object_schema(chapters=array(CHAPTER,4)),seed+50+block*20+attempt*3)['chapters']
             labels = {chapter['label'].casefold() for chapter in chapters}
-            if valid_chapters(batch,labels) and (block or '?' in batch[0]['beats'][0]['narration']):
+            if valid_chapters(batch,labels,word_bounds=BEAT_WORDS) and (block or '?' in batch[0]['beats'][0]['narration']):
                 chapters.extend(batch)
                 break
             feedback = 'Return unique short labels, exact beat counts and lengths, no duplicate cast positions, at least one active person, and an opening question.'
@@ -133,7 +140,7 @@ def generate(run_id,history):
             'tags':tags,'chapters':chapters,'source':source,'subject':subject}
 
 
-def valid_chapters(chapters,used=None):
+def valid_chapters(chapters,used=None,*,word_bounds=(17,34)):
     labels = set(used or ())
     for chapter in chapters:
         label = ' '.join(chapter['label'].split())
@@ -141,7 +148,7 @@ def valid_chapters(chapters,used=None):
             return False
         labels.add(label.casefold())
         for beat in chapter['beats']:
-            if not 17 <= len(beat['narration'].split()) <= 34 or re.search('[<>]',beat['narration']):
+            if not word_bounds[0] <= len(beat['narration'].split()) <= word_bounds[1] or re.search('[<>]',beat['narration']):
                 return False
             if 'cast' in beat:
                 positions = {member['position'] for member in beat['cast']}
