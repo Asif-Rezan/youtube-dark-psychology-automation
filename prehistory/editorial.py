@@ -69,6 +69,59 @@ def ask(message,schema,seed):
     return json.loads(response['choices'][0]['message']['content'])
 
 
+def normalize_chapter_label(value,number,used):
+    """Recover display copy locally without discarding an accepted story beat."""
+    label = ' '.join(re.sub(r'[<>]','',value).split()[:6]).strip(' .:;!?')[:64].strip()
+    if not label:
+        label = f'Chapter {number}'
+    if label.casefold() in used:
+        suffix = f' · {number}'
+        label = label[:64-len(suffix)].rstrip() + suffix
+        if label.casefold() in used:
+            label = f'Chapter {number}'
+    return label
+
+
+def expand_short_narration(chapter,number,evidence,seed):
+    """Keep the storyboard intact and extend only underwritten spoken beats."""
+    beats = [dict(beat) for beat in chapter['beats']]
+    counts = [len(beat['narration'].split()) for beat in beats]
+    if (len(beats)!=3 or min(counts)<10 or max(counts)>BEAT_WORDS[1]
+            or any(re.search('[<>]',beat['narration']) for beat in beats)):
+        return chapter
+    for attempt in range(3):
+        counts = [len(beat['narration'].split()) for beat in beats]
+        if min(counts)>=BEAT_WORDS[0] and sum(counts)>=CHAPTER_MIN_WORDS:
+            break
+        pending = {f'beat_{i+1}': i for i,count in enumerate(counts) if count<36}
+        targets = {key: {'current':beats[i]['narration'],
+                        'additional_words':max(9,38-counts[i])} for key,i in pending.items()}
+        print(json.dumps({'check':'expand prehistory narration','chapter':number,
+                          'attempt':attempt+1,'beat_word_counts':counts}),flush=True)
+        try:
+            additions = ask(
+                f'Write additional complete spoken sentences for the following chapter beats: {json.dumps(targets)}. '
+                f'Use only this evidence: {evidence}. For each field return only its new prose, without repeating '
+                'the supplied opening. Explain the visible action, object, consequence or evidence limit. '
+                'Use the requested additional word count, and no labels, invented facts or commentary.',
+                object_schema(**{key:STR for key in pending}),seed+attempt*4,
+            )
+        except StoryGenerationError as error:
+            if not error.retryable:
+                raise
+            continue
+        for key,i in pending.items():
+            text = ' '.join(additions[key].split())
+            added = len(text.split())
+            if (8<=added<=BEAT_WORDS[1]-counts[i] and not re.search('[<>]',text)
+                    and text.casefold() not in beats[i]['narration'].casefold()):
+                original = beats[i]['narration'].rstrip()
+                if not original.endswith(('.', '?', '!')):
+                    original += '.'
+                beats[i]['narration'] = f'{original} {text}'
+    return {**chapter,'beats':beats}
+
+
 def generate(run_id,history,checkpoint=None,save_checkpoint=None):
     used = [row.get('prehistory_topic') for row in history]
     last_seen = {item:i for i,item in enumerate(used) if item in TOPICS}
@@ -105,6 +158,8 @@ def generate(run_id,history,checkpoint=None,save_checkpoint=None):
             and hook.casefold().rstrip('?') not in title.casefold()):
         hook = fallback
     chapters = list(checkpoint.get('chapters',[]))
+    if chapters:
+        print(json.dumps({'check':'resume prehistory draft','saved_chapters':len(chapters)}),flush=True)
     phases = ('opening question and concrete evidence', 'how the behavior worked',
               'what it changed in everyday life', 'limits and alternative interpretations',
               'payoff and return to the opening evidence')
@@ -145,10 +200,12 @@ def generate(run_id,history,checkpoint=None,save_checkpoint=None):
                 continue
             problems = {number:issues for number,issues in problems.items() if number not in pending}
             for number,chapter in zip(pending,batch):
-                chapter = dict(chapter,label=' '.join(chapter['label'].split()))
+                chapter = dict(chapter,label=normalize_chapter_label(chapter['label'],number,labels),
+                               beats=[dict(beat) for beat in chapter['beats']])
                 beats = chapter['beats']
                 if number==1 and '?' not in beats[0]['narration']:
                     beats[0]['narration'] = f"{title} {beats[0]['narration']}"
+                chapter = expand_short_narration(chapter,number,facts,seed+900+number*100+attempt*13)
                 issues = chapter_issues(chapter,labels)
                 if issues:
                     problems[number] = issues
@@ -181,8 +238,8 @@ def generate(run_id,history,checkpoint=None,save_checkpoint=None):
 def chapter_issues(chapter,labels):
     issues = []
     label = chapter['label']
-    if not 2 <= len(label.split()) <= 6 or len(label)>64 or re.search('[<>]',label):
-        issues.append('label must be 2–6 words, at most 64 characters')
+    if not label or len(label)>64 or re.search('[<>]',label):
+        issues.append('label must be readable and at most 64 characters')
     elif label.casefold() in labels:
         issues.append('duplicate chapter label')
     counts = [len(beat['narration'].split()) for beat in chapter['beats']]

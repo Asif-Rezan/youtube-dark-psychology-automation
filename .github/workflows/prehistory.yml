@@ -48,6 +48,10 @@ jobs:
         shell: bash
         run: |
           run_id="${REQUESTED_RUN_ID:-prehistory-$GITHUB_RUN_ID}"
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            resume_id=$(jq -r '.resume_run_id // empty' .generation/scene-story-request.json)
+            run_id="${resume_id:-$run_id}"
+          fi
           [[ "$run_id" =~ ^prehistory-[A-Za-z0-9_-]{1,69}$ ]]
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
       - name: Install the pinned Qwen runtime and run tests

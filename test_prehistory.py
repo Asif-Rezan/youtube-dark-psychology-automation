@@ -5,7 +5,8 @@ from unittest.mock import patch
 
 from PIL import Image
 from episode_packaging import public_metadata
-from prehistory.editorial import CHAPTER_COUNT, generate, metadata, valid_chapters
+from prehistory.editorial import (CHAPTER_COUNT, chapter_issues, expand_short_narration, generate,
+                                  metadata, normalize_chapter_label, valid_chapters)
 from prehistory.production import FULL_RUNTIME, MASTER_GAIN, narration_filter, runtime_timing
 from prehistory.visuals import cover, scene
 from upload_settings import load_settings, upload_body
@@ -49,6 +50,22 @@ class PrehistoryTests(unittest.TestCase):
         self.assertEqual(saved,[17,20])
         self.assertEqual(len(result['chapters']),20)
         self.assertIn('Write only chapters [18]',call.call_args_list[1].args[0])
+
+    def test_one_word_label_and_underwritten_beats_are_repaired_without_redrawing(self):
+        marker = {'sex':'female','action':'work','position':'left'}
+        counts = (22,19,21)
+        chapter = {'label':normalize_chapter_label('  Origins  ',3,set()),
+                   'beats':[{'narration':' '.join(['evidence']*count)+'.','cast':[marker],
+                             'setting':'workshop','framing':'detail','prop':'stone','secondary_prop':'none'}
+                            for count in counts]}
+        addition = ('A researcher can compare the tool with similar finds and look for signs of how it was made.')
+        with patch('prehistory.editorial.ask',return_value={f'beat_{i}':addition for i in range(1,4)}) as call:
+            result = expand_short_narration(chapter,3,'Stone flakes preserve signs of toolmaking.',100)
+        self.assertEqual(call.call_count,1)
+        self.assertEqual(result['label'],'Origins')
+        self.assertEqual(chapter_issues(result,set()),[])
+        self.assertEqual(result['beats'][0]['cast'],[marker])
+        self.assertNotEqual(normalize_chapter_label('Origins',4,{'origins'}).casefold(),'origins')
 
     def test_deeper_pitch_preserves_the_requested_tempo(self):
         for rate in (24000,48000):
