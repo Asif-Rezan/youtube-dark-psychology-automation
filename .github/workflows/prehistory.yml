@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
     paths: [.generation/scene-story-request.json]
+  schedule:
+    - cron: '0 21 * * *' # 03:00 Asia/Dhaka, following day
   workflow_dispatch:
     inputs:
       run_id:
@@ -27,6 +29,7 @@ env:
   HF_HUB_DISABLE_XET: '1'
 jobs:
   plan:
+    if: github.event_name != 'schedule' || vars.AUTOMATION_ENABLED == 'true'
     name: Generate original idea and narration with Qwen
     runs-on: ubuntu-24.04
     timeout-minutes: 140
