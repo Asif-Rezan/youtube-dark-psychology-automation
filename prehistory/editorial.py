@@ -26,7 +26,8 @@ TOPICS = {
         'Natural shelters and built structures were both used. Preservation of organic materials is uneven. '
         'Distinguish archaeological observations from modern reconstructions.', 'shelter', 'WHERE DID THEY SLEEP?'),
 }
-ACTIONS = ('show','walk','carry','work','react')
+ACTIONS = ('show','walk','carry','work','react','gather','share','watch')
+SETTINGS = ('workshop','camp','grassland','cave','journey')
 PROPS = ('stone','fire','map','food','art','shelter')
 STR = {'type':'string'}
 
@@ -39,8 +40,20 @@ def array(items,n):
     return {'type':'array','items':items,'minItems':n,'maxItems':n}
 
 
-BEAT = object_schema(narration=STR,action={'type':'string','enum':list(ACTIONS)},
-                     prop={'type':'string','enum':list(PROPS)})
+def choice(values):
+    return {'type':'string','enum':list(values)}
+
+
+CAST_MEMBER = object_schema(
+    sex=choice(('male','female')), action=choice(ACTIONS),
+    position=choice(('left','center','right')),
+)
+BEAT = object_schema(
+    narration=STR, prop=choice(PROPS), setting=choice(SETTINGS),
+    secondary_prop=choice((*PROPS,'none')),
+    framing=choice(('wide','medium','detail')),
+    cast={'type':'array','items':CAST_MEMBER,'minItems':1,'maxItems':3},
+)
 CHAPTER = object_schema(label=STR,beats=array(BEAT,3))
 
 
@@ -48,7 +61,7 @@ def ask(message,schema,seed):
     response = request_story('chat/completions',{
         'messages':[{'role':'user','content':message}],
         'response_format':{'type':'json_schema','json_schema':{'schema':schema}},
-        'seed':seed,'max_completion_tokens':2900,
+        'seed':seed,'max_completion_tokens':4300,
     })
     return json.loads(response['choices'][0]['message']['content'])
 
@@ -93,8 +106,12 @@ def generate(run_id,history):
                 'In the second half give a surprising clue and answer the question in the last beat. '
                 'Use the first visual as a hook, then alternate a visible action, a close look at a piece of '
                 'evidence, and its consequence. Each chapter should add an observation or raise a new question. '
-                'Use only these motion labels: show, walk, carry, work, react. The action and prop must fit '
-                'the spoken beat; show is an explanatory gesture. Characters are anonymous reconstructions. '
+                'Stage the actual event in each beat. Choose the setting, framing, primary and secondary '
+                'objects, and list every character needed (1–3), with distinct left, center or right positions. '
+                'Choose male or female where appropriate, use mixed groups when the scene calls for a group, '
+                'and give each actor an action tied to the same event. Use share or gather for cooperative or '
+                'food activity, and watch only while somebody else is acting. Use detail for a close look '
+                'at a specific object or a hand action. All characters are anonymous reconstructions. '
                 f'Prefer the episode prop {prop}, but switch where the subject requires it. '
                 'Avoid invented dates, quotes, certainty, gore, greetings, or a request to subscribe. '+feedback,
                 object_schema(chapters=array(CHAPTER,4)),seed+50+block*20+attempt*3)['chapters']
@@ -102,7 +119,7 @@ def generate(run_id,history):
             if valid_chapters(batch,labels) and (block or '?' in batch[0]['beats'][0]['narration']):
                 chapters.extend(batch)
                 break
-            feedback = 'Return unique short labels, exact beat counts and lengths, and a question in the first beat.'
+            feedback = 'Return unique short labels, exact beat counts and lengths, no duplicate cast positions, at least one active person, and an opening question.'
         else:
             raise StoryGenerationError('Prehistory story missed chapter or opening requirements',code='prehistory_story',
                                        details={'starting_chapter':block*4+1})
@@ -126,6 +143,10 @@ def valid_chapters(chapters,used=None):
         for beat in chapter['beats']:
             if not 17 <= len(beat['narration'].split()) <= 34 or re.search('[<>]',beat['narration']):
                 return False
+            if 'cast' in beat:
+                positions = {member['position'] for member in beat['cast']}
+                if len(positions) != len(beat['cast']) or all(member['action']=='watch' for member in beat['cast']):
+                    return False
     return True
 
 

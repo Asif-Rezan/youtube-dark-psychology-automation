@@ -82,7 +82,8 @@ def soundtrack(target,seconds,beats):
                 )
     rng = np.random.default_rng(813)
     for start,duration,beat in beats:
-        if (beat['action'],beat['prop']) == ('work','stone'):
+        actions = [member['action'] for member in beat.get('cast',())] or [beat.get('action')]
+        if beat['prop']=='stone' and 'work' in actions:
             for at in np.arange(.22,min(duration,3.5),.90):
                 offset = round((start+at)*RATE)
                 count = min(round(.09*RATE),total-offset)

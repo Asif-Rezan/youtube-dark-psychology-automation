@@ -90,11 +90,12 @@ def prop(draw, kind, x,y,scale,t,active):
 
 
 def actor(draw,x,y,*,t,action,female=False,facing=1,scale=1.55):
-    work = action == 'work'
+    work = action in ('work','gather','share')
     character(draw,x,y,scale=scale,female=female,facing=facing,islamic=False,
               walk_phase=t*8 if action in ('walk','carry') else None,
-              basket=action=='carry',work=t*7 if work else None,point=action=='show',
-              wave=t*4 if action=='react' else None,blink=t%3.9>3.75,
+              basket=action=='carry',work=t*(3.4 if action=='share' else 7) if work else None,point=action=='show',
+              wave=t*(2.7 if action=='watch' else 4) if action in ('react','show','watch') else None,
+              blink=t%3.9>3.75,breathing=1.8*math.sin(t*2.2),
               expression='surprised' if action=='react' else 'curious' if work else 'calm')
 
 
@@ -138,10 +139,12 @@ def terrain_detail(draw,kind):
 
 
 @lru_cache(maxsize=12)
-def stage(kind):
+def stage(kind,setting=None):
     image = Image.new('RGB',SIZE,'white')
     draw = ImageDraw.Draw(image)
-    terrain_detail(draw,kind)
+    environment = {'workshop':'stone','camp':'fire','grassland':'food',
+                   'cave':'art','journey':'map'}.get(setting,kind)
+    terrain_detail(draw,environment)
     _,_,earth,_,accent = PALETTES[kind][0]
     soil,light = getrgb(earth),getrgb(accent)
     tint = tuple(round(c*.26+255*.74) for c in soil)
@@ -176,40 +179,56 @@ def caption_font(size):
 
 
 def scene(beat,t,duration,shot,chapter_label=None):
-    kind,action = beat['prop'],beat['action']
-    image = stage(kind).copy()
+    kind = beat['prop']
+    cast = beat.get('cast') or [{'sex':'female' if (shot//3)%2 else 'male',
+                                'action':beat.get('action','show'),'position':'left'}]
+    image = stage(kind,beat.get('setting')).copy()
     draw = ImageDraw.Draw(image)
     _,_,_,_,accent = PALETTES[kind][0]
-    moving = action in ('walk','carry')
     progress = min(t/max(duration,.1),1)
-    actor_x = 304+progress*340 if moving else 480 if action=='work' else 342
-    prop_x = 583 if action=='work' else 780
-    prop_y = 504 if action=='work' and kind in ('stone','food') else 592
+    workers = {'work','gather','share'}
+    presenter = next((member for member in cast if member['action'] != 'watch'),cast[0])
+    lead = next((member for member in cast if member['action'] in workers),presenter)
+    anchors = {'left':340,'center':610,'right':980}
+    lead_x = anchors[lead['position']]
+    direction = -1 if lead['position']=='right' else 1
+    active = lead['action'] in workers
+    prop_x = lead_x+direction*108 if active else 735 if direction==1 else 580
+    prop_y = 510 if active and kind in ('stone','food') else 592
+    if beat.get('secondary_prop','none') not in ('none',kind):
+        secondary = beat['secondary_prop']
+        prop(draw,secondary,1065 if prop_x < 740 else 175,575,.68,t,False)
     if kind in ('fire','map','art','shelter'):
-        # A colored vignette supports the main object and leaves the canvas white.
         color = tuple(round(c*.30+255*.70) for c in getrgb(accent))
-        draw.ellipse((prop_x-235,142,prop_x+235,581),fill=color)
+        draw.ellipse((prop_x-190,155,prop_x+190,570),fill=color)
     if prop_y < 592:
         poly(draw,[(prop_x-110,600),(prop_x-106,528),(prop_x-63,500),
                    (prop_x+74,502),(prop_x+91,597)],'#bfb4a7')
         poly(draw,[(prop_x-106,528),(prop_x-63,500),(prop_x+74,502),
                    (prop_x+42,526)],'#ded4c9')
-    prop(draw,kind,prop_x,prop_y,1.43,t,action=='work')
-    draw.ellipse((actor_x-96,605,actor_x+97,629),fill='#ddd4c7')
-    female = bool((shot//3)%2)
-    actor(draw,actor_x,614,t=t,action=action,female=female,scale=1.71)
-    if kind=='stone' and action=='work':
-        stone_contact(draw,actor_x+87,408,t)
-    if action in ('show','react') and shot%3==1:
-        actor(draw,1050,608,t=t+.7,action='react',female=not female,facing=-1,scale=1.17)
-    if action=='work' and kind in ('stone','food') and progress >= .62:
-        image = image.resize(SIZE,Image.Resampling.BILINEAR,box=(393,340,881,615))
-    elif action=='work' and progress >= .32:
-        image = image.resize(SIZE,Image.Resampling.BILINEAR,box=(156,62,1060,645))
-    elif action in ('show','react') and progress >= .50:
-        image = image.resize(SIZE,Image.Resampling.BILINEAR,box=(151,88,1175,667))
-    elif moving and progress >= .65:
-        image = image.resize(SIZE,Image.Resampling.BILINEAR,box=(238,91,1210,684))
+    prop(draw,kind,prop_x,prop_y,1.28 if len(cast)>1 else 1.43,t,active)
+    for index,member in enumerate(cast):
+        action = member['action']
+        x = anchors[member['position']]
+        facing = 1 if x<prop_x else -1
+        if action in ('walk','carry'):
+            x += facing*(progress-.45)*(140 if len(cast)>1 else 290)
+        elif action in workers and member is not lead:
+            # Bring collaborators toward the shared object without crossing roles.
+            x += facing*min(125,abs(prop_x-x)*.40)
+        y = 610+index*4
+        scale = 1.48 if len(cast)>1 else 1.71
+        draw.ellipse((x-79,y-7,x+78,y+17),fill='#ddd4c7')
+        actor(draw,x,y,t=t+index*.29,action=action,female=member['sex']=='female',facing=facing,scale=scale)
+        if kind=='stone' and action=='work' and member is lead:
+            stone_contact(draw,x+facing*79,y-190,t)
+    framing = beat.get('framing','detail' if active else 'medium')
+    if framing=='detail' and progress>=.53 and active and kind in ('stone','food'):
+        left = min(790,max(0,prop_x-244))
+        image = image.resize(SIZE,Image.Resampling.BILINEAR,box=(left,340,left+488,615))
+    elif framing!='wide' and progress>=.38 and len(cast)==1:
+        left = min(350,max(0,lead_x-290))
+        image = image.resize(SIZE,Image.Resampling.BILINEAR,box=(left,66,left+920,667))
     if chapter_label and .25 <= t < min(2.3,duration):
         draw = ImageDraw.Draw(image)
         text = chapter_label.upper()

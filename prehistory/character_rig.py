@@ -3,14 +3,14 @@ import math
 
 INK = '#211d19'
 
-def character(draw, x, y, *, female=False, facing=0, stride=0, wave=None, scale=1, walk_phase=None, blink=False, islamic=True, basket=False, point=False, work=None, expression="calm"):
+def character(draw, x, y, *, female=False, facing=0, stride=0, wave=None, scale=1, walk_phase=None, blink=False, islamic=True, basket=False, point=False, work=None, expression="calm", breathing=0):
     """Draw an original stick figure with articulated elbows and knees."""
     if facing not in (-1, 0, 1) or scale <= 0:
         raise ValueError('Use a positive scale and a front (0), left (-1), or right (1) view.')
     direction = facing or 1
     facing = abs(facing)
     # The foot anchor stays fixed while the upper body bobs.
-    bob = 0 if walk_phase is None else 2.6 * abs(math.sin(walk_phase))
+    bob = breathing if walk_phase is None else 2.6 * abs(math.sin(walk_phase))
 
     def points(coordinates):
         return [(round(x + px * scale * direction), round(y + py * scale)) for px, py in coordinates]
@@ -58,8 +58,9 @@ def character(draw, x, y, *, female=False, facing=0, stride=0, wave=None, scale=
             elbow = (shoulder + 28, -137 + 14*math.sin(work))
             hand = (48 + side*8, -117 + 22*math.sin(work))
         elif point and side == 1:
-            elbow = (52, -163)
-            hand = (91, -181)
+            tilt = 6*math.sin(wave) if wave is not None else 0
+            elbow = (52, -163+tilt*.5)
+            hand = (91, -181+tilt)
         elif wave is not None and side == 1:
             elbow = (49, -150)
             angle = .35 + .48 * math.sin(wave)

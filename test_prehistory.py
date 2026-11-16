@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from PIL import Image
 from episode_packaging import public_metadata
-from prehistory.editorial import generate, metadata
+from prehistory.editorial import generate, metadata, valid_chapters
 from prehistory.visuals import cover, scene
 from upload_settings import load_settings, upload_body
 
@@ -40,6 +40,25 @@ class PrehistoryTests(unittest.TestCase):
             with Image.open(target) as image:
                 self.assertEqual(image.size,(1920,1080))
             self.assertLess(target.stat().st_size,2*1024**2)
+
+    def test_story_cast_supports_independent_male_and_female_actions(self):
+        beat = {'prop':'food','setting':'camp','secondary_prop':'fire','framing':'wide',
+                'narration':'The group brings food back to the hearth, where some gather supplies and the others prepare to share them.',
+                'cast':[{'sex':'male','action':'carry','position':'left'},
+                        {'sex':'female','action':'share','position':'right'}]}
+        self.assertTrue(valid_chapters([{'label':'Back at Camp','beats':[beat]}]))
+        first = scene(beat,0,10,0)
+        second = scene(beat,1.6,10,0)
+        self.assertNotEqual(first.crop((180,195,480,630)).tobytes(),
+                            second.crop((180,195,480,630)).tobytes())
+        self.assertNotEqual(first.crop((840,195,1060,630)).tobytes(),
+                            second.crop((840,195,1060,630)).tobytes())
+        beat['cast'][1]['position'] = 'left'
+        self.assertFalse(valid_chapters([{'label':'Back at Camp','beats':[beat]}]))
+
+    def test_explaining_character_continues_to_move(self):
+        beat = {'prop':'map','action':'show'}
+        self.assertNotEqual(scene(beat,.2,10,0).tobytes(),scene(beat,.55,10,0).tobytes())
 
     def test_scene_sets_have_distinct_terrain_and_preserve_white_canvas(self):
         workshop = scene({'prop':'stone','action':'work'},0,10,0)
