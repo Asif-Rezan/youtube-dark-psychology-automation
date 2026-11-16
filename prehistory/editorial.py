@@ -122,6 +122,17 @@ def expand_short_narration(chapter,number,evidence,seed):
     return {**chapter,'beats':beats}
 
 
+def ancient_humans_title(title):
+    """Retain the episode question and brand it consistently, including old plans."""
+    title = ' '.join(title.split())
+    if re.search(r'\bancient humans\b',title,re.I):
+        return re.sub(r'\bancient humans\b','Ancient Humans',title,flags=re.I)
+    title, replaced = re.subn(r'\bearly humans\b','Ancient Humans',title,flags=re.I)
+    if replaced:
+        return title
+    return f'{title} | Ancient Humans'
+
+
 def generate(run_id,history,checkpoint=None,save_checkpoint=None):
     used = [row.get('prehistory_topic') for row in history]
     last_seen = {item:i for i,item in enumerate(used) if item in TOPICS}
@@ -130,7 +141,7 @@ def generate(run_id,history,checkpoint=None,save_checkpoint=None):
     idea_schema = object_schema(topic={'type':'string','enum':oldest},title=STR,hook=STR,
                                 description=STR,tags=array(STR,6),angle=STR)
     seed = int.from_bytes(hashlib.sha256(run_id.encode()).digest()[:4],'big') % 1_900_000_000
-    titles = {row.get('title','').casefold() for row in history}
+    titles = {ancient_humans_title(row.get('title','')).casefold() for row in history}
     checkpoint = checkpoint or {}
     save_checkpoint = save_checkpoint or (lambda value: None)
     if 'idea' in checkpoint:
@@ -139,12 +150,12 @@ def generate(run_id,history,checkpoint=None,save_checkpoint=None):
     else:
         for attempt in range(4):
             idea = ask(f'Choose one prehistoric human topic from {topic_names}. Write an original English YouTube '
-                       'documentary idea. The title is an inviting specific question of 30–75 characters. '
+                       'documentary idea. The title is an inviting specific question of 30–75 characters containing Ancient Humans. '
                        'The thumbnail hook is a different question, 2–5 uppercase words, max 26 characters. '
                        'Write a short description teasing the discovery, and exactly six relevant search tags. '
                        f'Avoid these previous titles: {[row.get("title","") for row in history[-20:]]}.',idea_schema,seed+attempt*5)
             title = ' '.join(idea['title'].split())
-            if (30 <= len(title) <= 75 and title.endswith('?') and title.casefold() not in titles
+            if (30 <= len(title) <= 75 and title.endswith('?') and ancient_humans_title(title).casefold() not in titles
                     and not re.search('[<>]',title)):
                 break
         else:
@@ -231,7 +242,7 @@ def generate(run_id,history,checkpoint=None,save_checkpoint=None):
         if 2 <= len(value) <= 45 and value.casefold() not in {tag.casefold() for tag in tags} and not re.search('[<>]',value):
             tags.append(value)
     description = ' '.join(idea['description'].replace('<','').replace('>','').split())[:360].strip()
-    return {'genre':'prehistory','topic':topic,'title':title,'hook':hook,'description':description,
+    return {'genre':'prehistory','topic':topic,'title':ancient_humans_title(title),'hook':hook,'description':description,
             'tags':tags,'chapters':chapters,'source':source,'subject':subject}
 
 
@@ -284,4 +295,5 @@ def metadata(plan,starts):
                    "Scenes are illustrative reconstructions.\n\n"
                    f"Source\nSmithsonian Human Origins Program — {plan['source']}\n\n"
                    "#Prehistory #HumanEvolution #StoneAge")
-    return {key:plan[key] for key in ('genre','title','tags')} | {'description':description}
+    return {key:plan[key] for key in ('genre','tags')} | {
+        'title':ancient_humans_title(plan['title']),'description':description}

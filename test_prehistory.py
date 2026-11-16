@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from PIL import Image
 from episode_packaging import public_metadata
-from prehistory.editorial import (CHAPTER_COUNT, chapter_issues, expand_short_narration, generate,
+from prehistory.editorial import (CHAPTER_COUNT, ancient_humans_title, chapter_issues, expand_short_narration, generate,
                                   metadata, normalize_chapter_label, valid_chapters)
 from prehistory.production import FULL_RUNTIME, MASTER_GAIN, NARRATION_PAUSE, calibrate_narration_speed, narration_filter, runtime_timing
 from prehistory.visuals import cover, scene
@@ -31,7 +31,7 @@ class PrehistoryTests(unittest.TestCase):
         self.assertEqual(plan['hook'],'WHAT DID IT CUT?')
         self.assertIn('00:00 A Broken Stone\n00:30 Making an Edge',result['description'])
         self.assertIn('Smithsonian Human Origins Program',result['description'])
-        self.assertEqual(public_metadata(result)['title'],idea['title'])
+        self.assertEqual(public_metadata(result)['title'],'Why Did Ancient Humans Break Stones on Purpose?')
 
     def test_short_chapter_repair_preserves_valid_work_and_resumes_from_checkpoint(self):
         idea = {'topic':'stone-tools','title':'Why Did Early Humans Break Stones on Purpose?',
@@ -66,6 +66,13 @@ class PrehistoryTests(unittest.TestCase):
         self.assertEqual(chapter_issues(result,set()),[])
         self.assertEqual(result['beats'][0]['cast'],[marker])
         self.assertNotEqual(normalize_chapter_label('Origins',4,{'origins'}).casefold(),'origins')
+
+    def test_ancient_humans_branding_applies_once_to_saved_titles(self):
+        self.assertEqual(ancient_humans_title('How did early humans find food?'),
+                         'How did Ancient Humans find food?')
+        title = ancient_humans_title('What Did the First Hearths Change?')
+        self.assertEqual(title, 'What Did the First Hearths Change? | Ancient Humans')
+        self.assertEqual(ancient_humans_title(title),title)
 
     def test_deeper_pitch_preserves_the_requested_tempo(self):
         for rate in (24000,48000):

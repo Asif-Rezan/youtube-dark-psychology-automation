@@ -350,7 +350,14 @@ def cover(plan,target):
     prop(draw,kind,px,py,prop_scale,0,False)
     actor(draw,x,652,t=.35,action=left_pose,female=False,scale=left_scale)
     actor(draw,right,642,t=.4,action=right_pose,female=True,facing=-1,scale=right_scale)
-    headline = plan['hook'].upper()
+    save_cover(image,plan['hook'],kind,target)
+
+
+def save_cover(image,hook,kind,target):
+    if image.size != SIZE:
+        image = image.resize(SIZE,Image.Resampling.LANCZOS)
+    draw = ImageDraw.Draw(image)
+    headline = hook.upper()
     for size in range(138,45,-3):
         face=ImageFont.truetype(str(FONT),size)
         face.set_variation_by_axes([700])

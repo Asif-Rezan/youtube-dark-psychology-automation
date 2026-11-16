@@ -103,6 +103,8 @@ jobs:
         with:
           name: prehistoric-plan
           path: output/
+      - name: Install headless Blender
+        run: bash scripts/install-prehistory-blender.sh
       - run: python -u -m prehistory.production render --run-id "$RUN_ID"
       - uses: actions/upload-artifact@v4
         with:

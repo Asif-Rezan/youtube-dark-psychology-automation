@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -12,7 +13,7 @@ import wave
 import numpy as np
 
 from storage import Store
-from .editorial import generate,metadata
+from .editorial import ancient_humans_title,generate,metadata
 from .visuals import SIZE,cover,scene
 
 FPS = 24
@@ -169,7 +170,10 @@ def render(plan,root,speak=None,*, minimum=0,runtime_bounds=None):
     from pipeline import duration
     native_voice = speak is None
     speak = speak or speech_writer()
-    cover(plan,root/'thumbnail.jpg')
+    render_clip, render_cover = clip, cover
+    if os.environ.get('PREHISTORY_BLENDER'):
+        from .storybook import clip as render_clip, cover as render_cover
+    render_cover(plan,root/'thumbnail.jpg')
     with tempfile.TemporaryDirectory(dir=root) as directory:
         work = Path(directory)
         inputs = {'video':[],'audio':[]}
@@ -205,7 +209,7 @@ def render(plan,root,speak=None,*, minimum=0,runtime_bounds=None):
                 starts.append(total_frames/FPS)
             seconds = frames/FPS
             video, audio = work/f'v-{index}.mp4',work/f'a-{index}.wav'
-            clip(beat,index,frames,video,label if index else None)
+            render_clip(beat,index,frames,video,label if index else None)
             sound_beats.append((total_frames/FPS,seconds,beat))
             with wave.open(str(raw),'rb') as voice:
                 audio_filter = narration_filter(tempo,voice.getframerate())
@@ -269,8 +273,11 @@ def publish_episode(run_id,root):
     state = store.load(key,{})
     song = json.loads((root/'song.json').read_text())
     plan = json.loads((root/'prehistory-plan.json').read_text())
-    if song['genre'] != 'prehistory' or song['title'] != plan['title']:
+    if song['genre'] != 'prehistory' or song['title'] not in (plan['title'],ancient_humans_title(plan['title'])):
         raise ValueError('Publication metadata differs from the prehistory storyboard')
+    branded_title = ancient_humans_title(song['title'])
+    if not state or state.get('song',{}).get('title') == branded_title:
+        song['title'] = branded_title
     digest = hashlib.sha256(json.dumps(plan['chapters'],sort_keys=True).encode()).hexdigest()
     history = store.load('history.json',[])
     if any(row.get('run') != run_id and (row.get('hash') == digest or row.get('title') == song['title'])
