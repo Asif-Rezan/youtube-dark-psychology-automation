@@ -44,7 +44,7 @@ def speech_writer():
     return speak
 
 
-def clip(beat,index,frames,target):
+def clip(beat,index,frames,target,chapter_label=None):
     command = ['ffmpeg','-y','-v','error','-f','rawvideo','-pix_fmt','rgb24',
                '-s',f'{SIZE[0]}x{SIZE[1]}','-r',str(FPS),'-i','pipe:0',
                '-vf','scale=1920:1080','-an','-c:v','libx264','-threads','4',
@@ -52,11 +52,51 @@ def clip(beat,index,frames,target):
     with subprocess.Popen(command,stdin=subprocess.PIPE) as process:
         try:
             for frame in range(frames):
-                process.stdin.write(scene(beat,frame/FPS,frames/FPS,index).tobytes())
+                process.stdin.write(scene(beat,frame/FPS,frames/FPS,index,chapter_label).tobytes())
         finally:
             process.stdin.close()
         if process.wait():
             raise RuntimeError(f'Prehistory shot {index+1} failed to encode')
+
+
+def soundtrack(target,seconds,beats):
+    """Light documentary music with quiet activity sounds tied to the animation."""
+    total = round(seconds*RATE)
+    signal = np.zeros(total,dtype=np.float32)
+    chords = ((45,52,57),(48,55,60),(41,48,53),(43,50,55))
+    for index,start in enumerate(range(0,total,round(3.2*RATE))):
+        count = min(round(3.2*RATE),total-start)
+        t = np.arange(count,dtype=np.float32)/RATE
+        envelope = np.sin(np.pi*t/3.2)**2
+        for note in chords[index%len(chords)]:
+            frequency = 440*2**((note-69)/12)
+            signal[start:start+count] += .026*envelope*np.sin(2*np.pi*frequency*t)
+        for pulse in range(4):
+            offset = round(pulse*.8*RATE)
+            length = min(count-offset,round(.7*RATE))
+            if length > 0:
+                dt = t[:length]
+                hz = 440*2**((chords[index%len(chords)][pulse%3]+12-69)/12)
+                signal[start+offset:start+offset+length] += (
+                    .024*np.minimum(dt*90,1)*np.exp(-6*dt)*np.sin(2*np.pi*hz*dt)
+                )
+    rng = np.random.default_rng(813)
+    for start,duration,beat in beats:
+        if (beat['action'],beat['prop']) == ('work','stone'):
+            for at in np.arange(.22,min(duration,3.5),.90):
+                offset = round((start+at)*RATE)
+                count = min(round(.09*RATE),total-offset)
+                t = np.arange(count,dtype=np.float32)/RATE
+                signal[offset:offset+count] += (
+                    (.030*np.sin(2*np.pi*740*t)+.016*rng.uniform(-1,1,count))*np.exp(-42*t)
+                )
+    fade = min(total//2,round(.6*RATE))
+    if fade:
+        signal[:fade] *= np.linspace(0,1,fade)
+        signal[-fade:] *= np.linspace(1,0,fade)
+    with wave.open(str(target),'wb') as file:
+        file.setparams((1,2,RATE,0,'NONE',''))
+        file.writeframes((signal*32767).astype('<i2').tobytes())
 
 
 def render(plan,root,speak=None,*, minimum=0):
@@ -66,25 +106,29 @@ def render(plan,root,speak=None,*, minimum=0):
     with tempfile.TemporaryDirectory(dir=root) as directory:
         work = Path(directory)
         inputs = {'video':[],'audio':[]}
+        sound_beats = []
         starts, total_frames = [], 0
         for chapter in plan['chapters']:
             starts.append(total_frames/FPS)
-            for beat in chapter['beats']:
+            for beat_index,beat in enumerate(chapter['beats']):
                 index = len(inputs['video'])
                 raw = work/f'raw-{index}.wav'
                 speak(beat['narration'],raw)
                 frames = max(math.ceil(minimum*FPS),math.ceil((duration(raw)+.33)*FPS))
                 seconds = frames/FPS
                 video, audio = work/f'v-{index}.mp4',work/f'a-{index}.wav'
-                clip(beat,index,frames,video)
+                clip(beat,index,frames,video,chapter['label'] if beat_index==0 and index else None)
+                sound_beats.append((total_frames/FPS,seconds,beat))
                 ffmpeg('-i',raw,'-af','apad','-ar',RATE,'-ac',1,'-t',f'{seconds:.6f}',audio)
                 inputs['video'].append(video.name)
                 inputs['audio'].append(audio.name)
                 total_frames += frames
         for kind,paths in inputs.items():
             (work/f'{kind}.txt').write_text(''.join(f"file '{path}'\n" for path in paths))
+        score = work/'score.wav'
+        soundtrack(score,total_frames/FPS,sound_beats)
         ffmpeg('-f','concat','-safe',0,'-i',work/'video.txt','-f','concat','-safe',0,'-i',work/'audio.txt',
-               '-f','lavfi','-i',"aevalsrc='0.052*(sin(2*PI*98*t)+0.38*sin(2*PI*147*t))*pow(sin(PI*t/5),2)':s=24000",
+               '-i',score,
                '-filter_complex','[1:a]loudnorm=I=-16:TP=-2:LRA=8,aresample=48000[voice];'
                '[2:a]aresample=48000[bed];[voice][bed]amix=inputs=2:duration=first:normalize=0,'
                'alimiter=limit=0.90:level=0:latency=1[a]',

@@ -91,6 +91,8 @@ def generate(run_id,history):
                 'with 17–34 spoken English words per beat. Labels should be distinct, 2–6 words. '
                 'Start the episode in a concrete scene with a question before the first beat ends. '
                 'In the second half give a surprising clue and answer the question in the last beat. '
+                'Use the first visual as a hook, then alternate a visible action, a close look at a piece of '
+                'evidence, and its consequence. Each chapter should add an observation or raise a new question. '
                 'Use only these motion labels: show, walk, carry, work, react. The action and prop must fit '
                 'the spoken beat; show is an explanatory gesture. Characters are anonymous reconstructions. '
                 f'Prefer the episode prop {prop}, but switch where the subject requires it. '

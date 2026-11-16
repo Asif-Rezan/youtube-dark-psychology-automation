@@ -102,35 +102,80 @@ def actor(draw,x,y,*,t,action,female=False,facing=1,scale=1.55):
 def stage(kind):
     image = Image.new('RGB',SIZE,'white')
     draw = ImageDraw.Draw(image)
-    draw.polygon([(110,598),(420,549),(835,549),(1168,600),(867,652),(418,650)],fill='#f9f5ee')
-    draw.polygon([(420,549),(835,549),(702,586),(312,608),(110,598)],fill='#fbf8f1')
+    _,_,earth,_,accent = PALETTES[kind][0]
+    soil,light = getrgb(earth),getrgb(accent)
+    tint = tuple(round(c*.26+255*.74) for c in soil)
+    fill = tuple(round(c*.40+255*.60) for c in light)
+    draw.polygon([(70,609),(349,544),(826,541),(1200,594),(1017,664),(434,675),(183,654)],fill=tint)
+    draw.polygon([(70,609),(349,544),(826,541),(714,573),(307,626),(183,654)],fill=fill)
+    draw.polygon([(826,541),(1200,594),(1017,664),(912,623),(714,573)],fill=fill)
     rng = Random(kind)
-    for _ in range(26):
-        x,y = rng.randrange(145,1150),rng.randrange(591,623)
-        draw.line((x,y,x+rng.randrange(2,17),y-1),fill='#e3d7c7',width=2)
+    for _ in range(35):
+        x,y = rng.randrange(177,1110),rng.randrange(587,633)
+        draw.line((x,y,x+rng.randrange(2,17),y-1),fill=tint,width=2)
+    for x,y in ((160,605),(262,636),(1065,615),(1136,595)):
+        for dx in (-14,0,12):
+            draw.polygon([(x+dx,y),(x+dx*1.45,y-18-abs(dx)),(x+dx+7,y)],fill=earth)
     return image
 
 
-def scene(beat,t,duration,shot):
+def stone_contact(draw,x,y,t):
+    swing = math.sin(t*7)
+    y += round(30*swing)
+    poly(draw,[(x-20,y+5),(x-14,y-18),(x+9,y-27),(x+25,y-14),
+               (x+21,y+8),(x+2,y+17)],'#82736a')
+    if swing > .55:
+        for i in range(4):
+            dx,dy = 16+i*13,-5-(i%3)*16
+            draw.polygon([(x+dx,y+dy),(x+dx+10,y+dy-7),(x+dx+4,y+dy+5)],fill='#e89b41')
+
+
+@lru_cache(maxsize=32)
+def caption_font(size):
+    return ImageFont.truetype(str(FONT),size)
+
+
+def scene(beat,t,duration,shot,chapter_label=None):
     kind,action = beat['prop'],beat['action']
     image = stage(kind).copy()
     draw = ImageDraw.Draw(image)
-    actor_x = (350+min(t/max(duration,.1),1)*170 if action in ('walk','carry')
-               else 504 if action=='work' else 398)
-    prop_x = 603 if action=='work' else 765
-    prop_y = 510 if action=='work' and kind in ('stone','food') else 598
-    if prop_y < 598:
+    _,_,_,_,accent = PALETTES[kind][0]
+    moving = action in ('walk','carry')
+    progress = min(t/max(duration,.1),1)
+    actor_x = 304+progress*340 if moving else 480 if action=='work' else 342
+    prop_x = 583 if action=='work' else 780
+    prop_y = 504 if action=='work' and kind in ('stone','food') else 592
+    if kind in ('fire','map','art','shelter'):
+        # A colored vignette supports the main object and leaves the canvas white.
+        color = tuple(round(c*.30+255*.70) for c in getrgb(accent))
+        draw.ellipse((prop_x-235,142,prop_x+235,581),fill=color)
+    if prop_y < 592:
         poly(draw,[(prop_x-110,600),(prop_x-106,528),(prop_x-63,500),
                    (prop_x+74,502),(prop_x+91,597)],'#bfb4a7')
         poly(draw,[(prop_x-106,528),(prop_x-63,500),(prop_x+74,502),
                    (prop_x+42,526)],'#ded4c9')
-    prop(draw,kind,prop_x,prop_y,1.25,t,action=='work')
-    draw.ellipse((actor_x-94,605,actor_x+91,627),fill='#e7dfd4')
-    actor(draw,actor_x,609,t=t,action=action,female=bool(shot%2),scale=1.55)
+    prop(draw,kind,prop_x,prop_y,1.43,t,action=='work')
+    draw.ellipse((actor_x-96,605,actor_x+97,629),fill='#ddd4c7')
+    female = bool((shot//3)%2)
+    actor(draw,actor_x,614,t=t,action=action,female=female,scale=1.71)
+    if kind=='stone' and action=='work':
+        stone_contact(draw,actor_x+87,408,t)
     if action in ('show','react') and shot%3==1:
-        actor(draw,1010,598,t=t+.7,action='react',female=not bool(shot%2),facing=-1,scale=1.12)
-    if action=='work' and t >= duration*.56:
-        return image.resize(SIZE,Image.Resampling.BILINEAR,box=(175,57,1095,674))
+        actor(draw,1050,608,t=t+.7,action='react',female=not female,facing=-1,scale=1.17)
+    if action=='work' and progress >= .50:
+        image = image.resize(SIZE,Image.Resampling.BILINEAR,box=(156,62,1060,645))
+    elif action in ('show','react') and progress >= .68:
+        image = image.resize(SIZE,Image.Resampling.BILINEAR,box=(98,42,1182,652))
+    if chapter_label and .25 <= t < min(2.3,duration):
+        draw = ImageDraw.Draw(image)
+        text = chapter_label.upper()
+        for size in range(38,23,-2):
+            face = caption_font(size)
+            width = draw.textlength(text,font=face)
+            if width<=550:
+                break
+        draw.rounded_rectangle((37,24,round(75+width),85),radius=14,fill='#28303c',outline=accent,width=3)
+        draw.text((56,54),text,anchor='lm',font=face,fill='#fff6db')
     return image
 
 
