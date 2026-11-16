@@ -30,7 +30,8 @@ ACTIONS = ('show','walk','carry','work','react','gather','share','watch')
 SETTINGS = ('workshop','camp','grassland','cave','journey')
 PROPS = ('stone','fire','map','food','art','shelter')
 CHAPTER_COUNT = 20
-BEAT_WORDS = (34, 48)
+BEAT_WORDS = (27, 56)
+CHAPTER_MIN_WORDS = 108
 STR = {'type':'string'}
 
 
@@ -68,7 +69,7 @@ def ask(message,schema,seed):
     return json.loads(response['choices'][0]['message']['content'])
 
 
-def generate(run_id,history):
+def generate(run_id,history,checkpoint=None,save_checkpoint=None):
     used = [row.get('prehistory_topic') for row in history]
     last_seen = {item:i for i,item in enumerate(used) if item in TOPICS}
     oldest = sorted(TOPICS,key=lambda key:last_seen.get(key,-1))[:3]
@@ -77,59 +78,96 @@ def generate(run_id,history):
                                 description=STR,tags=array(STR,6),angle=STR)
     seed = int.from_bytes(hashlib.sha256(run_id.encode()).digest()[:4],'big') % 1_900_000_000
     titles = {row.get('title','').casefold() for row in history}
-    for attempt in range(4):
-        idea = ask(f'Choose one prehistoric human topic from {topic_names}. Write an original English YouTube '
-                   'documentary idea. The title is an inviting specific question of 30–75 characters. '
-                   'The thumbnail hook is a different question, 2–5 uppercase words, max 26 characters. '
-                   'Write a short description teasing the discovery, and exactly six relevant search tags. '
-                   f'Avoid these previous titles: {[row.get("title","") for row in history[-20:]]}.',idea_schema,seed+attempt*5)
-        title = ' '.join(idea['title'].split())
-        if (30 <= len(title) <= 75 and title.endswith('?') and title.casefold() not in titles
-                and not re.search('[<>]',title)):
-            break
+    checkpoint = checkpoint or {}
+    save_checkpoint = save_checkpoint or (lambda value: None)
+    if 'idea' in checkpoint:
+        idea = checkpoint['idea']
+        title = idea['title']
     else:
-        raise StoryGenerationError('No original prehistory title after four attempts',code='prehistory_idea')
+        for attempt in range(4):
+            idea = ask(f'Choose one prehistoric human topic from {topic_names}. Write an original English YouTube '
+                       'documentary idea. The title is an inviting specific question of 30–75 characters. '
+                       'The thumbnail hook is a different question, 2–5 uppercase words, max 26 characters. '
+                       'Write a short description teasing the discovery, and exactly six relevant search tags. '
+                       f'Avoid these previous titles: {[row.get("title","") for row in history[-20:]]}.',idea_schema,seed+attempt*5)
+            title = ' '.join(idea['title'].split())
+            if (30 <= len(title) <= 75 and title.endswith('?') and title.casefold() not in titles
+                    and not re.search('[<>]',title)):
+                break
+        else:
+            raise StoryGenerationError('No original prehistory title after four attempts',code='prehistory_idea')
+        idea = {**idea,'title':title}
+        save_checkpoint({'idea':idea,'chapters':[]})
     topic = idea['topic']
     subject,source,facts,prop,fallback = TOPICS[topic]
     hook = ' '.join(idea['hook'].upper().split())
     if not (2 <= len(hook.split()) <= 5 and re.fullmatch(r'[A-Z0-9 ]{3,25}\?',hook)
             and hook.casefold().rstrip('?') not in title.casefold()):
         hook = fallback
-    chapters = []
+    chapters = list(checkpoint.get('chapters',[]))
     phases = ('opening question and concrete evidence', 'how the behavior worked',
               'what it changed in everyday life', 'limits and alternative interpretations',
               'payoff and return to the opening evidence')
     for block,phase in enumerate(phases):
+        if len(chapters) >= (block+1)*4:
+            continue
+        first = len(chapters)+1
+        numbers = list(range(first,(block+1)*4+1))
+        labels = {chapter['label'].casefold() for chapter in chapters}
+        accepted = {}
         feedback = ''
-        for attempt in range(4):
-            batch = ask(
-                f'Write chapters {block*4+1}–{block*4+4} of a {CHAPTER_COUNT}-chapter documentary titled {title!r}. This section covers {phase}. '
-                f'Angle: {idea["angle"]}. Use only this evidence: {facts}. Earlier chapter labels: '
-                f'{[chapter["label"] for chapter in chapters]}. Each chapter has three consecutive visual beats '
-                f'with {BEAT_WORDS[0]}–{BEAT_WORDS[1]} spoken English words per beat, aiming for 41–44. '
-                'Labels should be distinct, 2–6 words. In chapter 1 start with a concrete scene and an early question. '
-                'In later chapters continue the same story. Answer the opening question in chapter 20. '
-                'Use fresh scene actions, concrete comparisons and explanations of evidence limits to develop '
-                'the story across the chapters. Keep illustrative reconstructions clearly identified. '
-                'Use the first visual as a hook, then alternate a visible action, a close look at a piece of '
-                'evidence, and its consequence. Each chapter should add an observation or raise a new question. '
-                'Stage the actual event in each beat. Choose the setting, framing, primary and secondary '
-                'objects, and list every character needed (1–3), with distinct left, center or right positions. '
-                'Choose male or female where appropriate, use mixed groups when the scene calls for a group, '
-                'and give each actor an action tied to the same event. Use share or gather for cooperative or '
-                'food activity, and watch only while somebody else is acting. Use detail for a close look '
-                'at a specific object or a hand action. All characters are anonymous reconstructions. '
-                f'Prefer the episode prop {prop}, but switch where the subject requires it. '
-                'Avoid invented dates, quotes, certainty, gore, greetings, or a request to subscribe. '+feedback,
-                object_schema(chapters=array(CHAPTER,4)),seed+50+block*20+attempt*3)['chapters']
-            labels = {chapter['label'].casefold() for chapter in chapters}
-            if valid_chapters(batch,labels,word_bounds=BEAT_WORDS) and (block or '?' in batch[0]['beats'][0]['narration']):
-                chapters.extend(batch)
+        problems = {}
+        for attempt in range(9):
+            pending = [number for number in numbers if number not in accepted]
+            if attempt:
+                pending = pending[:2]
+            try:
+                batch = ask(
+                    f'Write only chapters {pending}, in that exact order, of a {CHAPTER_COUNT}-chapter '
+                    f'documentary titled {title!r}. This section covers {phase}. Angle: {idea["angle"]}. '
+                    f'Use only this evidence: {facts}. Already-used chapter labels: {sorted(labels)}. '
+                    'Each chapter has three visual beats. Aim for 41–44 spoken English words in each beat '
+                    'and at least 110 words in each chapter. Count individual words, not characters. '
+                    'Use distinct 2–6-word labels. Chapter 1 opens on a concrete clue followed by a question. '
+                    'Chapter 20 answers it. Each chapter should advance the story with a new observation, '
+                    'comparison or evidence limit. Distinguish reconstruction from fact. '
+                    'Choose the setting, objects and framing. Give 1–3 characters distinct positions and '
+                    'a relevant action. Use watch only alongside somebody doing an action. '
+                    f'Prefer {prop} where it fits. Avoid invented facts, gore, greetings and calls to subscribe. '
+                    +feedback,object_schema(chapters=array(CHAPTER,len(pending))),seed+50+block*90+attempt*12
+                )['chapters']
+            except StoryGenerationError as error:
+                if not error.retryable or attempt==8:
+                    raise
+                print(json.dumps({'check':'prehistory structural retry','chapters':pending,
+                                  'attempt':attempt+1,'code':error.code}),flush=True)
+                feedback = 'Return the exact number of complete chapters in the schema.'
+                continue
+            problems = {number:issues for number,issues in problems.items() if number not in pending}
+            for number,chapter in zip(pending,batch):
+                chapter = dict(chapter,label=' '.join(chapter['label'].split()))
+                beats = chapter['beats']
+                if number==1 and '?' not in beats[0]['narration']:
+                    beats[0]['narration'] = f"{title} {beats[0]['narration']}"
+                issues = chapter_issues(chapter,labels)
+                if issues:
+                    problems[number] = issues
+                else:
+                    accepted[number] = chapter
+                    labels.add(chapter['label'].casefold())
+            # Save the accepted chronological prefix even if another chapter needs repair.
+            while len(chapters)+1 in accepted:
+                chapters.append(accepted.pop(len(chapters)+1))
+            save_checkpoint({'idea':idea,'chapters':chapters})
+            numbers = [number for number in numbers if number > len(chapters)]
+            if not numbers:
                 break
-            feedback = 'Return unique short labels, exact beat counts and lengths, no duplicate cast positions, at least one active person, and an opening question.'
+            print(json.dumps({'check':'prehistory chapter repair','attempt':attempt+1,
+                              'issues':problems,'next_chapter':len(chapters)+1}),flush=True)
+            feedback = f'Repair only the requested chapters. Validation issues by chapter: {problems}.'
         else:
-            raise StoryGenerationError('Prehistory story missed chapter or opening requirements',code='prehistory_story',
-                                       details={'starting_chapter':block*4+1})
+            raise StoryGenerationError('Prehistory chapter validation exhausted its retries',code='prehistory_story',
+                                       details={'pending_chapters':numbers,'last_issues':problems})
     tags = []
     for value in (subject,*idea['tags'],'human evolution','prehistory documentary','Stone Age'):
         value = ' '.join(value.split())
@@ -138,6 +176,26 @@ def generate(run_id,history):
     description = ' '.join(idea['description'].replace('<','').replace('>','').split())[:360].strip()
     return {'genre':'prehistory','topic':topic,'title':title,'hook':hook,'description':description,
             'tags':tags,'chapters':chapters,'source':source,'subject':subject}
+
+
+def chapter_issues(chapter,labels):
+    issues = []
+    label = chapter['label']
+    if not 2 <= len(label.split()) <= 6 or len(label)>64 or re.search('[<>]',label):
+        issues.append('label must be 2–6 words, at most 64 characters')
+    elif label.casefold() in labels:
+        issues.append('duplicate chapter label')
+    counts = [len(beat['narration'].split()) for beat in chapter['beats']]
+    if any(not BEAT_WORDS[0] <= count <= BEAT_WORDS[1] for count in counts) or sum(counts)<CHAPTER_MIN_WORDS:
+        issues.append(f'beat word counts {counts}; need {BEAT_WORDS[0]}–{BEAT_WORDS[1]} each and at least {CHAPTER_MIN_WORDS} total')
+    for number,beat in enumerate(chapter['beats'],1):
+        if re.search('[<>]',beat['narration']):
+            issues.append(f'beat {number} contains angle brackets')
+        cast = beat.get('cast')
+        if cast and (len({member['position'] for member in cast}) != len(cast)
+                     or all(member['action']=='watch' for member in cast)):
+            issues.append(f'beat {number} needs distinct positions and an active character')
+    return issues
 
 
 def valid_chapters(chapters,used=None,*,word_bounds=(17,34)):

@@ -32,6 +32,24 @@ class PrehistoryTests(unittest.TestCase):
         self.assertIn('Smithsonian Human Origins Program',result['description'])
         self.assertEqual(public_metadata(result)['title'],idea['title'])
 
+    def test_short_chapter_repair_preserves_valid_work_and_resumes_from_checkpoint(self):
+        idea = {'topic':'stone-tools','title':'Why Did Early Humans Break Stones on Purpose?',
+                'hook':'WHAT DID IT CUT?', 'description':'A sharp edge changed what was possible.',
+                'tags':['stone tools']*6,'angle':'Start with a flake.'}
+        text = ('At first this looks like an ordinary broken stone. The edge can offer a clue about '
+                'how early humans made cutting tools. Could this flake have broken off because somebody struck a larger core on purpose?')
+        def chapter(index, narration=text):
+            return {'label':f'Stone Evidence {index}',
+                    'beats':[{'narration':narration,'action':'show','prop':'stone'} for _ in range(3)]}
+        saved = []
+        checkpoint = {'idea':idea,'chapters':[chapter(i) for i in range(1,17)]}
+        bad = [chapter(17),chapter(18,'Too short.'),chapter(19),chapter(20)]
+        with patch('prehistory.editorial.ask',side_effect=[{'chapters':bad},{'chapters':[chapter(18)]}]) as call:
+            result = generate('prehistory-resume',[],checkpoint,lambda data: saved.append(len(data['chapters'])))
+        self.assertEqual(saved,[17,20])
+        self.assertEqual(len(result['chapters']),20)
+        self.assertIn('Write only chapters [18]',call.call_args_list[1].args[0])
+
     def test_deeper_pitch_preserves_the_requested_tempo(self):
         for rate in (24000,48000):
             filters = dict(item.split('=',1) for item in narration_filter(1.05,rate).split(',')[:-1])

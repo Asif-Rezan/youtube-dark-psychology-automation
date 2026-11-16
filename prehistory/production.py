@@ -203,7 +203,9 @@ def make_plan(run_id,root):
     key = f'runs/{run_id}/prehistory-plan.json'
     plan = store.load(key,None)
     if plan is None:
-        plan = generate(run_id,store.load('history.json',[]))
+        draft_key = f'runs/{run_id}/prehistory-draft.json'
+        plan = generate(run_id,store.load('history.json',[]),store.load(draft_key,None),
+                        lambda draft: store.save(draft_key,draft))
         store.save(key,plan)
     write_json(root/'prehistory-plan.json',plan)
 
