@@ -18,6 +18,8 @@ from .visuals import SIZE,cover,scene
 FPS = 24
 RATE = 24000
 FULL_RUNTIME = (900,1200)
+VOICE_PITCH_SEMITONES = -2
+MASTER_GAIN = 2.0
 
 
 def ffmpeg(*args):
@@ -117,6 +119,14 @@ def runtime_timing(lengths,bounds=None):
     return tempo
 
 
+def narration_filter(tempo, source_rate):
+    """Shift pitch down while preserving the requested playback duration."""
+    pitch = 2**(VOICE_PITCH_SEMITONES/12)
+    shifted_rate = round(source_rate*pitch)
+    compensation = tempo*source_rate/shifted_rate
+    return f'asetrate={shifted_rate},aresample={RATE},atempo={compensation:.8f},apad'
+
+
 def render(plan,root,speak=None,*, minimum=0,runtime_bounds=None):
     from pipeline import duration
     speak = speak or speech_writer()
@@ -140,7 +150,6 @@ def render(plan,root,speak=None,*, minimum=0,runtime_bounds=None):
             raise RuntimeError('Adjusted narration falls outside the 15–20 minute window')
         print(json.dumps({'stage':'narration timing','planned_seconds':round(sum(frame_counts)/FPS,2),
                           'tempo':round(tempo,4),'chapters':len(plan['chapters'])}),flush=True)
-        audio_filter = 'apad' if tempo==1 else f'atempo={tempo:.8f},apad'
         for index,((beat,raw,_,label),frames) in enumerate(zip(planned,frame_counts)):
             if label is not None:
                 starts.append(total_frames/FPS)
@@ -148,6 +157,8 @@ def render(plan,root,speak=None,*, minimum=0,runtime_bounds=None):
             video, audio = work/f'v-{index}.mp4',work/f'a-{index}.wav'
             clip(beat,index,frames,video,label if index else None)
             sound_beats.append((total_frames/FPS,seconds,beat))
+            with wave.open(str(raw),'rb') as voice:
+                audio_filter = narration_filter(tempo,voice.getframerate())
             ffmpeg('-i',raw,'-af',audio_filter,'-ar',RATE,'-ac',1,'-t',f'{seconds:.6f}',audio)
             inputs['video'].append(video.name)
             inputs['audio'].append(audio.name)
@@ -160,7 +171,7 @@ def render(plan,root,speak=None,*, minimum=0,runtime_bounds=None):
                '-i',score,
                '-filter_complex','[1:a]loudnorm=I=-16:TP=-2:LRA=8,aresample=48000[voice];'
                '[2:a]aresample=48000[bed];[voice][bed]amix=inputs=2:duration=first:normalize=0,'
-               'alimiter=limit=0.90:level=0:latency=1[a]',
+               f'volume={MASTER_GAIN},alimiter=limit=0.89:level=0:latency=1[a]',
                '-map','0:v','-map','[a]','-c:v','copy','-c:a','aac','-b:a','160k',
                '-metadata:s:a:0','language=eng','-movflags','+faststart','-shortest',root/'video.mp4')
     actual = duration(root/'video.mp4')

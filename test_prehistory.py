@@ -6,7 +6,7 @@ from unittest.mock import patch
 from PIL import Image
 from episode_packaging import public_metadata
 from prehistory.editorial import CHAPTER_COUNT, generate, metadata, valid_chapters
-from prehistory.production import FULL_RUNTIME, runtime_timing
+from prehistory.production import FULL_RUNTIME, MASTER_GAIN, narration_filter, runtime_timing
 from prehistory.visuals import cover, scene
 from upload_settings import load_settings, upload_body
 
@@ -31,6 +31,13 @@ class PrehistoryTests(unittest.TestCase):
         self.assertIn('00:00 A Broken Stone\n00:30 Making an Edge',result['description'])
         self.assertIn('Smithsonian Human Origins Program',result['description'])
         self.assertEqual(public_metadata(result)['title'],idea['title'])
+
+    def test_deeper_pitch_preserves_the_requested_tempo(self):
+        for rate in (24000,48000):
+            filters = dict(item.split('=',1) for item in narration_filter(1.05,rate).split(',')[:-1])
+            self.assertLess(int(filters['asetrate']),rate)
+            self.assertAlmostEqual(int(filters['asetrate'])/rate*float(filters['atempo']),1.05,places=6)
+        self.assertEqual(MASTER_GAIN,2.0)
 
     def test_runtime_uses_modest_tempo_correction_and_rejects_impossible_lengths(self):
         self.assertEqual(runtime_timing([17]*60,FULL_RUNTIME),1)
