@@ -41,6 +41,14 @@ class PrehistoryTests(unittest.TestCase):
                 self.assertEqual(image.size,(1920,1080))
             self.assertLess(target.stat().st_size,2*1024**2)
 
+    def test_scene_sets_have_distinct_terrain_and_preserve_white_canvas(self):
+        workshop = scene({'prop':'stone','action':'work'},0,10,0)
+        hearth = scene({'prop':'fire','action':'show'},0,10,0)
+        self.assertEqual(workshop.getpixel((16,16)),(255,255,255))
+        self.assertEqual(hearth.getpixel((16,16)),(255,255,255))
+        self.assertNotEqual(workshop.crop((0,272,240,580)).tobytes(),
+                            hearth.crop((0,272,240,580)).tobytes())
+
     def test_daylight_and_hearth_covers_use_different_scene_contrast(self):
         with tempfile.TemporaryDirectory() as tmp:
             samples = {}

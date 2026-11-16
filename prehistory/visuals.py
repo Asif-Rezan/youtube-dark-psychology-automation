@@ -98,10 +98,50 @@ def actor(draw,x,y,*,t,action,female=False,facing=1,scale=1.55):
               expression='surprised' if action=='react' else 'curious' if work else 'calm')
 
 
+def terrain_detail(draw,kind):
+    """Frame each narrated object with its own low-poly setting."""
+    _,_,earth,peak,accent = PALETTES[kind][0]
+    def tint(color, weight):
+        return tuple(round(c*weight+255*(1-weight)) for c in getrgb(color))
+
+    ridge,face,light = tint(peak,.38),tint(earth,.36),tint(accent,.38)
+    if kind in ('stone','shelter','art'):
+        for x,y,scale in ((78,510,1.25),(1086,503,1.5)):
+            draw.polygon([(x-126*scale,y),(x-95*scale,y-120*scale),
+                          (x-11*scale,y-219*scale),(x+80*scale,y-163*scale),
+                          (x+150*scale,y+12*scale)],fill=ridge)
+            draw.polygon([(x-95*scale,y-120*scale),(x-11*scale,y-219*scale),
+                          (x+80*scale,y-163*scale),(x+20*scale,y-134*scale),
+                          (x-12*scale,y+8*scale),(x-126*scale,y)],fill=face)
+            draw.polygon([(x-11*scale,y-219*scale),(x+10*scale,y-154*scale),
+                          (x-41*scale,y-132*scale),(x-95*scale,y-120*scale)],fill=light)
+    else:
+        for x,y,scale in ((132,521,1.16),(1120,509,1.29)):
+            trunk = tint('#654131',.53)
+            green = tint('#54854d',.55)
+            draw.polygon([(x-7,y),(x-10,y-142*scale),(x-54*scale,y-192*scale),
+                          (x-40*scale,y-192*scale),(x+4,y-162*scale),
+                          (x+54*scale,y-195*scale),(x+60*scale,y-181*scale),
+                          (x+11,y-132*scale),(x+12,y)],fill=trunk)
+            draw.polygon([(x-125*scale,y-171*scale),(x-82*scale,y-229*scale),
+                          (x-13*scale,y-245*scale),(x+75*scale,y-226*scale),
+                          (x+124*scale,y-185*scale),(x+72*scale,y-164*scale),
+                          (x-50*scale,y-167*scale)],fill=green)
+            draw.polygon([(x-125*scale,y-171*scale),(x-82*scale,y-229*scale),
+                          (x-13*scale,y-245*scale),(x+7*scale,y-194*scale)],fill=light)
+    if kind == 'map':
+        for x,y in ((143,166),(955,113)):
+            draw.polygon([(x,y+23),(x+23,y+6),(x+62,y),(x+105,y+18),(x+127,y+24)],fill=light)
+    if kind == 'fire':
+        for x,y in ((462,524),(897,513),(917,541)):
+            draw.polygon([(x-19,y),(x-14,y-14),(x+12,y-20),(x+24,y-6),(x+18,y+3)],fill=ridge)
+
+
 @lru_cache(maxsize=12)
 def stage(kind):
     image = Image.new('RGB',SIZE,'white')
     draw = ImageDraw.Draw(image)
+    terrain_detail(draw,kind)
     _,_,earth,_,accent = PALETTES[kind][0]
     soil,light = getrgb(earth),getrgb(accent)
     tint = tuple(round(c*.26+255*.74) for c in soil)
@@ -162,10 +202,14 @@ def scene(beat,t,duration,shot,chapter_label=None):
         stone_contact(draw,actor_x+87,408,t)
     if action in ('show','react') and shot%3==1:
         actor(draw,1050,608,t=t+.7,action='react',female=not female,facing=-1,scale=1.17)
-    if action=='work' and progress >= .50:
+    if action=='work' and kind in ('stone','food') and progress >= .62:
+        image = image.resize(SIZE,Image.Resampling.BILINEAR,box=(393,340,881,615))
+    elif action=='work' and progress >= .32:
         image = image.resize(SIZE,Image.Resampling.BILINEAR,box=(156,62,1060,645))
-    elif action in ('show','react') and progress >= .68:
-        image = image.resize(SIZE,Image.Resampling.BILINEAR,box=(98,42,1182,652))
+    elif action in ('show','react') and progress >= .50:
+        image = image.resize(SIZE,Image.Resampling.BILINEAR,box=(151,88,1175,667))
+    elif moving and progress >= .65:
+        image = image.resize(SIZE,Image.Resampling.BILINEAR,box=(238,91,1210,684))
     if chapter_label and .25 <= t < min(2.3,duration):
         draw = ImageDraw.Draw(image)
         text = chapter_label.upper()
