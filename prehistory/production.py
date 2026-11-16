@@ -18,6 +18,8 @@ from .visuals import SIZE,cover,scene
 FPS = 24
 RATE = 24000
 FULL_RUNTIME = (900,1200)
+NARRATION_PAUSE = .33
+NARRATION_WPM = (105,185)
 VOICE_PITCH_SEMITONES = -2
 MASTER_GAIN = 2.0
 
@@ -103,19 +105,31 @@ def soundtrack(target,seconds,beats):
         file.writeframes((signal*32767).astype('<i2').tobytes())
 
 
-def runtime_timing(lengths,bounds=None):
+def runtime_timing(lengths,bounds=None,*,word_count=None):
     if not lengths or any(not math.isfinite(length) or length<=0 for length in lengths):
         raise ValueError('Narration timings must be positive and finite')
     tempo = 1.0
     if bounds:
         total = sum(lengths)
         lower, upper = bounds
-        estimate = total+len(lengths)*.33
-        if estimate < lower+1 or estimate > upper-1:
-            target = lower+2 if estimate < lower+1 else upper-2
-            tempo = total/(target-len(lengths)*.33)
+        pauses = len(lengths)*NARRATION_PAUSE
+        estimate = total + pauses
+        # Each shot rounds up to a whole frame. Allow headroom for every
+        # rounding and the audio/video container duration.
+        upper_target = upper - len(lengths)/FPS - 1
+        if estimate < lower+1 or estimate > upper_target:
+            target = lower+2 if estimate < lower+1 else upper_target
+            tempo = total/(target-pauses)
         if not .85 <= tempo <= 1.15:
-            raise RuntimeError('Narration is outside the 15–20 minute range at a natural speaking speed')
+            # The synthesized pace varies by script. For larger corrections,
+            # check the resulting spoken pace as well as the stretch ratio.
+            adjusted_wpm = 60 * word_count * tempo / total if word_count else None
+            if (not .65 <= tempo <= 1.5 or adjusted_wpm is None
+                    or not NARRATION_WPM[0] <= adjusted_wpm <= NARRATION_WPM[1]):
+                raise RuntimeError(
+                    'Narration is outside the 15–20 minute range at a natural speaking speed '
+                    f'(raw={total:.1f}s, words={word_count}, required_tempo={tempo:.3f}, '
+                    f'adjusted_wpm={adjusted_wpm})')
     return tempo
 
 
@@ -143,13 +157,17 @@ def render(plan,root,speak=None,*, minimum=0,runtime_bounds=None):
                 raw = work/f'raw-{index}.wav'
                 speak(beat['narration'],raw)
                 planned.append((beat,raw,duration(raw),chapter['label'] if beat_index==0 else None))
-        tempo = runtime_timing([entry[2] for entry in planned],runtime_bounds)
-        frame_counts = [max(math.ceil(minimum*FPS),math.ceil((length/tempo+.33)*FPS))
+        lengths = [entry[2] for entry in planned]
+        word_count = sum(len(beat['narration'].split()) for beat, *_ in planned)
+        tempo = runtime_timing(lengths,runtime_bounds,word_count=word_count)
+        frame_counts = [max(math.ceil(minimum*FPS),math.ceil((length/tempo+NARRATION_PAUSE)*FPS))
                         for _,_,length,_ in planned]
         if runtime_bounds and not runtime_bounds[0] <= sum(frame_counts)/FPS <= runtime_bounds[1]:
             raise RuntimeError('Adjusted narration falls outside the 15–20 minute window')
         print(json.dumps({'stage':'narration timing','planned_seconds':round(sum(frame_counts)/FPS,2),
-                          'tempo':round(tempo,4),'chapters':len(plan['chapters'])}),flush=True)
+                          'tempo':round(tempo,4),'raw_seconds':round(sum(lengths),2),
+                          'words':word_count,'spoken_wpm':round(60*word_count*tempo/sum(lengths),1),
+                          'chapters':len(plan['chapters'])}),flush=True)
         for index,((beat,raw,_,label),frames) in enumerate(zip(planned,frame_counts)):
             if label is not None:
                 starts.append(total_frames/FPS)

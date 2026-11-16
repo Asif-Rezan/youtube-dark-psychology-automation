@@ -7,7 +7,7 @@ from PIL import Image
 from episode_packaging import public_metadata
 from prehistory.editorial import (CHAPTER_COUNT, chapter_issues, expand_short_narration, generate,
                                   metadata, normalize_chapter_label, valid_chapters)
-from prehistory.production import FULL_RUNTIME, MASTER_GAIN, narration_filter, runtime_timing
+from prehistory.production import FULL_RUNTIME, MASTER_GAIN, NARRATION_PAUSE, narration_filter, runtime_timing
 from prehistory.visuals import cover, scene
 from upload_settings import load_settings, upload_body
 
@@ -80,6 +80,19 @@ class PrehistoryTests(unittest.TestCase):
         self.assertGreater(runtime_timing([20]*60,FULL_RUNTIME),1)
         with self.assertRaisesRegex(RuntimeError,'natural speaking speed'):
             runtime_timing([8]*60,FULL_RUNTIME)
+
+    def test_runtime_uses_measured_spoken_pace_for_larger_corrections(self):
+        for raw, words in ((700, 2160), (1400, 2721)):
+            with self.subTest(raw=raw):
+                lengths = [raw / 60] * 60
+                tempo = runtime_timing(lengths, FULL_RUNTIME, word_count=words)
+                self.assertFalse(.85 <= tempo <= 1.15)
+                adjusted = raw / tempo + 60 * NARRATION_PAUSE
+                self.assertTrue(900 <= adjusted <= 1200)
+        with self.assertRaisesRegex(RuntimeError, 'required_tempo='):
+            runtime_timing([1400 / 60] * 60, FULL_RUNTIME, word_count=3900)
+        with self.assertRaisesRegex(RuntimeError, 'required_tempo='):
+            runtime_timing([480 / 60] * 60, FULL_RUNTIME, word_count=2160)
 
     def test_work_animation_has_white_stage_and_moving_pixels(self):
         beat = {'prop':'stone','action':'work'}
