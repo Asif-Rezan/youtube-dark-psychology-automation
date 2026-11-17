@@ -103,8 +103,20 @@ jobs:
         with:
           name: prehistoric-plan
           path: output/
-      - name: Install headless Blender
+      - name: Restore headless Blender from Actions cache
+        id: blender-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/prehistory-blender
+          key: prehistory-blender-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/install-prehistory-blender.sh') }}
+      - name: Install or verify headless Blender
         run: bash scripts/install-prehistory-blender.sh
+      - name: Save verified Blender to Actions cache
+        if: steps.blender-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/prehistory-blender
+          key: ${{ steps.blender-cache.outputs.cache-primary-key }}
       - run: python -u -m prehistory.production render --run-id "$RUN_ID"
       - uses: actions/upload-artifact@v4
         with:
