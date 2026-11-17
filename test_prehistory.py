@@ -67,6 +67,24 @@ class PrehistoryTests(unittest.TestCase):
         self.assertEqual(result['beats'][0]['cast'],[marker])
         self.assertNotEqual(normalize_chapter_label('Origins',4,{'origins'}).casefold(),'origins')
 
+    def test_evidence_fallback_repairs_the_failed_chapter_word_counts(self):
+        from prehistory.editorial import TOPICS
+        from lyrics_cpu import StoryGenerationError
+
+        for counts in ((51,24,23),(25,25,30),(28,23,26),(35,32,24)):
+            for _, _, evidence, prop, _ in TOPICS.values():
+                with self.subTest(counts=counts, prop=prop):
+                    beats = [{'narration':' '.join(['original']*count)+'.',
+                              'action':'show','prop':prop} for count in counts]
+                    chapter = {'label':'Material Evidence','beats':beats}
+                    with patch('prehistory.editorial.ask',side_effect=StoryGenerationError(
+                            'Truncated JSON',retryable=True)):
+                        result = expand_short_narration(chapter,5,evidence,77)
+                    self.assertEqual(chapter_issues(result,set()),[])
+                    for old, new in zip(beats,result['beats']):
+                        self.assertTrue(new['narration'].startswith(old['narration']))
+                        self.assertEqual(old['prop'],new['prop'])
+
     def test_ancient_humans_branding_applies_once_to_saved_titles(self):
         self.assertEqual(ancient_humans_title('How did early humans find food?'),
                          'How did Ancient Humans find food?')

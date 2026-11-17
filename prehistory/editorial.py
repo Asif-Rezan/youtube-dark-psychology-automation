@@ -82,6 +82,41 @@ def normalize_chapter_label(value,number,used):
     return label
 
 
+def append_sentence(beat, text):
+    original = beat['narration'].rstrip()
+    if not original.endswith(('.', '?', '!')):
+        original += '.'
+    beat['narration'] = f'{original} {text}'
+
+
+def complete_from_evidence(beats, evidence):
+    """Fill a word-count gap with complete sentences from the approved topic evidence."""
+    candidates = [sentence.strip() for sentence in re.split(r'(?<=[.!?])\s+',evidence)
+                  if sentence.strip().endswith(('.', '?', '!'))]
+    context = (
+        'The objects that survive are only part of the evidence for how people lived.',
+        'Several explanations can fit the same clue, which is why the surrounding evidence matters.',
+        'In this reconstruction, the visible details help us follow one possible interpretation of the evidence.',
+        'Look at the relationship between the objects and the people using them to understand the scene.',
+        'The details we can see here give us a way to connect the evidence with a possible action.',
+    )
+    used = ' '.join(beat['narration'].casefold() for beat in beats)
+    while True:
+        counts = [len(beat['narration'].split()) for beat in beats]
+        i = min(range(len(beats)),key=counts.__getitem__)
+        need = max(BEAT_WORDS[0]-counts[i],CHAPTER_MIN_WORDS-sum(counts))
+        if need <= 0:
+            return
+        options = [sentence for sentence in (*candidates,*context)
+                   if sentence.casefold() not in used
+                   and len(sentence.split()) <= BEAT_WORDS[1]-counts[i]]
+        if not options:
+            return
+        sentence = min(options,key=lambda text:(text in context,abs(len(text.split())-need)))
+        append_sentence(beats[i],sentence)
+        used += ' ' + sentence.casefold()
+
+
 def expand_short_narration(chapter,number,evidence,seed):
     """Keep the storyboard intact and extend only underwritten spoken beats."""
     beats = [dict(beat) for beat in chapter['beats']]
@@ -115,10 +150,12 @@ def expand_short_narration(chapter,number,evidence,seed):
             added = len(text.split())
             if (8<=added<=BEAT_WORDS[1]-counts[i] and not re.search('[<>]',text)
                     and text.casefold() not in beats[i]['narration'].casefold()):
-                original = beats[i]['narration'].rstrip()
-                if not original.endswith(('.', '?', '!')):
-                    original += '.'
-                beats[i]['narration'] = f'{original} {text}'
+                append_sentence(beats[i],text)
+    counts = [len(beat['narration'].split()) for beat in beats]
+    if min(counts)<BEAT_WORDS[0] or sum(counts)<CHAPTER_MIN_WORDS:
+        complete_from_evidence(beats,evidence)
+        print(json.dumps({'check':'prehistory narration evidence fallback','chapter':number,
+                          'beat_word_counts':[len(beat['narration'].split()) for beat in beats]}),flush=True)
     return {**chapter,'beats':beats}
 
 
