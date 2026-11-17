@@ -166,68 +166,105 @@ def narration_filter(tempo, source_rate):
     return f'asetrate={shifted_rate},aresample={RATE},atempo={compensation:.8f},apad'
 
 
-def render(plan,root,speak=None,*, minimum=0,runtime_bounds=None):
+def prepare_audio(plan, work, speak=None, *, minimum=0, runtime_bounds=None):
     from pipeline import duration
+
+    work.mkdir(parents=True,exist_ok=True)
     native_voice = speak is None
     speak = speak or speech_writer()
+    voice_speed = DEFAULT_NARRATION_SPEED
+    if native_voice and runtime_bounds:
+        beats = [beat for chapter in plan['chapters'] for beat in chapter['beats']]
+        voice_speed = calibrate_narration_speed(speak,work,beats,runtime_bounds,duration)
+    planned = []
+    for chapter in plan['chapters']:
+        for beat_index,beat in enumerate(chapter['beats']):
+            index = len(planned)
+            raw = work/f'raw-{index}.wav'
+            if native_voice:
+                speak(beat['narration'],raw,speed=voice_speed)
+            else:
+                speak(beat['narration'],raw)
+            planned.append((beat,raw,duration(raw),chapter['label'] if beat_index==0 else None))
+    lengths = [entry[2] for entry in planned]
+    word_count = sum(len(beat['narration'].split()) for beat, *_ in planned)
+    tempo = runtime_timing(lengths,runtime_bounds,word_count=word_count)
+    frame_counts = [max(math.ceil(minimum*FPS),math.ceil((length/tempo+NARRATION_PAUSE)*FPS))
+                    for _,_,length,_ in planned]
+    if runtime_bounds and not runtime_bounds[0] <= sum(frame_counts)/FPS <= runtime_bounds[1]:
+        raise RuntimeError('Adjusted narration falls outside the 15–25 minute window')
+    print(json.dumps({'stage':'narration timing','planned_seconds':round(sum(frame_counts)/FPS,2),
+                      'tempo':round(tempo,4),'raw_seconds':round(sum(lengths),2),
+                      'words':word_count,'spoken_wpm':round(60*word_count*tempo/sum(lengths),1),
+                      'chapters':len(plan['chapters'])}),flush=True)
+    for index,((_,raw,_,_),frames) in enumerate(zip(planned,frame_counts)):
+        with wave.open(str(raw),'rb') as voice:
+            audio_filter = narration_filter(tempo,voice.getframerate())
+        ffmpeg('-i',raw,'-af',audio_filter,'-ar',RATE,'-ac',1,'-t',f'{frames/FPS:.6f}',work/f'a-{index}.wav')
+        raw.unlink()
+    write_json(work/'timing.json',{'plan_sha256':plan_digest(plan),'frames':frame_counts})
+
+
+def plan_digest(plan):
+    return hashlib.sha256(json.dumps(plan,sort_keys=True).encode()).hexdigest()
+
+
+def timed_shots(plan,work):
+    timing = json.loads((work/'timing.json').read_text())
+    frame_counts = timing['frames']
+    beats = [(chapter_index,beat,chapter['label'] if index==0 else None)
+             for chapter_index,chapter in enumerate(plan['chapters'])
+             for index,beat in enumerate(chapter['beats'])]
+    if (timing['plan_sha256'] != plan_digest(plan) or len(frame_counts) != len(beats)
+            or any(type(frames) is not int or frames <= 0 for frames in frame_counts)):
+        raise ValueError('Prehistory narration timings do not match the saved plan')
+    return [(index,chapter,beat,label,frames)
+            for index,((chapter,beat,label),frames) in enumerate(zip(beats,frame_counts))]
+
+
+def render_shots(plan,work,chapter=None):
     render_clip, render_cover = clip, cover
     if os.environ.get('PREHISTORY_BLENDER'):
         from .storybook import clip as render_clip, cover as render_cover
-    render_cover(plan,root/'thumbnail.jpg')
-    with tempfile.TemporaryDirectory(dir=root) as directory:
-        work = Path(directory)
-        inputs = {'video':[],'audio':[]}
-        sound_beats = []
-        starts, total_frames = [], 0
-        voice_speed = DEFAULT_NARRATION_SPEED
-        if native_voice and runtime_bounds:
-            beats = [beat for chapter in plan['chapters'] for beat in chapter['beats']]
-            voice_speed = calibrate_narration_speed(speak,work,beats,runtime_bounds,duration)
-        planned = []
-        for chapter in plan['chapters']:
-            for beat_index,beat in enumerate(chapter['beats']):
-                index = len(planned)
-                raw = work/f'raw-{index}.wav'
-                if native_voice:
-                    speak(beat['narration'],raw,speed=voice_speed)
-                else:
-                    speak(beat['narration'],raw)
-                planned.append((beat,raw,duration(raw),chapter['label'] if beat_index==0 else None))
-        lengths = [entry[2] for entry in planned]
-        word_count = sum(len(beat['narration'].split()) for beat, *_ in planned)
-        tempo = runtime_timing(lengths,runtime_bounds,word_count=word_count)
-        frame_counts = [max(math.ceil(minimum*FPS),math.ceil((length/tempo+NARRATION_PAUSE)*FPS))
-                        for _,_,length,_ in planned]
-        if runtime_bounds and not runtime_bounds[0] <= sum(frame_counts)/FPS <= runtime_bounds[1]:
-            raise RuntimeError('Adjusted narration falls outside the 15–25 minute window')
-        print(json.dumps({'stage':'narration timing','planned_seconds':round(sum(frame_counts)/FPS,2),
-                          'tempo':round(tempo,4),'raw_seconds':round(sum(lengths),2),
-                          'words':word_count,'spoken_wpm':round(60*word_count*tempo/sum(lengths),1),
-                          'chapters':len(plan['chapters'])}),flush=True)
-        for index,((beat,raw,_,label),frames) in enumerate(zip(planned,frame_counts)):
-            if label is not None:
-                starts.append(total_frames/FPS)
-            seconds = frames/FPS
-            video, audio = work/f'v-{index}.mp4',work/f'a-{index}.wav'
-            render_clip(beat,index,frames,video,label if index else None)
-            sound_beats.append((total_frames/FPS,seconds,beat))
-            with wave.open(str(raw),'rb') as voice:
-                audio_filter = narration_filter(tempo,voice.getframerate())
-            ffmpeg('-i',raw,'-af',audio_filter,'-ar',RATE,'-ac',1,'-t',f'{seconds:.6f}',audio)
-            inputs['video'].append(video.name)
-            inputs['audio'].append(audio.name)
-            total_frames += frames
-        for kind,paths in inputs.items():
-            (work/f'{kind}.txt').write_text(''.join(f"file '{path}'\n" for path in paths))
-        score = work/'score.wav'
-        soundtrack(score,total_frames/FPS,sound_beats)
-        ffmpeg('-f','concat','-safe',0,'-i',work/'video.txt','-f','concat','-safe',0,'-i',work/'audio.txt',
-               '-i',score,
-               '-filter_complex','[1:a]loudnorm=I=-16:TP=-2:LRA=8,aresample=48000[voice];'
-               '[2:a]aresample=48000[bed];[voice][bed]amix=inputs=2:duration=first:normalize=0,'
-               f'volume={MASTER_GAIN},alimiter=limit=0.89:level=0:latency=1[a]',
-               '-map','0:v','-map','[a]','-c:v','copy','-c:a','aac','-b:a','160k',
-               '-metadata:s:a:0','language=eng','-movflags','+faststart','-shortest',root/'video.mp4')
+    if chapter is not None and not 0 <= chapter < len(plan['chapters']):
+        raise ValueError('Unknown prehistory chapter')
+    if chapter is None or chapter == 0:
+        render_cover(plan,work/'thumbnail.jpg')
+    for index,chapter_index,beat,label,frames in timed_shots(plan,work):
+        if chapter is None or chapter_index == chapter:
+            print(json.dumps({'stage':'render shot','shot':index+1,'frames':frames}),flush=True)
+            render_clip(beat,index,frames,work/f'v-{index}.mp4',label if index else None)
+
+
+def assemble(plan,root,work,*,runtime_bounds=None):
+    import shutil
+    from pipeline import duration
+
+    inputs = {'video':[],'audio':[]}
+    sound_beats = []
+    starts, total_frames = [], 0
+    for index,_,beat,label,frames in timed_shots(plan,work):
+        if label is not None:
+            starts.append(total_frames/FPS)
+        for kind,prefix,suffix in (('video','v','mp4'),('audio','a','wav')):
+            path = work/f'{prefix}-{index}.{suffix}'
+            if not path.is_file():
+                raise ValueError(f'Missing {kind} for prehistory shot {index+1}')
+            inputs[kind].append(path.name)
+        sound_beats.append((total_frames/FPS,frames/FPS,beat))
+        total_frames += frames
+    shutil.copyfile(work/'thumbnail.jpg',root/'thumbnail.jpg')
+    for kind,paths in inputs.items():
+        (work/f'{kind}.txt').write_text(''.join(f"file '{path}'\n" for path in paths))
+    score = work/'score.wav'
+    soundtrack(score,total_frames/FPS,sound_beats)
+    ffmpeg('-f','concat','-safe',0,'-i',work/'video.txt','-f','concat','-safe',0,'-i',work/'audio.txt',
+           '-i',score,
+           '-filter_complex','[1:a]loudnorm=I=-16:TP=-2:LRA=8,aresample=48000[voice];'
+           '[2:a]aresample=48000[bed];[voice][bed]amix=inputs=2:duration=first:normalize=0,'
+           f'volume={MASTER_GAIN},alimiter=limit=0.89:level=0:latency=1[a]',
+           '-map','0:v','-map','[a]','-c:v','copy','-c:a','aac','-b:a','160k',
+           '-metadata:s:a:0','language=eng','-movflags','+faststart','-shortest',root/'video.mp4')
     actual = duration(root/'video.mp4')
     if runtime_bounds and not runtime_bounds[0] <= actual <= runtime_bounds[1]:
         raise RuntimeError('Finished documentary must run between 15 and 25 minutes')
@@ -238,6 +275,14 @@ def render(plan,root,speak=None,*, minimum=0,runtime_bounds=None):
         write_json(root/'prehistory-render.json',{
             name:asset_digest(root/name) for name in ('prehistory-plan.json','video.mp4','thumbnail.jpg','song.json')
         })
+
+
+def render(plan,root,speak=None,*,minimum=0,runtime_bounds=None):
+    with tempfile.TemporaryDirectory(dir=root) as directory:
+        work = Path(directory)
+        prepare_audio(plan,work,speak,minimum=minimum,runtime_bounds=runtime_bounds)
+        render_shots(plan,work)
+        assemble(plan,root,work,runtime_bounds=runtime_bounds)
 
 
 def asset_digest(path):
@@ -305,8 +350,9 @@ def publish_episode(run_id,root):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('stage',choices=('plan','render','publish'))
+    parser.add_argument('stage',choices=('plan','audio','chapter','assemble','render','publish'))
     parser.add_argument('--run-id',required=True)
+    parser.add_argument('--chapter',type=int)
     args = parser.parse_args()
     if not re.fullmatch(r'[A-Za-z0-9_-]{1,80}',args.run_id):
         parser.error('Invalid run ID')
@@ -314,10 +360,21 @@ def main():
     root.mkdir(parents=True,exist_ok=True)
     if args.stage == 'plan':
         make_plan(args.run_id,root)
-    elif args.stage == 'render':
-        render(json.loads((root/'prehistory-plan.json').read_text()),root,runtime_bounds=FULL_RUNTIME)
-    else:
+    elif args.stage == 'publish':
         publish_episode(args.run_id,root)
+    else:
+        plan = json.loads((root/'prehistory-plan.json').read_text())
+        work = root/'render-parts'
+        if args.stage == 'audio':
+            prepare_audio(plan,work,runtime_bounds=FULL_RUNTIME)
+        elif args.stage == 'chapter':
+            if args.chapter is None:
+                parser.error('--chapter is required for the chapter stage')
+            render_shots(plan,work,args.chapter)
+        elif args.stage == 'assemble':
+            assemble(plan,root,work,runtime_bounds=FULL_RUNTIME)
+        else:
+            render(plan,root,runtime_bounds=FULL_RUNTIME)
 
 
 if __name__ == '__main__':

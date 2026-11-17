@@ -92,6 +92,25 @@ class PrehistoryTests(unittest.TestCase):
         self.assertEqual(title, 'What Did the First Hearths Change? | Ancient Humans')
         self.assertEqual(ancient_humans_title(title),title)
 
+    def test_parallel_chapters_use_global_shot_indices_and_require_matching_timing(self):
+        import json
+        from prehistory.production import plan_digest, render_shots, timed_shots
+
+        beat = {'prop':'stone','action':'watch'}
+        plan = {'chapters':[{'label':'Start','beats':[beat,beat]},
+                            {'label':'Evidence','beats':[beat]},
+                            {'label':'Conclusion','beats':[beat]}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp)
+            timing = work/'timing.json'
+            timing.write_text(json.dumps({'plan_sha256':plan_digest(plan),'frames':[260,300,320,240]}))
+            with patch.dict('os.environ',{},clear=True), patch('prehistory.production.clip') as clip:
+                render_shots(plan,work,chapter=1)
+            clip.assert_called_once_with(beat,2,320,work/'v-2.mp4','Evidence')
+            plan['chapters'][0]['label'] = 'Different plan'
+            with self.assertRaisesRegex(ValueError,'do not match'):
+                timed_shots(plan,work)
+
     def test_deeper_pitch_preserves_the_requested_tempo(self):
         for rate in (24000,48000):
             filters = dict(item.split('=',1) for item in narration_filter(1.05,rate).split(',')[:-1])

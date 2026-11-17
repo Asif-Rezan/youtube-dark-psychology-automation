@@ -67,7 +67,7 @@ def run_blender(shot, output):
                 [os.environ['PREHISTORY_BLENDER'],'-b','-t','4','--python-exit-code','1',
                  '--python',str(BLENDER_SCRIPT)],
                 env=dict(os.environ,PREHISTORY_SHOT=settings),stdout=stream,stderr=subprocess.STDOUT,
-                check=True,timeout=240)
+                check=True,timeout=120+shot["frames"]*6)
         except (subprocess.SubprocessError,OSError) as error:
             lines = log.read_text(errors='replace').splitlines()
             raise RuntimeError(f'Blender shot {shot["index"]+1} failed: '+ '\n'.join(lines[-8:])) from error

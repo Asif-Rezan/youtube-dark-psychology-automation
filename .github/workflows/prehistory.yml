@@ -80,11 +80,11 @@ jobs:
           path: output/*/prehistory-plan.json
           if-no-files-found: error
           retention-days: 7
-  render:
-    name: Narrate and render Python animation and thumbnail
+  audio:
+    name: Synthesize narration and measure shot timing
     needs: plan
+    timeout-minutes: 55
     runs-on: ubuntu-24.04
-    timeout-minutes: 150
     env:
       RUN_ID: ${{ needs.plan.outputs.run_id }}
     steps:
@@ -103,6 +103,49 @@ jobs:
         with:
           name: prehistoric-plan
           path: output/
+      - run: python -u -m prehistory.production audio --run-id "$RUN_ID"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prehistoric-timing
+          path: output/*/render-parts/timing.json
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prehistoric-narration
+          path: output/*/render-parts/a-*.wav
+          if-no-files-found: error
+          retention-days: 7
+  chapters:
+    name: Render Blender chapter ${{ matrix.chapter }}
+    needs: [plan, audio]
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        chapter: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    runs-on: ubuntu-24.04
+    env:
+      RUN_ID: ${{ needs.plan.outputs.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          bash scripts/install-runner-packages.sh ffmpeg fonts-dejavu-core
+          pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: prehistoric-plan
+          path: output/
+      - uses: actions/download-artifact@v4
+        with:
+          name: prehistoric-timing
+          path: output/
       - name: Restore headless Blender from Actions cache
         id: blender-cache
         uses: actions/cache/restore@v4
@@ -112,12 +155,46 @@ jobs:
       - name: Install or verify headless Blender
         run: bash scripts/install-prehistory-blender.sh
       - name: Save verified Blender to Actions cache
-        if: steps.blender-cache.outputs.cache-hit != 'true'
+        if: matrix.chapter == 0 && steps.blender-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/prehistory-blender
           key: ${{ steps.blender-cache.outputs.cache-primary-key }}
-      - run: python -u -m prehistory.production render --run-id "$RUN_ID"
+      - name: Render chapter at the measured narration timing
+        env:
+          CHAPTER: ${{ matrix.chapter }}
+        run: python -u -m prehistory.production chapter --run-id "$RUN_ID" --chapter "$CHAPTER"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prehistoric-chapter-${{ matrix.chapter }}
+          path: |
+            output/*/render-parts/v-*.mp4
+            output/*/render-parts/thumbnail.jpg
+          if-no-files-found: error
+          retention-days: 7
+  render:
+    name: Assemble Blender chapters and narration
+    needs: [plan, audio, chapters]
+    timeout-minutes: 45
+    runs-on: ubuntu-24.04
+    env:
+      RUN_ID: ${{ needs.plan.outputs.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          bash scripts/install-runner-packages.sh ffmpeg
+          pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: prehistoric-*
+          merge-multiple: true
+          path: output/
+      - run: python -u -m prehistory.production assemble --run-id "$RUN_ID"
       - uses: actions/upload-artifact@v4
         with:
           # Existing Facebook and YouTube recovery jobs expect this artifact key.
