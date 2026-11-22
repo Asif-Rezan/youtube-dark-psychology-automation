@@ -1,12 +1,13 @@
+.env
 output/
 __pycache__/
-.env
-*token*.json
-client_secrets*.json
+*.pyc
+token.json
+client_secrets.json
+node_modules/
+
 .venv/
+client_secret_*.json
 
-.credentials/
-
-.vendor/
-.models/
-preview-video/
+youtube_token.json
+drive_token.json

@@ -1,3 +1,0 @@
-# CPU-only segmentation; PyTorch is installed separately from its CPU wheel index.
-rembg[cpu]==2.0.67
-scipy>=1.14,<2

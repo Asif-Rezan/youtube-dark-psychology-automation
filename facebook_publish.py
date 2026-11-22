@@ -31,17 +31,13 @@ def schedule_timestamp(value, now=None):
 
 def finish_fields(kind, video_id, session_id, metadata, timestamp):
     fields = dict(upload_phase='finish', title=metadata['title'], description=metadata['description'])
-    # None is direct publication; a timestamp is an explicit scheduled request.
     # Reel API supports an explicit AI disclosure. Also disclose in Page video text.
     if kind == 'short':
-        fields.update(video_id=video_id, video_state='PUBLISHED' if timestamp is None else 'SCHEDULED',
-                      is_ai_generated='true')
-        if timestamp is not None:
-            fields['scheduled_publish_time']=timestamp
+        fields.update(video_id=video_id, video_state='SCHEDULED',
+                      scheduled_publish_time=timestamp, is_ai_generated='true')
     else:
-        fields.update(upload_session_id=session_id, published='true' if timestamp is None else 'false')
-        if timestamp is not None:
-            fields.update(scheduled_publish_time=timestamp, unpublished_content_type='SCHEDULED')
+        fields.update(upload_session_id=session_id, published='false',
+                      scheduled_publish_time=timestamp, unpublished_content_type='SCHEDULED')
     return fields
 
 
@@ -76,7 +72,7 @@ class Facebook:
             raise FacebookError('Facebook token does not belong to Grow with Rezan')
 
     def status(self, video_id):
-        return self.request('GET', f'/{VERSION}/{video_id}', params={'fields': 'id,status,scheduled_publish_time,from,published'})
+        return self.request('GET', f'/{VERSION}/{video_id}', params={'fields': 'id,status,scheduled_publish_time,from,published,title,description,length'})
 
 
 def verify_remote(remote, state):
@@ -86,11 +82,6 @@ def verify_remote(remote, state):
     if any(status.get(key, {}).get('status') == 'error' for key in ('uploading_phase','processing_phase','publishing_phase')) or status.get('video_status') in ('error', 'failed'):
         raise FacebookError('Facebook video processing failed; saved video retained')
     actual = remote.get('scheduled_publish_time')
-    if state.get('publish_at') is None:
-        # Processing readiness alone also describes drafts. Require publication
-        # evidence from the API, not just a successful finish response.
-        published=remote.get('published') is True or status.get('publishing_phase',{}).get('publish_status')=='published'
-        return actual in (None,0,'0') and status.get('video_status')=='ready' and published
     if actual is not None:
         try:
             stamp = int(actual)
@@ -98,7 +89,8 @@ def verify_remote(remote, state):
             stamp = int(dt.datetime.fromisoformat(str(actual).replace('Z','+00:00')).timestamp())
         if stamp != state['publish_at']:
             raise FacebookError('Facebook publication schedule mismatch')
-    return actual is not None and status.get('video_status') == 'ready'
+    released = remote.get('published') is True and time.time() >= state['publish_at']
+    return (actual is not None or released) and status.get('video_status') == 'ready'
 
 
 def publish(api, path, kind, metadata, publish_at, state, save, *, attempts=60, sleep=time.sleep):
@@ -180,75 +172,83 @@ def publish(api, path, kind, metadata, publish_at, state, save, *, attempts=60, 
         save()
     for attempt in range(attempts):
         if verify_remote(api.status(state['video_id']),state):
-            state['phase'] = 'published' if state['publish_at'] is None else 'scheduled'
+            state['phase'] = 'scheduled'
             save()
-            print(json.dumps({'phase':'Facebook '+state['phase'],'video_id':state['video_id'],'page_id':PAGE_ID,
+            print(json.dumps({'phase':'Facebook scheduled','video_id':state['video_id'],'page_id':PAGE_ID,
                               'publish_at':state['publish_at']}),flush=True)
             return
         if attempt+1 < attempts:
             sleep(15)
-    raise FacebookError('Facebook processing or visibility readback pending; resume the same identity')
+    raise FacebookError('Facebook processing or schedule readback pending; resume the same identity')
 
 
-def run(run_id, kind):
-    if not re.fullmatch(r'[a-zA-Z0-9_-]{1,80}', run_id):
-        raise FacebookError('Invalid song run ID')
-    from storage import Store
+def run(run_id, source=None, adopt_video_id=None):
+    if not re.fullmatch(r'daily-\d+', run_id):
+        raise FacebookError('Invalid daily run ID')
+    from workflow import Store
     store = Store()
-    if kind == 'short':
-        root = Path('output/shorts')/run_id/'music-portrait-clip-0-40'
-        youtube_key = f'shorts/{run_id}/music-portrait-clip-0-40/state.json'
-    else:
-        root = Path('output')/run_id
-        youtube_key = f'runs/{run_id}/state.json'
-    youtube = store.load(youtube_key,{})
-    target = youtube.get('schedule_target') or youtube.get('upload_settings',{}).get('publish_at')
-    if youtube.get('phase') not in ('scheduled','published'):
-        raise FacebookError('Verified YouTube checkpoint is required before Facebook publication')
-    if youtube['phase']=='scheduled' and not target:
-        raise FacebookError('Scheduled YouTube checkpoint requires a publication time')
-    key = f'facebook/{run_id}/{kind}/state.json'
-    state = store.load(key,{})
-    # Retries preserve the frozen target; never silently move an expired schedule.
-    if state.get('video_id'):
-        stamp=state['publish_at']  # Preserve existing public/scheduled identity.
-    else:
-        stamp=None if youtube['phase']=='published' else schedule_timestamp(target)
-    from episode_packaging import public_metadata
-    snippet=youtube.get('upload_body',{}).get('snippet',{})
-    if snippet:
-        metadata=dict(title=snippet['title'],description=snippet['description'],tags=snippet.get('tags',[]))
-    else:
-        song=json.loads((Path('output')/run_id/'song.json').read_text())
-        metadata=public_metadata(song,'shorts' if kind=='short' else 'video')
-    prehistoric = youtube.get('song',{}).get('genre') == 'prehistory'
-    if not prehistoric:
-        metadata['description'] += '\n\nCreated with AI-generated music and illustrations.'
-    # Keep the original bytes when resuming a pre-existing landscape upload.
-    feed_copy=kind=='video' and not prehistoric and (not state or state.get('media_format')=='feed-4x5-crop-v1')
-    path=root/'video.mp4'
-    if feed_copy:
-        from facebook_feed import prepare
-        path=prepare(path,store,run_id)
+    youtube = store.load(f'runs/{run_id}/state.json', {})
+    publication = youtube.get('publication', {})
+    if not publication.get('confirmed') or youtube.get('phase') != 'verified_private':
+        raise FacebookError('Confirmed YouTube publication is required before Facebook upload')
+    target = publication.get('publish_at')
+    if publication.get('mode') != 'scheduled' or not target:
+        raise FacebookError('A saved YouTube schedule is required')
+    key = f'runs/{run_id}/facebook.json'
+    state = store.load(key, {})
+    expiry = int(os.getenv('FACEBOOK_DATA_ACCESS_EXPIRES_AT', '0'))
+    if expiry and expiry - time.time() < 14*86400:
+        print('::warning::Facebook data access expires within 14 days; renew Page authorization in Meta.')
+    api = Facebook(os.getenv('FACEBOOK_PAGE_ACCESS_TOKEN'))
+    if state.get('phase') == 'scheduled':
+        api.verify_page()
+        if not verify_remote(api.status(state['video_id']), state):
+            raise FacebookError('Previously scheduled video needs reconciliation')
+        return
+    stamp = schedule_timestamp(target) if not state.get('video_id') else int(state['publish_at'])
+    story = youtube['story']
+    metadata = {'title': story['title'], 'description': youtube.get('upload_description', story['description'])
+                + '\n\nVisual scenes and narration were created with AI assistance.'}
+    if adopt_video_id:
+        if not adopt_video_id.isdigit() or state.get('video_id') not in (None, adopt_video_id):
+            raise FacebookError('Cannot adopt a different existing Facebook identity')
+        remote = api.status(adopt_video_id)
+        candidate = {'video_id': adopt_video_id, 'publish_at': stamp}
+        expected_duration = youtube.get('validation', {}).get('duration_seconds')
+        if expected_duration is not None and abs(float(remote.get('length', -999)) - float(expected_duration)) > 2:
+            raise FacebookError('Existing Facebook video duration does not match this run')
+        if (remote.get('title') != metadata['title'] or remote.get('description') != metadata['description']
+                or not verify_remote(remote, candidate)):
+            raise FacebookError('Existing Facebook metadata or publication does not match this run')
+        state.update(candidate, phase='scheduled', adopted=True)
+        store.save(key, state)
+        print(json.dumps({'phase': 'Facebook scheduled', 'video_id': adopt_video_id,
+                          'page_id': PAGE_ID, 'publish_at': stamp, 'reconciled': True}))
+        return
+    root = Path('output/facebook')/run_id
+    root.mkdir(parents=True, exist_ok=True)
+    path = Path(source) if source else root/'video.mp4'
+    if not source:
+        file_id = store.find(f'runs/{run_id}/video.mp4')
+        if not file_id:
+            raise FacebookError('Source video missing; restore original MP4 before retrying Facebook')
+        store.download(file_id, path)
     def save():
-        if feed_copy:
-            state['media_format']='feed-4x5-crop-v1'
-        root.mkdir(parents=True,exist_ok=True)
-        temp = root/'facebook-state.tmp'
-        temp.write_text(json.dumps(state,indent=2))
-        temp.replace(root/'facebook-state.json')
-        store.save(key,state)
-    publish(Facebook(os.getenv('FACEBOOK_PAGE_ACCESS_TOKEN')),path,kind,metadata,stamp,state,save)
+        store.save(key, state)
+    publish(api, path, 'video', metadata, stamp, state, save)
+    # Facebook owns a separate checkpoint; YouTube state is never modified.
+    from daily_publish import cleanup
+    cleanup(store, run_id, youtube)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--run-id',required=True)
-    parser.add_argument('--kind',choices=['video','short'],required=True)
+    parser.add_argument('--run-id', required=True)
+    parser.add_argument('--source', help='Original local MP4 for recovery only')
+    parser.add_argument('--adopt-video-id', help='Reconcile an existing matching Facebook video without uploading')
     args = parser.parse_args()
     try:
-        run(args.run_id,args.kind)
+        run(args.run_id, args.source, args.adopt_video_id)
     except Exception as error:
-        # Only locally-authored errors are safe; requests/Drive exceptions can contain tokens.
-        print(str(error) if isinstance(error,FacebookError) else 'Facebook publication failed: '+type(error).__name__)
+        print(str(error) if isinstance(error, FacebookError) else 'Facebook publication failed: '+type(error).__name__)
         raise SystemExit(1)
