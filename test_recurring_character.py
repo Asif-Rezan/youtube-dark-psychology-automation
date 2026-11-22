@@ -10,6 +10,18 @@ import workflow
 
 
 class RecurringCharacterTests(unittest.TestCase):
+    def test_title_and_scene_context_select_distinct_poses(self):
+        examples = {'The Power of Silence':'shushing', 'Set Boundaries with Toxic People':'stop',
+                    'Why We Make Decisions':'thinking', 'Recognize Manipulation':'pointing',
+                    'The Lone Wolf and Self Mastery':'confident'}
+        for text, pose in examples.items():
+            self.assertEqual(character.pose_for_text(text), pose)
+        self.assertEqual(character.pose_for_text('A person thinks. no text or watermark'), 'thinking')
+        for pose in character.POSES:
+            with Image.open(character.pose_asset(pose)) as image:
+                self.assertEqual(image.mode, 'RGBA')
+                self.assertEqual(image.getextrema()[3], (0,255))
+
     def test_reference_asset_has_real_transparency_and_visible_blue_eye(self):
         with Image.open(character.ASSET) as image:
             self.assertEqual(image.mode, 'RGBA')

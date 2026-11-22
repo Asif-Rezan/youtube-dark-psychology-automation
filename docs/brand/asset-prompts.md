@@ -18,3 +18,20 @@ Use case: ads-marketing. Asset type: 16:9 YouTube thumbnail background plate for
 Output: `docs/brand/example-backdrop.png`. This is a design example only.
 The code adds exact typography, mascot, arrow and footer to the preview.
 Production creates a fresh topic-specific background using `complete_thumbnail_prompt`.
+
+
+## Identity-matched pose variants
+
+Each pose was generated in a separate built-in ImageGen call using
+`assets/brand/hooded-eye.png` as the identity reference and true transparency.
+The shared prompt preserves the exact indigo-blue hood, single blue eye, white
+bandage wrapping, flat cel shading, thick black outlines and waist-up framing.
+Change only the arms/gesture. One character, no text/arrows/background/watermark.
+
+- thinking: one wrapped hand under chin, head slightly tilted, eye looking up.
+- stop: open wrapped palm faces the viewer; assertive boundary gesture.
+- pointing: wrapped index finger points right, alert eye.
+- confident: wrapped arms folded across chest, calm independent posture.
+
+Final preview uses the pointing pose selected by “WHO CONTROLS YOU?”. The current
+renderer removes the old footer and uses only a heavy yellow/white top headline.

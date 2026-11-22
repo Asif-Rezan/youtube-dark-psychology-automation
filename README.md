@@ -7,11 +7,14 @@ its face. Scene generation reserves a foreground corner for the host and keeps
 the narrated action prominent; placement alternates deterministically, and the
 bottom caption strip stays clear. The character is a recurring illustrated
 narrator, not a claim that a hooded person participated in the events discussed.
-Its pose is fixed; this update does not add new character animation.
+Five identity-matched poses (shushing, thinking, stop, pointing and confident)
+are selected from the episode title/hook and each scene context. These are
+composed illustrations, not full character animation.
 
 Thumbnails follow the supplied reference: red/black illustrated backdrop, central
-mascot, huge yellow/white headline at the top, a yellow pointer and a black
-DARK PSYCHOLOGY footer. Episode-specific visual clues and headline still vary.
+mascot, huge yellow/white headline at the top, a yellow pointer and **only one headline area at the top**. There is no
+DARK PSYCHOLOGY footer or extra niche text. The bundled Oswald font uses its
+maximum 700 weight plus reinforced strokes and a black outline. Episode-specific visual clues and headline still vary.
 Thumbnail output remains 1920×1080 under 2 MB with a mobile preview. Preview images
 are design examples, not a generated episode or production fallback.
 
@@ -23,7 +26,7 @@ production continues to use the existing free CPU background model and Pillow
 composition, with no new paid image API dependency. Every scene records the
 character asset hash; old character-free images/clips are invalidated on resume.
 
-Validation: 175 component tests, production-environment checks, actionlint and
+Validation: component tests, production-environment checks, actionlint and
 visual inspection of the reference-style preview. Actual CPU-model scene quality
 and end-to-end publication still require the fresh cloud production run.
 

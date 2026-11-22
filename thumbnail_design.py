@@ -1,10 +1,15 @@
-"""Episode-specific 3D storybook thumbnails with integrated headlines."""
+"""Reference-style illustrated thumbnails with a title-specific mascot pose."""
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from itertools import combinations
 
 
 def _font(size):
+    bundled = Path(__file__).resolve().parent/'assets/brand/Oswald.ttf'
+    if bundled.exists():
+        font = ImageFont.truetype(str(bundled), size)
+        font.set_variation_by_axes([700])
+        return font
     for path in ('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
                  '/System/Library/Fonts/Supplemental/Arial Bold.ttf'):
         if Path(path).exists():
@@ -49,9 +54,9 @@ def complete_thumbnail_prompt(visual, text, identity):
             'No writing, no hooded mascot; the reference mascot is added separately.')
 
 
-def render_thumbnail(source, text, target, category='Dark Psychology', *, text_side='left'):
-    """Reference-style top headline, exact central mascot, arrow and black footer."""
-    from recurring_character import composite_host
+def render_thumbnail(source, text, target, category='Dark Psychology', *, text_side='left', pose=None):
+    """Heavy top headline and title-specific mascot; no footer or niche label."""
+    from recurring_character import composite_host, pose_for_text
     hook_layout(text)
     if text_side not in ('left', 'right'):
         raise ValueError('Invalid thumbnail text side')
@@ -64,20 +69,20 @@ def render_thumbnail(source, text, target, category='Dark Psychology', *, text_s
     sd = ImageDraw.Draw(shade)
     sd.rectangle((0,0,1919,245), fill=(0,0,0,170))
     image = Image.alpha_composite(image, shade)
-    image = composite_host(image, thumbnail=True)
+    image = composite_host(image, thumbnail=True, pose=pose or pose_for_text(text))
     draw = ImageDraw.Draw(image)
     # Full-width headline like the supplied reference, with a strong phone-readable floor.
     words = text.upper().split()
     measure = ImageDraw.Draw(Image.new('RGB', (1,1)))
     chosen = None
-    for size in range(160, 95, -4):
+    for size in range(208, 95, -4):
         font = _font(size)
         layouts = [words]
         layouts += [words[:i]+['\n']+words[i:] for i in range(1,len(words))]
         for layout in layouts:
             lines = ' '.join(layout).split(' \n ')
             widths = [measure.textbbox((0,0), line, font=font, stroke_width=5)[2] for line in lines]
-            if max(widths) <= 1760 and len(lines)*(size+8) <= 260:
+            if max(widths) <= 1760 and len(lines)*(size+8) <= 245:
                 chosen = (lines,size)
                 break
         if chosen:
@@ -90,20 +95,17 @@ def render_thumbnail(source, text, target, category='Dark Psychology', *, text_s
         box = draw.textbbox((0,0),line,font=font,stroke_width=5)
         x = (1920-(box[2]-box[0]))//2
         draw.text((x,25+i*(size+8)),line,font=font,
-                  fill='#FFFFFF',stroke_width=5,stroke_fill='#080000')
+                  fill='#FFFFFF',stroke_width=8,stroke_fill='#080000')
+        draw.text((x,25+i*(size+8)),line,font=font,fill='#FFFFFF',stroke_width=2,stroke_fill='#FFFFFF')
         for word_index, word in enumerate(line.split()):
             if word_index in (0, len(line.split())-1):
                 prefix = ' '.join(line.split()[:word_index])
                 offset = draw.textlength(prefix+' ' if prefix else '', font=font)
-                draw.text((x+offset,25+i*(size+8)),word,font=font,fill='#FFFF00',stroke_width=5,stroke_fill='#080000')
+                draw.text((x+offset,25+i*(size+8)),word,font=font,fill='#FFFF00',stroke_width=8,stroke_fill='#080000')
+                draw.text((x+offset,25+i*(size+8)),word,font=font,fill='#FFFF00',stroke_width=2,stroke_fill='#FFFF00')
     # Curved yellow pointer highlights the recurring host, not an invented scene detail.
     draw.arc((380,250,770,600),95,210,fill='#FFFF00',width=17)
     draw.line([(560,573),(620,590),(593,530)],fill='#FFFF00',width=17,joint='curve')
-    draw.rectangle((0,950,1919,1079),fill='#000000')
-    label = 'DARK PSYCHOLOGY'
-    font = _font(100)
-    box = draw.textbbox((0,0),label,font=font)
-    draw.text(((1920-box[2])//2,958),label,font=font,fill='#FFFFFF')
     output = Path(target)
     output.parent.mkdir(parents=True, exist_ok=True)
     for quality in (92,85,75):
@@ -123,13 +125,14 @@ def generate_thumbnail(story, root, identity):
     seed = int(hashlib.sha256((identity+prompt).encode()).hexdigest()[:8],16)
     source = root/'thumbnail-source.png'
     generate(prompt,source,seed=seed,style='dark-graphic',width=1344,height=768)
-    from recurring_character import VERSION, asset_hash
+    from recurring_character import VERSION, asset_hash, pose_for_text
     text_side = 'left'
-    target = render_thumbnail(source,story['thumbnail_text'],root/'thumbnail.jpg',text_side=text_side)
+    pose = story.get('thumbnail_pose') or pose_for_text(story['title']+' '+story['thumbnail_text'])
+    target = render_thumbnail(source,story['thumbnail_text'],root/'thumbnail.jpg',text_side=text_side,pose=pose)
     with Image.open(target) as mobile:
         mobile.resize((320,180),Image.Resampling.LANCZOS).save(root/'thumbnail-mobile.jpg')
     (root/'thumbnail-design.json').write_text(json.dumps(dict(
-        version='hooded-eye-red-black-v5',character_version=VERSION,character_sha256=asset_hash(),seed=seed,prompt=prompt,text=story['thumbnail_text'],
+        version='hooded-eye-top-headline-v6',character_pose=pose,character_version=VERSION,character_sha256=asset_hash(),seed=seed,prompt=prompt,text=story['thumbnail_text'],
         text_side=text_side,text_mode='composited-exact',
         generation_size=[1344,768],export_size=[1920,1080],crop='center to 16:9 (1344x756)',
         visual_review='Inspect subject, factual fit and mobile preview; CTR requires analytics'),indent=2))

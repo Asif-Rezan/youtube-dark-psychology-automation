@@ -125,7 +125,8 @@ class PackagingTests(unittest.TestCase):
                 # Branded composition has top headline contrast and the fixed central host.
                 self.assertNotEqual(image.getpixel((80,590)),image.getpixel((1200,590)))
                 self.assertNotEqual(image.getpixel((900,360)),image.getpixel((900,20)))
-                self.assertLess(max(image.getpixel((10,1000))), 10)
+                # No extra niche banner is drawn across the bottom.
+                self.assertNotEqual(image.getpixel((10,1000)), (0,0,0))
             self.assertLess(target.stat().st_size, 2*1024*1024)
 
     def test_long_valid_question_wraps_and_renders(self):

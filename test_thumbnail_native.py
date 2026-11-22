@@ -33,7 +33,7 @@ class ThumbnailTests(unittest.TestCase):
         self.assertEqual(len(set(prompts)), len(topics))
 
     def test_export_has_exact_type_mobile_preview_and_episode_seed(self):
-        story = dict(thumbnail_prompt='An anxious adult notices strings pulling one wrist',
+        story = dict(title='Dark Psychology: Spot Manipulation',thumbnail_prompt='An anxious adult notices strings pulling one wrist',
                      thumbnail_text='WHO CONTROLS YOU?')
         def generate(prompt, path, **kwargs):
             self.assertFalse(kwargs.get('allow_text', False))
@@ -54,6 +54,8 @@ class ThumbnailTests(unittest.TestCase):
             manifest = json.loads((root/'thumbnail-design.json').read_text())
             self.assertEqual(manifest['text'], 'WHO CONTROLS YOU?')
             self.assertEqual(manifest['text_mode'], 'composited-exact')
+            self.assertEqual(manifest['character_pose'], 'pointing')
+            self.assertEqual(manifest['version'], 'hooded-eye-top-headline-v6')
             self.assertEqual(manifest['generation_size'], [1344,768])
             self.assertEqual(manifest['export_size'], [1920,1080])
             generate_thumbnail(story, root, 'episode-b')

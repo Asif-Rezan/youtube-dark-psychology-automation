@@ -415,7 +415,7 @@ def make_image(prompt, path):
                 os.environ.pop('IMAGE_NEGATIVE_PROMPT', None)
             else:
                 os.environ['IMAGE_NEGATIVE_PROMPT'] = previous_negative
-        finish_scene(path, identity)
+        finish_scene(path, identity, prompt)
         return
     if os.getenv('IMAGE_BACKEND') != 'hf':
         raise ValueError('IMAGE_BACKEND must be cpu or hf')
@@ -424,7 +424,7 @@ def make_image(prompt, path):
         prompt=prompt + ', cinematic lighting, landscape composition, no text or watermarks',
         model=required('IMAGE_MODEL'), width=1024, height=576)
     image.save(path)
-    finish_scene(path, identity)
+    finish_scene(path, identity, prompt)
 
 
 def speech_chunks(text, limit=200):
