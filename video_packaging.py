@@ -101,7 +101,7 @@ def choose_package(story, topic, payload):
         # composition, palette and integrated typography for each episode.
         artwork_prompt = visual_story if prompt.rstrip('.') == visual_story else f'{visual_story}. {prompt}'
         artwork_prompt = ' '.join(artwork_prompt.split()[:45])
-        artwork_prompt += '. 3D storybook illustration, one unresolved visual relationship.'
+        artwork_prompt += '. Dark red and black graphic illustration, one unresolved visual relationship.'
         valid.append((score, {'title': title, 'thumbnail_text': text, 'thumbnail_prompt': artwork_prompt}))
     if not valid:
         raise ValueError('No accurate, readable YouTube title and thumbnail pair: ' + '; '.join(rejected))
@@ -183,14 +183,16 @@ The image must tell this source-backed visual story: {topic['thumbnail_visual_st
 Do not mention or depict these elements in thumbnail artwork: {json.dumps(topic.get('thumbnail_forbidden_terms', []))}.
 Omit forbidden words entirely, including negative phrases such as "no pyramid"; the renderer handles exclusions.
 Thumbnail prompt: 25-220 characters, include the exact visual-anchor phrase, and add
-a specific 3D storybook scene that builds on the visual story AND the episode outline.
+a specific dark red/black illustrated scene that builds on the visual story AND the episode outline.
 Show an expressive character making a meaningful choice or reacting to the central conflict.
-Use sculpted characters, tactile materials and miniature diorama depth; symbolic illustration, not evidence. Make the social tension,
+Use bold black outlines, dramatic red/black texture and simple symbolic shapes; illustration, not evidence. Make the social tension,
 entrance, path or object relationship the source of curiosity even with no words visible.
 Give the three options DIFFERENT camera angles, focal relationships and compositions:
 for example a close-up clue, an over-the-shoulder discovery, and a dramatic scale contrast.
-Use bright exposure, saturated complementary colors, clean backgrounds and a luminous subject.
-Do not reserve a fixed dark left panel or always put the subject on the right.
+Use a deep red/black background, readable silhouettes and bright highlights on the visual clue.
+Reserve the upper quarter for a large yellow/white headline and the lower edge for the channel label.
+The exact indigo hooded, white-bandaged single-blue-eye mascot is composited in the center.
+Do not ask diffusion to draw or redesign the mascot; keep a clear center for it and place the topic clue beside it.
 The renderer adds the exact headline as readable typography after generating artwork.
 Describe one dominant subject, a clear emotion and one relevant visual clue. Use at most
 two people, large readable shapes, no crowds or decorative tiny props.

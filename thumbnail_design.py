@@ -30,57 +30,80 @@ def hook_layout(text):
     raise ValueError('Thumbnail hook cannot fit at readable size')
 
 
-PALETTES = ('amber rim light, deep cobalt background',
-            'cyan rim light, warm coral background',
-            'golden rim light, dark teal background')
+PALETTES = ('deep crimson and black textured background',)
 
 
 def art_direction(identity):
-    import hashlib
-    digest = hashlib.sha256(identity.encode()).digest()
-    return ('right' if digest[0] % 2 else 'left'), PALETTES[digest[1] % len(PALETTES)]
+    return 'center', PALETTES[0]
 
 
 def complete_thumbnail_prompt(visual, text, identity):
-    """Short artwork brief: the CPU model is unreliable at rendering letters."""
+    """Generate only the episode backdrop; exact host and lettering are composited."""
     import re
     hook_layout(text)
-    side, palette = art_direction(identity)
     visual = re.sub(r'\b(?:no text|no written letters|no letters|no embedded letters)\b', '', visual, flags=re.I)
-    visual = re.sub(r'(?:open |empty )?dark space on the (?:left|right)', '', visual, flags=re.I)
-    visual = re.sub(r'\b(?:on the |at |at the |on )?(?:right|left)(?: side| foreground)?\b', '', visual, flags=re.I)
     visual = visual.split('. ')[0].strip(' ,. ')
-    # Subject and scale lead, before the encoders truncate longer instructions.
-    return (f'3D storybook illustration. {visual}. '
-            f'Large focal subject on {side}, opposite side uncluttered. '
-            f'{palette}. Expressive human face, mature psychological drama, '
-            'one visual clue, simple background, strong silhouette, no writing.')
+    return (f'Dark psychology graphic illustration. {visual}. '
+            'Deep crimson and black grunge background, dramatic shadow, bold outlines, '
+            'one large symbolic clue beside a clear center. Upper quarter uncluttered. '
+            'No writing, no hooded mascot; the reference mascot is added separately.')
 
 
-def render_thumbnail(source, text, target, category='History', *, text_side='left'):
-    """Composite exact readable type over a reserved area, preserving the subject."""
-    lines, size = hook_layout(text)
+def render_thumbnail(source, text, target, category='Dark Psychology', *, text_side='left'):
+    """Reference-style top headline, exact central mascot, arrow and black footer."""
+    from recurring_character import composite_host
+    hook_layout(text)
     if text_side not in ('left', 'right'):
         raise ValueError('Invalid thumbnail text side')
     with Image.open(source) as original:
         image = ImageOps.fit(original.convert('RGB'), (1920,1080), method=Image.Resampling.LANCZOS)
-    overlay = Image.new('RGBA', image.size, (0,0,0,0))
-    draw = ImageDraw.Draw(overlay)
-    for x in range(960):
-        opacity = round(185 * (1-x/960))
-        px = x if text_side == 'left' else 1919-x
-        draw.line((px,0,px,1079), fill=(5,10,22,opacity))
-    image = Image.alpha_composite(image.convert('RGBA'), overlay)
+    # Keep the generated episode clue visible while unifying the channel palette.
+    red = Image.new('RGB', image.size, '#7A060B')
+    image = Image.blend(image, red, .34).convert('RGBA')
+    shade = Image.new('RGBA', image.size)
+    sd = ImageDraw.Draw(shade)
+    sd.rectangle((0,0,1919,245), fill=(0,0,0,170))
+    image = Image.alpha_composite(image, shade)
+    image = composite_host(image, thumbnail=True)
     draw = ImageDraw.Draw(image)
-    font = _font(round(size*1.5))
-    x = 135 if text_side == 'left' else 1035
-    # Keep type away from edges and the bottom-right timestamp.
-    line_height = round((size+16)*1.5)
-    top = 150
+    # Full-width headline like the supplied reference, with a strong phone-readable floor.
+    words = text.upper().split()
+    measure = ImageDraw.Draw(Image.new('RGB', (1,1)))
+    chosen = None
+    for size in range(160, 95, -4):
+        font = _font(size)
+        layouts = [words]
+        layouts += [words[:i]+['\n']+words[i:] for i in range(1,len(words))]
+        for layout in layouts:
+            lines = ' '.join(layout).split(' \n ')
+            widths = [measure.textbbox((0,0), line, font=font, stroke_width=5)[2] for line in lines]
+            if max(widths) <= 1760 and len(lines)*(size+8) <= 260:
+                chosen = (lines,size)
+                break
+        if chosen:
+            break
+    if chosen is None:
+        raise ValueError('Thumbnail headline cannot fit above the character')
+    lines,size = chosen
+    font = _font(size)
     for i,line in enumerate(lines):
-        draw.text((x,top+i*line_height),line,font=font,
-                  fill='#FFFFFF' if i == 0 else '#FFE04B',
-                  stroke_width=8,stroke_fill='#070B16')
+        box = draw.textbbox((0,0),line,font=font,stroke_width=5)
+        x = (1920-(box[2]-box[0]))//2
+        draw.text((x,25+i*(size+8)),line,font=font,
+                  fill='#FFFFFF',stroke_width=5,stroke_fill='#080000')
+        for word_index, word in enumerate(line.split()):
+            if word_index in (0, len(line.split())-1):
+                prefix = ' '.join(line.split()[:word_index])
+                offset = draw.textlength(prefix+' ' if prefix else '', font=font)
+                draw.text((x+offset,25+i*(size+8)),word,font=font,fill='#FFFF00',stroke_width=5,stroke_fill='#080000')
+    # Curved yellow pointer highlights the recurring host, not an invented scene detail.
+    draw.arc((380,250,770,600),95,210,fill='#FFFF00',width=17)
+    draw.line([(560,573),(620,590),(593,530)],fill='#FFFF00',width=17,joint='curve')
+    draw.rectangle((0,950,1919,1079),fill='#000000')
+    label = 'DARK PSYCHOLOGY'
+    font = _font(100)
+    box = draw.textbbox((0,0),label,font=font)
+    draw.text(((1920-box[2])//2,958),label,font=font,fill='#FFFFFF')
     output = Path(target)
     output.parent.mkdir(parents=True, exist_ok=True)
     for quality in (92,85,75):
@@ -99,14 +122,14 @@ def generate_thumbnail(story, root, identity):
     prompt = complete_thumbnail_prompt(story['thumbnail_prompt'],story['thumbnail_text'],identity)
     seed = int(hashlib.sha256((identity+prompt).encode()).hexdigest()[:8],16)
     source = root/'thumbnail-source.png'
-    generate(prompt,source,seed=seed,style='storybook-3d',width=1344,height=768)
-    subject_side, _ = art_direction(identity)
-    text_side = 'left' if subject_side == 'right' else 'right'
+    generate(prompt,source,seed=seed,style='dark-graphic',width=1344,height=768)
+    from recurring_character import VERSION, asset_hash
+    text_side = 'left'
     target = render_thumbnail(source,story['thumbnail_text'],root/'thumbnail.jpg',text_side=text_side)
     with Image.open(target) as mobile:
         mobile.resize((320,180),Image.Resampling.LANCZOS).save(root/'thumbnail-mobile.jpg')
     (root/'thumbnail-design.json').write_text(json.dumps(dict(
-        version='dark-psychology-mobile-v4',seed=seed,prompt=prompt,text=story['thumbnail_text'],
+        version='hooded-eye-red-black-v5',character_version=VERSION,character_sha256=asset_hash(),seed=seed,prompt=prompt,text=story['thumbnail_text'],
         text_side=text_side,text_mode='composited-exact',
         generation_size=[1344,768],export_size=[1920,1080],crop='center to 16:9 (1344x756)',
         visual_review='Inspect subject, factual fit and mobile preview; CTR requires analytics'),indent=2))

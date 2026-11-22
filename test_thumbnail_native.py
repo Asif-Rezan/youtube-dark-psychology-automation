@@ -13,7 +13,7 @@ class ThumbnailTests(unittest.TestCase):
         prompt = complete_thumbnail_prompt('An anxious adult notices strings pulling one wrist.',
                                           'WHO CONTROLS YOU?', 'episode-a')
         self.assertIn('An anxious adult', prompt)
-        self.assertIn('mature psychological drama', prompt)
+        self.assertIn('Deep crimson and black', prompt)
         self.assertNotIn('WHO CONTROLS YOU', prompt)
         self.assertLess(len(prompt.split()), 75)
         self.assertIn('uncluttered', prompt)
@@ -37,7 +37,7 @@ class ThumbnailTests(unittest.TestCase):
                      thumbnail_text='WHO CONTROLS YOU?')
         def generate(prompt, path, **kwargs):
             self.assertFalse(kwargs.get('allow_text', False))
-            self.assertEqual(kwargs['style'], 'storybook-3d')
+            self.assertEqual(kwargs['style'], 'dark-graphic')
             self.assertEqual((kwargs['width'],kwargs['height']), (1344,768))
             Image.new('RGB', (1344,768), (100,120,140)).save(path)
         with tempfile.TemporaryDirectory() as temp, patch('image_cpu.generate', side_effect=generate) as model:

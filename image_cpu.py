@@ -47,7 +47,7 @@ REVISION = '60987f37e94cd59c36b1cba832b9f97b57395a10'
 _pipeline = None
 def generate(prompt, path, *, allow_text=False, seed=None, style=None, width=None, height=None):
     global _pipeline
-    if style not in (None, 'storybook-3d'):
+    if style not in (None, 'storybook-3d', 'dark-graphic'):
         raise ValueError('Unsupported image style')
     import torch
     from diffusers import DiffusionPipeline, DPMSolverMultistepScheduler
@@ -82,8 +82,12 @@ def generate(prompt, path, *, allow_text=False, seed=None, style=None, width=Non
         candidate = initial_prompt if attempt < 5 else rewritten
         if attempt == 5:
             print('Five safety rejections; switching to an environmental reconstruction.', flush=True)
-        negative = ('anime, cartoon, watercolor, flat colors, line art, cel shading, blurry, low detail, poor quality, '
+        negative = ('blurry, low detail, poor quality, '
             'extra arms, extra legs, deformed hands, duplicate person, watermark, logo, ')
+        if style != 'dark-graphic':
+            negative += 'anime, cartoon, watercolor, flat colors, line art, cel shading, '
+        if style == 'dark-graphic':
+            negative += 'photograph, photorealistic, 3D render, pastel, childish, crowded, '
         if style == 'storybook-3d':
             negative += 'muppet, felt puppet, toy, childish, crowd, busy background, tiny subject, clutter, '
         if style != 'storybook-3d':

@@ -1,3 +1,34 @@
+# Recurring character and reference thumbnail style — 2026-11-22
+
+All newly rendered scene images and thumbnails now include the supplied mascot:
+indigo hood, white bandaged face/hand, one blue eye and the shushing pose. A single
+transparent asset is composited consistently, so diffusion cannot randomly change
+its face. Scene generation reserves a foreground corner for the host and keeps
+the narrated action prominent; placement alternates deterministically, and the
+bottom caption strip stays clear. The character is a recurring illustrated
+narrator, not a claim that a hooded person participated in the events discussed.
+Its pose is fixed; this update does not add new character animation.
+
+Thumbnails follow the supplied reference: red/black illustrated backdrop, central
+mascot, huge yellow/white headline at the top, a yellow pointer and a black
+DARK PSYCHOLOGY footer. Episode-specific visual clues and headline still vary.
+Thumbnail output remains 1920×1080 under 2 MB with a mobile preview. Preview images
+are design examples, not a generated episode or production fallback.
+
+Character asset: `assets/brand/hooded-eye.png`. [Design preview](docs/brand/thumbnail-preview.jpg).
+[Scene composition example](docs/brand/scene-preview.jpg).
+[Asset generation prompts and provenance](docs/brand/asset-prompts.md).
+The built-in ImageGen tool produced the transparent character and example backdrop;
+production continues to use the existing free CPU background model and Pillow
+composition, with no new paid image API dependency. Every scene records the
+character asset hash; old character-free images/clips are invalidated on resume.
+
+Validation: 175 component tests, production-environment checks, actionlint and
+visual inspection of the reference-style preview. Actual CPU-model scene quality
+and end-to-end publication still require the fresh cloud production run.
+
+---
+
 # Dark Psychology automation restored — 2026-11-22
 
 New episodes again use the original English **Grow with Rezan** psychology and

@@ -122,9 +122,10 @@ class PackagingTests(unittest.TestCase):
             render_thumbnail(source, 'HOW WAS IT BUILT?', target, 'Ancient Egypt and pyramids')
             with Image.open(target) as image:
                 self.assertEqual(image.size, (1920, 1080))
-                # Gradient provides text contrast while the focal side stays intact.
+                # Branded composition has top headline contrast and the fixed central host.
                 self.assertNotEqual(image.getpixel((80,590)),image.getpixel((1200,590)))
-                self.assertEqual(image.getpixel((900,360)),image.getpixel((900,20)))
+                self.assertNotEqual(image.getpixel((900,360)),image.getpixel((900,20)))
+                self.assertLess(max(image.getpixel((10,1000))), 10)
             self.assertLess(target.stat().st_size, 2*1024*1024)
 
     def test_long_valid_question_wraps_and_renders(self):

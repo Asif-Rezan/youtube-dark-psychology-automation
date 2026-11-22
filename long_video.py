@@ -81,7 +81,7 @@ def storyboard(root=ROOT, ask=None, pause=None):
 Each shot is a measured seven-second narration window. Depict the concrete interaction or symbolic action,
 interaction, object or concept being discussed in that window. Chapter text resolves context only;
 never illustrate a later or earlier event. For abstract ideas, show a relevant symbolic object or clearly illustrative social setting. Avoid generic portraits and unrelated scenery.
-Scenes are artistic illustrations, not evidence of real events. Use contemporary settings unless the narration discusses history. Do not invent a recurring character. When the same narrated person reappears, reuse their
+Scenes are artistic illustrations, not evidence of real events. Use contemporary settings unless the narration discusses history. The fixed hooded single-eye channel narrator is added from its reference asset after generation; leave its reserved foreground area free, and do not draw another mascot. When the same narrated person reappears, reuse their
 age, hair, clothing and distinguishing features exactly; do not replace them with a different person.
 Show subtle credible emotion through gaze, posture and interpersonal distance when relevant to the words.
 Avoid staged generic portraits, exaggerated expressions and decorative objects unrelated to narration.
@@ -335,7 +335,10 @@ def refine_visual_plan(root=ROOT):
         shot['semantic_target'] = action
     plan['storyboard_verified'] = True
     plan['visual_review'] = {'passed': False, 'phase': 'historical-render-review-required'}
-    plan['scene_composition_version'] = 3
+    from recurring_character import VERSION, asset_hash
+    plan['character_version'] = VERSION
+    plan['character_sha256'] = asset_hash()
+    plan['scene_composition_version'] = 4
     (root/'plan.json').write_text(json.dumps(plan, indent=2))
     print(json.dumps({'scene_plan_refined': True, 'shots': len(plan['shots'])}), flush=True)
     return plan
@@ -346,19 +349,25 @@ def generate_shard(shard, root=ROOT, count=SHARDS):
     plan = json.loads((root/'plan.json').read_text())
     if not plan.get('storyboard_verified') or not all(s.get('prompt') for s in plan['shots']):
         raise RuntimeError('Narration-aligned storyboard is required before image generation')
-    if plan.get('scene_composition_version') != 3:
-        raise RuntimeError('Scene-specific object and group composition is required')
+    from recurring_character import VERSION, asset_hash
+    if (plan.get('scene_composition_version') != 4
+            or plan.get('character_version') != VERSION
+            or plan.get('character_sha256') != asset_hash()):
+        raise RuntimeError('Current narration-aligned composition and recurring character asset are required')
     shots = [s for s in plan['shots'] if s['index']%count == shard]
     for shot in shots:
         index = shot['index']
         image, clip = root/f'shot-{index:03}.png', root/f'shot-{index:03}.mp4'
         check = root/f'shot-{index:03}.qa.json'
+        if read_cache(check).get('character_sha256') != asset_hash():
+            image.unlink(missing_ok=True)
+            clip.unlink(missing_ok=True)
         os.environ['IMAGE_NEGATIVE_PROMPT'] = shot.get('negative_prompt', '')
         for attempt in range(3):
             os.environ['IMAGE_SEED'] = str(shot['seed']+attempt*10000)
             if not image.exists():
                 w.make_image(shot['prompt'], image)
-            report = check_scene(image, shot)
+            report = dict(check_scene(image, shot), character_sha256=asset_hash(), character_version=VERSION)
             if report['passed']:
                 check.write_text(json.dumps(report))
                 break
