@@ -5,10 +5,10 @@ on:
   workflow_dispatch:
     inputs:
       publication_mode:
-        description: Keep the new video private for review or schedule publication
+        description: Schedule verified publication on YouTube and Facebook, or keep a private review
         type: choice
         options: [private, scheduled]
-        default: private
+        default: scheduled
       cleanup_run:
         description: 'Optional completed daily run ID: retry verification, scheduling and cleanup only'
         type: string
@@ -34,8 +34,8 @@ env:
   HF_HUB_DISABLE_XET: '1'
   OMP_NUM_THREADS: '4'
   MKL_NUM_THREADS: '4'
-  FACEBOOK_PUBLISH_ENABLED: ${{ github.event_name != 'workflow_dispatch' && 'true' || (inputs.publication_mode == 'scheduled' && 'true' || 'false') }}
-  YOUTUBE_PUBLICATION_MODE: ${{ github.event_name == 'workflow_dispatch' && (inputs.publication_mode || 'private') || 'scheduled' }}
+  FACEBOOK_PUBLISH_ENABLED: ${{ github.event_name != 'workflow_dispatch' && 'true' || ((inputs.publication_mode || 'scheduled') == 'scheduled' && 'true' || 'false') }}
+  YOUTUBE_PUBLICATION_MODE: ${{ github.event_name == 'workflow_dispatch' && (inputs.publication_mode || 'scheduled') || 'scheduled' }}
   DAILY_ENABLED: 'true'
   GENERATE_FRESH_STORY: 'true'
   TEXT_BACKEND: qwen-local

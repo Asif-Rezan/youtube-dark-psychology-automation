@@ -1,3 +1,16 @@
+# YouTube and Facebook publication enabled — 2026-11-22
+
+New manual production runs default to `publication_mode=scheduled`, enabling
+both YouTube publication and the independent Facebook Page workflow after a
+verified HD upload. Both use the original release policy: the first 06:00
+America/New_York slot at least 72 hours after verification. Explicit `private`
+remains available for a deliberate review-only run. This enables publication;
+it does not claim that a video is already live or that credentials are valid.
+An in-progress run retains its original inputs, so the earlier private-review
+request is replaced with a fresh scheduled-production request.
+
+---
+
 # Recurring character and reference thumbnail style — 2026-11-22
 
 All newly rendered scene images and thumbnails now include the supplied mascot:
@@ -57,7 +70,7 @@ no new OAuth setup is needed for an already connected repository.
   2 MB, with a 320×180 mobile preview. This is designed for readability and
   curiosity; actual CTR must be measured after publication.
 
-Run **Daily dark psychology documentary** manually (private review by default).
+Run **Daily dark psychology documentary** manually (scheduled YouTube/Facebook publication by default).
 The daily slot remains **03:00 Asia/Dhaka** and respects the existing
 `AUTOMATION_ENABLED=true` repository variable. Automatic episodes retain the
 original verified-private-then-scheduled publication policy (06:00 New York,
