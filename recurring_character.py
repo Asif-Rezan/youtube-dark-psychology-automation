@@ -1,4 +1,4 @@
-"""Reference-locked illustrated host shared by thumbnail and every scene."""
+"""Reference-locked illustrated host used only in thumbnail artwork."""
 import hashlib
 from pathlib import Path
 from PIL import Image, ImageFilter
@@ -37,10 +37,6 @@ def asset_hash():
     return digest.hexdigest()
 
 
-def scene_side(identity):
-    return 'left' if hashlib.sha256(str(identity).encode()).digest()[0] % 2 else 'right'
-
-
 def composite_host(image, *, thumbnail=False, side='right', pose='shushing'):
     """Place the same real RGBA asset, never ask diffusion to recreate its identity."""
     image = image.convert('RGBA')
@@ -61,10 +57,3 @@ def composite_host(image, *, thumbnail=False, side='right', pose='shushing'):
     image = Image.alpha_composite(image, shadow.filter(ImageFilter.GaussianBlur(max(2, width//100))))
     image.alpha_composite(host, (x,y))
     return image
-
-
-def finish_scene(path, identity, context=''):
-    path = Path(path)
-    with Image.open(path) as image:
-        result = composite_host(image, side=scene_side(identity), pose=pose_for_text(context))
-    result.convert('RGB').save(path)

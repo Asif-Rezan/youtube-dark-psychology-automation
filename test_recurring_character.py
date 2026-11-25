@@ -10,7 +10,7 @@ import workflow
 
 
 class RecurringCharacterTests(unittest.TestCase):
-    def test_title_and_scene_context_select_distinct_poses(self):
+    def test_thumbnail_titles_select_distinct_poses(self):
         examples = {'The Power of Silence':'shushing', 'Set Boundaries with Toxic People':'stop',
                     'Why We Make Decisions':'thinking', 'Recognize Manipulation':'pointing',
                     'The Lone Wolf and Self Mastery':'confident'}
@@ -29,20 +29,21 @@ class RecurringCharacterTests(unittest.TestCase):
             self.assertGreater(sum(b > r*1.5 and b > g and a > 200
                                    for r,g,b,a in image.getdata()), 5000)
 
-    def test_every_cpu_scene_has_identical_host_and_clear_caption_strip(self):
+    def test_video_scene_pixels_are_not_changed_by_a_character_overlay(self):
         with tempfile.TemporaryDirectory() as temp:
             for index in range(4):
                 path = Path(temp)/f'shot-{index:03}.png'
                 def generate(prompt, target):
-                    self.assertIn('uncluttered for the recurring illustrated narrator', prompt)
+                    self.assertNotIn('recurring illustrated narrator', prompt)
+                    self.assertNotIn('hooded', prompt)
                     Image.new('RGB',(1024,576),(110,50,50)).save(target)
                 with patch.dict('os.environ', {'IMAGE_BACKEND':'cpu'}), patch('image_cpu.generate', side_effect=generate):
                     workflow.make_image('Two rivals discuss a decision', path)
                 with Image.open(path) as result:
                     base = Image.new('RGB',result.size,(110,50,50))
                     delta = ImageChops.difference(result,base)
-                    self.assertIsNotNone(delta.getbbox())
-                    # The mascot ends above the subtitles rather than hiding them.
+                    self.assertIsNone(delta.getbbox())
+                    # Every pixel, including the caption strip, remains the generated scene.
                     self.assertIsNone(delta.crop((0,520,1024,576)).getbbox())
 
     def test_missing_asset_stops_before_an_unbranded_image_can_be_used(self):
@@ -54,12 +55,12 @@ class RecurringCharacterTests(unittest.TestCase):
         import long_video
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            plan = {'storyboard_verified':True, 'scene_composition_version':4,
-                    'character_version':character.VERSION, 'character_sha256':character.asset_hash(),
+            plan = {'storyboard_verified':True, 'scene_composition_version':5,
                     'shots':[{'index':0,'seed':42,'prompt':'A fraying rope','duration':7}]}
             (root/'plan.json').write_text(json.dumps(plan))
             Image.new('RGB',(1024,576),'red').save(root/'shot-000.png')
             (root/'shot-000.mp4').write_bytes(b'old clip')
+            (root/'shot-000.qa.json').write_text(json.dumps({'passed':True,'character_sha256':character.asset_hash()}))
             def make_image(prompt,path):
                 Image.new('RGB',(1024,576),'blue').save(path)
             with patch('workflow.make_image', side_effect=make_image) as generate, \

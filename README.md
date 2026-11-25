@@ -1,3 +1,15 @@
+# Thumbnail-only character — 2026-11-25
+
+The hooded-eye mascot now appears **only in thumbnails**. Video scene generation
+uses the full frame for the narrated action, with no mascot overlay or reserved
+character area. Thumbnail poses, heavy top-only headline, chapters, metadata and
+YouTube/Facebook publication settings are unchanged. Scene composition version 5
+invalidates cached scene images/clips from the former overlay renderer when a
+run is prepared with the updated visual plan. Existing uploaded videos and runs
+already executing an older commit are not changed by this update.
+
+---
+
 # YouTube and Facebook publication enabled — 2026-11-22
 
 New manual production runs default to `publication_mode=scheduled`, enabling

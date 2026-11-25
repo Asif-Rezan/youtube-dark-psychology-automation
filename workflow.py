@@ -398,10 +398,6 @@ Chapter 1 retains the psychology or power hook. Chapter 20 summarizes evidence a
 
 
 def make_image(prompt, path):
-    from recurring_character import finish_scene, scene_side
-    identity = str(path)
-    side = scene_side(identity)
-    prompt = prompt.rstrip('. ') + f'. Leave the lower {side} third uncluttered for the recurring illustrated narrator, keep the narrated action in the remaining space.'
     if SCENE_STYLE not in prompt:
         prompt = prompt.rstrip('. ') + '. ' + SCENE_STYLE
     if os.getenv('IMAGE_BACKEND', 'cpu') == 'cpu':
@@ -415,7 +411,6 @@ def make_image(prompt, path):
                 os.environ.pop('IMAGE_NEGATIVE_PROMPT', None)
             else:
                 os.environ['IMAGE_NEGATIVE_PROMPT'] = previous_negative
-        finish_scene(path, identity, prompt)
         return
     if os.getenv('IMAGE_BACKEND') != 'hf':
         raise ValueError('IMAGE_BACKEND must be cpu or hf')
@@ -424,7 +419,6 @@ def make_image(prompt, path):
         prompt=prompt + ', cinematic lighting, landscape composition, no text or watermarks',
         model=required('IMAGE_MODEL'), width=1024, height=576)
     image.save(path)
-    finish_scene(path, identity, prompt)
 
 
 def speech_chunks(text, limit=200):

@@ -116,7 +116,7 @@ class Checks(unittest.TestCase):
             root = Path(temp)
             shot = {'index': 0, 'seed': 123, 'prompt': 'Woman studying a letter at a desk',
                     'focus': 'group', 'negative_prompt': '', 'duration': 7}
-            plan = {'storyboard_verified': True, 'scene_composition_version': 4, 'character_version': __import__('recurring_character').VERSION, 'character_sha256': __import__('recurring_character').asset_hash(), 'shots': [shot]}
+            plan = {'storyboard_verified': True, 'scene_composition_version': 5, 'shots': [shot]}
             (root/'plan.json').write_text(json.dumps(plan))
             calls = []
             def fake_render(prompt, path, reference_image=None):
@@ -140,7 +140,7 @@ class Checks(unittest.TestCase):
             shots = [{'index': 0, 'seed': 123, 'prompt': 'Ancient Egyptian workers shape limestone blocks.',
                       'focus': 'group', 'negative_prompt': '', 'duration': 7}]
             (root/'plan.json').write_text(json.dumps({
-                'storyboard_verified': True, 'scene_composition_version': 4, 'character_version': __import__('recurring_character').VERSION, 'character_sha256': __import__('recurring_character').asset_hash(), 'shots': shots}))
+                'storyboard_verified': True, 'scene_composition_version': 5, 'shots': shots}))
             prompts = []
             def fake_render(prompt, path):
                 prompts.append(prompt)
