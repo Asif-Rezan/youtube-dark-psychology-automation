@@ -127,9 +127,7 @@ def choose_package(story, topic, payload):
     description += '\n\nAI-generated narration and 3D storybook visuals illustrate original educational commentary.'
     if len(description) > 4500:
         raise ValueError('Video description exceeds upload budget')
-    from recurring_character import pose_for_text
-    story.update(best, thumbnail_pose=pose_for_text(best['title']+' '+best['thumbnail_text']),
-                 description=description, tags=tags, search_phrase=keyword,
+    story.update(best, description=description, tags=tags, search_phrase=keyword,
                  packaging_alternatives=[item[1] for item in valid[1:]])
     return story
 
@@ -193,8 +191,10 @@ Give the three options DIFFERENT camera angles, focal relationships and composit
 for example a close-up clue, an over-the-shoulder discovery, and a dramatic scale contrast.
 Use a deep red/black background, readable silhouettes and bright highlights on the visual clue.
 Reserve the upper quarter for a large yellow/white headline. No footer, niche label or extra typography.
-The exact indigo hooded, white-bandaged single-blue-eye mascot is composited in the center.
-Do not ask diffusion to draw or redesign the mascot; keep a clear center for it and place the topic clue beside it.
+Generate the COMPLETE composition with its topic-specific focal subject and visual clue together.
+Choose the subject expression and pose from this episode, rather than a fixed channel mascot.
+Fill the central/lower frame naturally; do not leave a character cutout slot or request
+a separate host, recurring hooded-eye character, pointer or badge. Only headline text is added afterward.
 The renderer adds the exact headline as readable typography after generating artwork.
 Describe one dominant subject, a clear emotion and one relevant visual clue. Use at most
 two people, large readable shapes, no crowds or decorative tiny props.

@@ -1,4 +1,4 @@
-"""Reference-style illustrated thumbnails with a title-specific mascot pose."""
+"""Complete episode-specific artwork with a heavy top-only headline."""
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from itertools import combinations
@@ -43,20 +43,21 @@ def art_direction(identity):
 
 
 def complete_thumbnail_prompt(visual, text, identity):
-    """Generate only the episode backdrop; exact host and lettering are composited."""
+    """Generate the complete scene and its focal subject in one image."""
     import re
     hook_layout(text)
     visual = re.sub(r'\b(?:no text|no written letters|no letters|no embedded letters)\b', '', visual, flags=re.I)
     visual = visual.split('. ')[0].strip(' ,. ')
     return (f'Dark psychology graphic illustration. {visual}. '
             'Deep crimson and black grunge background, dramatic shadow, bold outlines, '
-            'one large symbolic clue beside a clear center. Upper quarter uncluttered. '
-            'No writing, no hooded mascot; the reference mascot is added separately.')
+            'Complete finished scene with one dominant topic-specific subject, an expressive pose '
+            'and one meaningful symbolic clue, all drawn together in the same image. '
+            'Use the full center and lower frame; only the upper quarter stays uncluttered for a headline. '
+            'No writing, no logos, no recurring hooded eye mascot.')
 
 
-def render_thumbnail(source, text, target, category='Dark Psychology', *, text_side='left', pose=None):
-    """Heavy top headline and title-specific mascot; no footer or niche label."""
-    from recurring_character import composite_host, pose_for_text
+def render_thumbnail(source, text, target, category='Dark Psychology', *, text_side='left'):
+    """Add only the exact top headline to the complete generated artwork."""
     hook_layout(text)
     if text_side not in ('left', 'right'):
         raise ValueError('Invalid thumbnail text side')
@@ -69,7 +70,6 @@ def render_thumbnail(source, text, target, category='Dark Psychology', *, text_s
     sd = ImageDraw.Draw(shade)
     sd.rectangle((0,0,1919,245), fill=(0,0,0,170))
     image = Image.alpha_composite(image, shade)
-    image = composite_host(image, thumbnail=True, pose=pose or pose_for_text(text))
     draw = ImageDraw.Draw(image)
     # Full-width headline like the supplied reference, with a strong phone-readable floor.
     words = text.upper().split()
@@ -88,7 +88,7 @@ def render_thumbnail(source, text, target, category='Dark Psychology', *, text_s
         if chosen:
             break
     if chosen is None:
-        raise ValueError('Thumbnail headline cannot fit above the character')
+        raise ValueError('Thumbnail headline cannot fit in the upper quarter')
     lines,size = chosen
     font = _font(size)
     for i,line in enumerate(lines):
@@ -103,9 +103,6 @@ def render_thumbnail(source, text, target, category='Dark Psychology', *, text_s
                 offset = draw.textlength(prefix+' ' if prefix else '', font=font)
                 draw.text((x+offset,25+i*(size+8)),word,font=font,fill='#FFFF00',stroke_width=8,stroke_fill='#080000')
                 draw.text((x+offset,25+i*(size+8)),word,font=font,fill='#FFFF00',stroke_width=2,stroke_fill='#FFFF00')
-    # Curved yellow pointer highlights the recurring host, not an invented scene detail.
-    draw.arc((380,250,770,600),95,210,fill='#FFFF00',width=17)
-    draw.line([(560,573),(620,590),(593,530)],fill='#FFFF00',width=17,joint='curve')
     output = Path(target)
     output.parent.mkdir(parents=True, exist_ok=True)
     for quality in (92,85,75):
@@ -125,14 +122,12 @@ def generate_thumbnail(story, root, identity):
     seed = int(hashlib.sha256((identity+prompt).encode()).hexdigest()[:8],16)
     source = root/'thumbnail-source.png'
     generate(prompt,source,seed=seed,style='dark-graphic',width=1344,height=768)
-    from recurring_character import VERSION, asset_hash, pose_for_text
     text_side = 'left'
-    pose = story.get('thumbnail_pose') or pose_for_text(story['title']+' '+story['thumbnail_text'])
-    target = render_thumbnail(source,story['thumbnail_text'],root/'thumbnail.jpg',text_side=text_side,pose=pose)
+    target = render_thumbnail(source,story['thumbnail_text'],root/'thumbnail.jpg',text_side=text_side)
     with Image.open(target) as mobile:
         mobile.resize((320,180),Image.Resampling.LANCZOS).save(root/'thumbnail-mobile.jpg')
     (root/'thumbnail-design.json').write_text(json.dumps(dict(
-        version='hooded-eye-top-headline-v6',character_pose=pose,character_version=VERSION,character_sha256=asset_hash(),seed=seed,prompt=prompt,text=story['thumbnail_text'],
+        version='complete-artwork-top-headline-v7',artwork_mode='single-generated-scene',seed=seed,prompt=prompt,text=story['thumbnail_text'],
         text_side=text_side,text_mode='composited-exact',
         generation_size=[1344,768],export_size=[1920,1080],crop='center to 16:9 (1344x756)',
         visual_review='Inspect subject, factual fit and mobile preview; CTR requires analytics'),indent=2))

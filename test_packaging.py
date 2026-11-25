@@ -122,8 +122,11 @@ class PackagingTests(unittest.TestCase):
             render_thumbnail(source, 'HOW WAS IT BUILT?', target, 'Ancient Egypt and pyramids')
             with Image.open(target) as image:
                 self.assertEqual(image.size, (1920, 1080))
-                # Branded composition has top headline contrast and the fixed central host.
-                self.assertNotEqual(image.getpixel((80,590)),image.getpixel((1200,590)))
+                # The top headline has contrast while the generated artwork fills the frame.
+                self.assertEqual(image.getpixel((80,590)),image.getpixel((1200,590)))
+                # A flat generated backdrop stays flat below the headline: no pasted host or arrow.
+                for low, high in image.crop((0,320,1920,1080)).getextrema():
+                    self.assertEqual(low, high)
                 self.assertNotEqual(image.getpixel((900,360)),image.getpixel((900,20)))
                 # No extra niche banner is drawn across the bottom.
                 self.assertNotEqual(image.getpixel((10,1000)), (0,0,0))

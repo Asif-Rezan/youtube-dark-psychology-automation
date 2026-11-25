@@ -1,3 +1,17 @@
+# Complete generated thumbnail artwork — 2026-11-25
+
+Thumbnails no longer composite a separate character PNG or pointer. The image
+model generates the full episode-specific subject, expression, pose, visual clue
+and background together. There is no fixed hooded-eye mascot or empty center
+reserved for one. Only the exact heavy yellow/white headline is added at the top;
+there is no footer or extra niche text. The red/black art direction, 1920×1080
+export and mobile preview remain. Existing character assets and older design
+examples are historical references and are not used by new video or thumbnail
+rendering. Earlier uploaded thumbnails and already-running old commits retain
+their original design. Metadata, chapters and publication settings are unchanged.
+
+---
+
 # Thumbnail-only character — 2026-11-25
 
 The hooded-eye mascot now appears **only in thumbnails**. Video scene generation

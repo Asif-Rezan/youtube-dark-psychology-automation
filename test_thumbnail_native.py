@@ -16,7 +16,9 @@ class ThumbnailTests(unittest.TestCase):
         self.assertIn('Deep crimson and black', prompt)
         self.assertNotIn('WHO CONTROLS YOU', prompt)
         self.assertLess(len(prompt.split()), 75)
-        self.assertIn('uncluttered', prompt)
+        self.assertIn('upper quarter stays uncluttered', prompt)
+        self.assertIn('Complete finished scene', prompt)
+        self.assertNotIn('added separately', prompt)
         self.assertEqual(art_direction('episode-a'), art_direction('episode-a'))
 
     def test_each_topic_preserves_its_visual_anchor_in_the_short_artwork_brief(self):
@@ -54,8 +56,10 @@ class ThumbnailTests(unittest.TestCase):
             manifest = json.loads((root/'thumbnail-design.json').read_text())
             self.assertEqual(manifest['text'], 'WHO CONTROLS YOU?')
             self.assertEqual(manifest['text_mode'], 'composited-exact')
-            self.assertEqual(manifest['character_pose'], 'pointing')
-            self.assertEqual(manifest['version'], 'hooded-eye-top-headline-v6')
+            self.assertNotIn('character_pose', manifest)
+            self.assertNotIn('character_sha256', manifest)
+            self.assertEqual(manifest['artwork_mode'], 'single-generated-scene')
+            self.assertEqual(manifest['version'], 'complete-artwork-top-headline-v7')
             self.assertEqual(manifest['generation_size'], [1344,768])
             self.assertEqual(manifest['export_size'], [1920,1080])
             generate_thumbnail(story, root, 'episode-b')
