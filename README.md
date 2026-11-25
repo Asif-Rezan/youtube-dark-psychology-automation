@@ -1,3 +1,16 @@
+# Stronger red thumbnail artwork — 2026-11-25
+
+New thumbnail prompts favor a close, expressive focal subject, one oversized
+story-specific clue, clean silhouettes and bright ivory highlights against deep
+crimson/black. Packaging connects the pose/emotion to the episode's central
+social tension, with minimal clutter and a clear upper headline area. Complete
+visual relationships survive across prompt sentences. A lighter red finishing
+tint preserves subject detail and highlight contrast. The top text, generated
+full-scene approach and lack of a separate mascot remain unchanged. These are
+art-direction improvements; actual CTR must be measured from published videos.
+
+---
+
 # Complete generated thumbnail artwork — 2026-11-25
 
 Thumbnails no longer composite a separate character PNG or pointer. The image

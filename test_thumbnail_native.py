@@ -16,10 +16,19 @@ class ThumbnailTests(unittest.TestCase):
         self.assertIn('Deep crimson and black', prompt)
         self.assertNotIn('WHO CONTROLS YOU', prompt)
         self.assertLess(len(prompt.split()), 75)
-        self.assertIn('upper quarter stays uncluttered', prompt)
+        self.assertIn('Upper quarter stays uncluttered', prompt)
+        self.assertIn('large expressive subject', prompt)
+        self.assertIn('bright ivory highlights', prompt)
         self.assertIn('Complete finished scene', prompt)
         self.assertNotIn('added separately', prompt)
         self.assertEqual(art_direction('episode-a'), art_direction('episode-a'))
+
+    def test_visual_relationship_in_later_sentence_is_preserved(self):
+        prompt = complete_thumbnail_prompt(
+            'An anxious adult holds a golden mask. A confident shadow pulls its strings.',
+            'WHO CONTROLS YOU?', 'episode-b')
+        self.assertIn('A confident shadow pulls its strings', prompt)
+        self.assertIn('one oversized clue', prompt)
 
     def test_each_topic_preserves_its_visual_anchor_in_the_short_artwork_brief(self):
         from video_packaging import artwork_candidate
@@ -59,7 +68,7 @@ class ThumbnailTests(unittest.TestCase):
             self.assertNotIn('character_pose', manifest)
             self.assertNotIn('character_sha256', manifest)
             self.assertEqual(manifest['artwork_mode'], 'single-generated-scene')
-            self.assertEqual(manifest['version'], 'complete-artwork-top-headline-v7')
+            self.assertEqual(manifest['version'], 'red-mobile-focus-v8')
             self.assertEqual(manifest['generation_size'], [1344,768])
             self.assertEqual(manifest['export_size'], [1920,1080])
             generate_thumbnail(story, root, 'episode-b')

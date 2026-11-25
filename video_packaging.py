@@ -189,7 +189,12 @@ Use bold black outlines, dramatic red/black texture and simple symbolic shapes; 
 entrance, path or object relationship the source of curiosity even with no words visible.
 Give the three options DIFFERENT camera angles, focal relationships and compositions:
 for example a close-up clue, an over-the-shoulder discovery, and a dramatic scale contrast.
-Use a deep red/black background, readable silhouettes and bright highlights on the visual clue.
+Use a deep red/black background with a bright ivory/gold focal subject, readable silhouettes
+and a clean rim light. Red sets the mood; it must not wash out skin, eyes or the visual clue.
+Prefer a tight face/hand/object interaction over a distant full-body scene. Give the subject
+a clear episode-specific emotion: suspicion, resolve, hesitation or recognition. Keep that
+expression readable at 320x180. One oversized clue should reveal the tension without
+resolving the headline question. No decorative props, extra faces, crowds or competing focal points.
 Reserve the upper quarter for a large yellow/white headline. No footer, niche label or extra typography.
 Generate the COMPLETE composition with its topic-specific focal subject and visual clue together.
 Choose the subject expression and pose from this episode, rather than a fixed channel mascot.

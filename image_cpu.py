@@ -87,7 +87,7 @@ def generate(prompt, path, *, allow_text=False, seed=None, style=None, width=Non
         if style != 'dark-graphic':
             negative += 'anime, cartoon, watercolor, flat colors, line art, cel shading, '
         if style == 'dark-graphic':
-            negative += 'photograph, photorealistic, 3D render, pastel, childish, crowded, '
+            negative += 'photograph, photorealistic, 3D render, pastel, childish, crowded, tiny subject, busy background, low contrast, underexposed, muddy colors, '
         if style == 'storybook-3d':
             negative += 'muppet, felt puppet, toy, childish, crowd, busy background, tiny subject, clutter, '
         if style != 'storybook-3d':

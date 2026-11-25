@@ -47,13 +47,13 @@ def complete_thumbnail_prompt(visual, text, identity):
     import re
     hook_layout(text)
     visual = re.sub(r'\b(?:no text|no written letters|no letters|no embedded letters)\b', '', visual, flags=re.I)
-    visual = visual.split('. ')[0].strip(' ,. ')
-    return (f'Dark psychology graphic illustration. {visual}. '
-            'Deep crimson and black grunge background, dramatic shadow, bold outlines, '
-            'Complete finished scene with one dominant topic-specific subject, an expressive pose '
-            'and one meaningful symbolic clue, all drawn together in the same image. '
-            'Use the full center and lower frame; only the upper quarter stays uncluttered for a headline. '
-            'No writing, no logos, no recurring hooded eye mascot.')
+    # Keep the episode-specific relationship instead of discarding later sentences.
+    visual = visual.split('. Dark red and black graphic illustration')[0].strip(' ,. ')
+    visual = ' '.join(visual.split()[:45])
+    return (f'{visual}. Close-up, large expressive subject and one oversized clue. '
+            'Deep crimson and black backdrop, bright ivory highlights, rim light, strong silhouette. '
+            'Upper quarter stays uncluttered. Complete finished scene; simple shapes, minimal clutter, '
+            'no writing, logos or mascot.')
 
 
 def render_thumbnail(source, text, target, category='Dark Psychology', *, text_side='left'):
@@ -65,7 +65,7 @@ def render_thumbnail(source, text, target, category='Dark Psychology', *, text_s
         image = ImageOps.fit(original.convert('RGB'), (1920,1080), method=Image.Resampling.LANCZOS)
     # Keep the generated episode clue visible while unifying the channel palette.
     red = Image.new('RGB', image.size, '#7A060B')
-    image = Image.blend(image, red, .34).convert('RGBA')
+    image = Image.blend(image, red, .12).convert('RGBA')
     shade = Image.new('RGBA', image.size)
     sd = ImageDraw.Draw(shade)
     sd.rectangle((0,0,1919,245), fill=(0,0,0,170))
@@ -127,7 +127,7 @@ def generate_thumbnail(story, root, identity):
     with Image.open(target) as mobile:
         mobile.resize((320,180),Image.Resampling.LANCZOS).save(root/'thumbnail-mobile.jpg')
     (root/'thumbnail-design.json').write_text(json.dumps(dict(
-        version='complete-artwork-top-headline-v7',artwork_mode='single-generated-scene',seed=seed,prompt=prompt,text=story['thumbnail_text'],
+        version='red-mobile-focus-v8',artwork_mode='single-generated-scene',seed=seed,prompt=prompt,text=story['thumbnail_text'],
         text_side=text_side,text_mode='composited-exact',
         generation_size=[1344,768],export_size=[1920,1080],crop='center to 16:9 (1344x756)',
         visual_review='Inspect subject, factual fit and mobile preview; CTR requires analytics'),indent=2))
